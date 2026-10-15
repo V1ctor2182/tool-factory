@@ -1,4 +1,4 @@
-# victor-studio
+# victor-tool-factory
 
 A solo studio for making videos with AI tools. Three pillars: Higgsfield for generation, Claude Code (with Codex as a second opinion) for orchestration, and Claude Code skills for the repeatable steps.
 
