@@ -1,6 +1,8 @@
 # victor-tool-factory
 
-A solo studio for making videos with AI tools. Three pillars: Higgsfield for generation, Claude Code (with Codex as a second opinion) for orchestration, and Claude Code skills for the repeatable steps.
+A monorepo of small, atomic tools that plug into projects and agents. Each service is one directory with a `service.json` manifest, a CLI, and a `SKILL.md`. A generic `factory` CLI reads the manifests and provides the MCP adapter, run log, health checks, skill linking, and a read-only dashboard. The design and its rules are in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+The first services come from an AI video pipeline (transcripts, media fetch). The research below is the origin of those services.
 
 ## Research (2026-10-10)
 
