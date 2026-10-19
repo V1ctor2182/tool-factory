@@ -4,17 +4,18 @@ Every prompt in this repo runs in poteto-mode. Read `~/.claude/skills/poteto-mod
 
 ## What this repo is
 
-A monorepo of atomic tools that plug into projects and agents. `ARCHITECTURE.md` is the design and the rules. Read it before touching `factory/`, `contracts/`, or any `services/*/service.json`.
+A personal monorepo of atomic tools that plug into Victor's projects and agents. `ARCHITECTURE.md` is the design. Part 1 covers the factory, Part 2 walks the video-to-text example. Read it before touching `factory/`, `kit/`, `contracts/`, or any `service.json`.
 
 ## Rules that are not negotiable here
 
 - A service owns one noun and one output contract. Two output types means two services.
-- No imports across `services/*`. Compose through the CLI or a recipe.
+- Services import `kit/`, never each other. Recipes compose services through their CLIs and list them in `uses`.
+- `kit/` holds plumbing only. No domain logic, no vendor clients.
 - Runtime data never enters the repo. It lives under `$TOOL_FACTORY_HOME`, default `~/.local/share/tool-factory/`.
 - Every verb is idempotent and cache-keyed by content hash.
 - Every binary, env var, and paid key a service needs is declared in its `service.json`.
 - `service.json` is the single source of truth. MCP tools, dashboard rows, and skill docs derive from it. Never hand-write a second copy of a verb's schema.
-- A feature enters `factory/` only when the second service needs it.
+- Code enters `factory/` or `kit/` only when the second service needs it.
 
 ## Conventions
 
