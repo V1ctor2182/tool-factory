@@ -35,6 +35,11 @@ def _atom_error(e: Exception) -> cli.AtomError:
     return cli.AtomError("unavailable", message)
 
 
+def _clean(text: str | None) -> str | None:
+    cleaned = " ".join((text or "").split())
+    return cleaned or None
+
+
 def _collect(entries, videos: dict[str, dict]) -> dict[str, dict]:
     for entry in entries or []:
         if entry is None:
@@ -49,7 +54,7 @@ def _collect(entries, videos: dict[str, dict]) -> dict[str, dict]:
                     "id": str(entry.get("id") or url),
                     "title": entry.get("title"),
                     "durationSec": entry.get("duration"),
-                    "channel": entry.get("channel") or entry.get("uploader"),
+                    "channel": _clean(entry.get("channel") or entry.get("uploader")),
                 },
             )
     return videos
