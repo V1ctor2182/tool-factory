@@ -44,8 +44,7 @@ def get(url: str, lang: str) -> dict:
             raise cli.AtomError("no_captions", f"No {lang} captions for {url}")
         return _transcript(url, lang, json.loads(ydl.urlopen(track).read()))
 
-    # Captions need no formats, so the info is not processed.
-    return ytdlp.cached(Cache("captions"), url, lang, fetch, process=False, skip_download=True)
+    return ytdlp.cached(Cache("captions"), url, lang, fetch, select_formats=False, skip_download=True)
 
 
 def parse(path: str, lang: str) -> dict:

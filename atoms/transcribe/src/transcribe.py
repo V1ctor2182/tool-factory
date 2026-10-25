@@ -39,16 +39,7 @@ def _weights(model: str) -> str:
         raise cli.AtomError("invalid_args", f"Unknown whisper.cpp model: {model}")
 
 
-def transcribe(path: str, model: str, language: str | None) -> dict:
-    file = Path(path).expanduser().resolve()
-    if not file.is_file():
-        raise cli.AtomError("invalid_source", f"No such file: {path}")
-    cache = Cache("transcribe")
-    key = f"{file_sha256(file)}-whispercpp-{model}-{language or 'auto'}"
-    if cached := cache.get(key):
-        return {**cached, "source": str(file)}
-
-    # Imported after the cache check, so a cache hit skips loading whisper.cpp and PyAV.
+def _whisper(file: Path, model: str, language: str | None) -> dict:
     import _pywhispercpp
     from pywhispercpp.model import Model
 
@@ -65,11 +56,11 @@ def transcribe(path: str, model: str, language: str | None) -> dict:
         print_timestamps=False,
         redirect_whispercpp_logs_to=None,
     )
-    raw = whisper.transcribe(audio)
-    segments = [{"start": s.t0 / 100, "end": s.t1 / 100, "text": s.text.strip()} for s in raw if s.text.strip()]
+    segments = [
+        {"start": s.t0 / 100, "end": s.t1 / 100, "text": s.text.strip()} for s in whisper.transcribe(audio) if s.text.strip()
+    ]
     detected = _pywhispercpp.whisper_lang_str(_pywhispercpp.whisper_full_lang_id(whisper._ctx))
-
-    transcript = {
+    return {
         "source": str(file),
         "method": "whisper",
         "language": language or detected,
@@ -77,6 +68,17 @@ def transcribe(path: str, model: str, language: str | None) -> dict:
         "text": " ".join(s["text"] for s in segments),
         "segments": segments,
     }
+
+
+def transcribe(path: str, model: str, language: str | None) -> dict:
+    file = Path(path).expanduser().resolve()
+    if not file.is_file():
+        raise cli.AtomError("invalid_source", f"No such file: {path}")
+    cache = Cache("transcribe")
+    key = f"{file_sha256(file)}-whispercpp-{model}-{language or 'auto'}"
+    if cached := cache.get(key):
+        return {**cached, "source": str(file)}
+    transcript = _whisper(file, model, language)
     cache.put(key, transcript)
     return transcript
 

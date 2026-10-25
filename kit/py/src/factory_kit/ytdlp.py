@@ -53,10 +53,9 @@ def cached(
     variant: str,
     fetch: Callable[[yt_dlp.YoutubeDL, dict], dict],
     usable: Callable[[dict], bool] = lambda value: True,
-    process: bool = True,
+    select_formats: bool = True,
     **options,
 ) -> dict:
-    # Most extractors read the video id from the URL itself, so a cache hit usually needs no network.
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise AtomError("invalid_source", f"Not an http or https URL: {url}")
@@ -77,7 +76,7 @@ def cached(
         **options,
     }
     with _errors(), yt_dlp.YoutubeDL(settings) as ydl:
-        info = ydl.extract_info(url, download=False, process=process)
+        info = ydl.extract_info(url, download=False, process=select_formats)
         if info.get("_type") == "playlist":
             raise AtomError("invalid_source", f"A playlist, not one video: {url}")
         key = f"{info['extractor_key']}-{info['id']}"

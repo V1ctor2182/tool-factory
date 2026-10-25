@@ -1,6 +1,6 @@
 #!/bin/sh
 # Usage: bench.sh [transcribe bin ...]. Times a cold run and a cached run of each bin on the ten-minute fixture.
-# Runs alternate between bins, so drift and warm-up favor none. RUNS sets the rounds, default 5.
+# RUNS sets the rounds, default 5.
 # BENCH_OUT, when set, keeps each bin's last cold transcript.
 set -eu
 test_dir=$(cd "$(dirname "$0")" && pwd)
