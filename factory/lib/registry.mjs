@@ -16,6 +16,12 @@ export const KINDS = {
 
 const FOLDERS = { tool: 'tools', atom: 'atoms' };
 
+function kindErrors(schema, manifest, type) {
+  if (manifest.type !== type || KINDS[manifest.kind]?.type === type) return null;
+  if (KINDS[manifest.kind]) return [`/kind ${manifest.kind} is not a kind of ${type}`];
+  return validate(schema.properties.kind, manifest.kind, schema, '/kind');
+}
+
 export function load(root = REPO) {
   const schema = loadSchema(root);
   const entries = new Map();
@@ -33,13 +39,12 @@ export function load(root = REPO) {
         problems.push({ path: `${rel}/manifest.json`, message: e.message });
         continue;
       }
-      const errors = validate(schema, manifest);
+      const errors = kindErrors(schema, manifest, type) ?? validate(schema, manifest);
       if (manifest.name !== name) errors.push(`/name is ${manifest.name}, not the folder name ${name}`);
       if (entries.has(name)) errors.push(`/name ${name} is taken by ${entries.get(name).rel}`);
       const verbs = (manifest.verbs ?? []).map((v) => v.name);
       for (const name of new Set(verbs.filter((v, i) => verbs.indexOf(v) !== i))) errors.push(`/verbs has two verbs named ${name}`);
       if (manifest.type !== type) errors.push(`/type is ${manifest.type}, but the manifest is under ${folder}/`);
-      else if (KINDS[manifest.kind] && KINDS[manifest.kind].type !== type) errors.push(`/kind ${manifest.kind} is not a kind of ${type}`);
       if (errors.length) {
         problems.push(...errors.map((message) => ({ path: `${rel}/manifest.json`, message })));
         continue;

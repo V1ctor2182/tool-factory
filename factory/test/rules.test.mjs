@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, test } from 'node:test';
@@ -182,7 +182,7 @@ test('an invalid atom manifest reports only the schema error', () => {
 function skillTool(root, files = { 'SKILL.md': '---\nname: style\ndescription: House style.\n---\n' }) {
   const dir = join(root, 'tools/style');
   mkdirSync(dir, { recursive: true });
-  const m = { name: 'style', type: 'tool', kind: 'skill', description: 'House style.', status: 'alpha', contract: 'digest', needs: { bin: [], secrets: [], paid: [] }, adapters: ['skill'] };
+  const m = { name: 'style', type: 'tool', kind: 'skill', description: 'House style.', status: 'alpha', needs: { bin: [], secrets: [], paid: [] }, adapters: ['skill'] };
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify(m, null, 2));
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text, { mode: name === 'run' ? 0o755 : 0o644 });
 }
@@ -203,8 +203,11 @@ test('a skill tool with a CLI fails manifest-matches-schema', () => {
     code: 1,
     lines: [
       'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /uses has more than 0 items',
+      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /adapters/0 is not "skill"',
+      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /adapters/2 is not "skill"',
       'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have entry',
       'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have verbs',
+      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have contract',
     ],
   });
 });
@@ -212,7 +215,7 @@ test('a skill tool with a CLI fails manifest-matches-schema', () => {
 test('a skill tool that holds a script fails tool-kind-shape', () => {
   const root = copy();
   skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', run: '#!/bin/sh\necho hi\n' });
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/style/run: style is a skill tool, which holds SKILL.md and no script.'] });
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/style/run: style is a skill tool, which holds only manifest.json, SKILL.md, and Markdown.'] });
 });
 
 test('a tool without SKILL.md fails tool-kind-shape', () => {
@@ -226,3 +229,104 @@ test('a pipeline tool with no uses fails manifest-matches-schema', () => {
   manifest(root, 'tools/youtube', (m) => (m.uses = []));
   assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /uses has fewer than 1 items'] });
 });
+
+const SHELL_ENTRY = (body) => `#!/bin/sh\nself=$(readlink -f "$0")\n${body}exec uv run --quiet --script "$(dirname "$self")/../src/$(basename "$self").py" "$@"\n`;
+const shellForms = [
+  ['if, then, and fi', 'if [ -z "$1" ]; then\n  echo usage >&2\nfi\n'],
+  ['elif and else', 'if [ "$1" = a ]; then :\nelif [ "$1" = b ]; then :\nelse :\nfi\n'],
+  ['case and esac', 'case "$1" in\n  -h) echo usage ;;\nesac\n'],
+  ['for, do, and done', 'for a in "$@"; do\n  :\ndone\n'],
+  ['while and until', 'while false; do break; done\nuntil true; do continue; done\n'],
+];
+for (const [what, body] of shellForms) {
+  test(`a shell entry that uses ${what} passes declare-binaries`, () => {
+    const root = copy();
+    writeFileSync(join(root, 'atoms/frames/bin/frames'), SHELL_ENTRY(body), { mode: 0o755 });
+    assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
+  });
+}
+
+const dataForms = [
+  ['a dict key', 'atoms/see/src/see.py', 'NAMES = {"frames": 1}'],
+  ['a get call', 'atoms/see/src/see.py', 'def _n(payload):\n    return payload.get("frames")'],
+  ['a subscript', 'atoms/see/src/see.py', 'def _n(payload):\n    return payload["frames"]'],
+  ['a dict key in a tool', 'tools/youtube/run', 'NAMES = {"transcribe": 1}'],
+  ['a get call in a tool', 'tools/youtube/run', 'def _n(payload):\n    return payload.get("transcribe")'],
+  ['a subscript in a tool', 'tools/youtube/run', 'def _n(payload):\n    return payload["transcribe"]'],
+];
+for (const [what, rel, text] of dataForms) {
+  test(`an atom name used as ${what} is data and passes`, () => {
+    const root = copy();
+    if (rel.startsWith('tools/')) {
+      manifest(root, 'tools/youtube', (m) => m.uses.splice(m.uses.indexOf('transcribe'), 1));
+      edit(join(root, rel), (text) => text.replace('atom("transcribe", "file", media["path"])', '{}'));
+    }
+    plant(root, rel, text);
+    assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
+  });
+}
+
+const tupleShapes = [
+  ['a tuple command', 'subprocess.run(("ffprobe", "-v"))', 0],
+  ['a tuple command variable', 'cmd = ("ffprobe", "-v")\nsubprocess.run(cmd)', 0],
+  ['a shlex.split command', 'import shlex\nsubprocess.run(shlex.split("ffprobe -v"))', 1],
+];
+for (const [what, text, offset] of tupleShapes) {
+  test(`${what} fails declare-binaries`, () => {
+    const root = copy();
+    const line = plant(root, 'atoms/frames/src/frames.py', text) + offset;
+    assert.deepEqual(rules(root), { code: 1, lines: [undeclared('atoms/frames/src/frames.py', line, 'frames', 'ffprobe')] });
+  });
+}
+
+test('a shell command behind an env prefix fails declare-binaries', () => {
+  const root = copy();
+  const line = plant(root, 'atoms/frames/bin/frames', 'LC_ALL=C jq . >/dev/null');
+  assert.deepEqual(rules(root), { code: 1, lines: [undeclared('atoms/frames/bin/frames', line, 'frames', 'jq')] });
+});
+
+test('a skill tool that holds a file that is not Markdown fails tool-kind-shape, executable or not', () => {
+  const root = copy();
+  skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', 'helper.py': 'print(1)\n', 'notes.md': '# Notes\n' });
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/style/helper.py: style is a skill tool, which holds only manifest.json, SKILL.md, and Markdown.'] });
+});
+
+test('a skill tool with Markdown references passes', () => {
+  const root = copy();
+  skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', 'reference.md': '# Reference\n' });
+  assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
+});
+
+test('a skill tool with an adapter other than skill fails manifest-matches-schema', () => {
+  const root = copy();
+  skillTool(root);
+  manifest(root, 'tools/style', (m) => (m.adapters = ['skill', 'mcp']));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/style/manifest.json: /adapters/1 is not "skill"'] });
+});
+
+test('a skill tool with a contract fails manifest-matches-schema', () => {
+  const root = copy();
+  skillTool(root);
+  manifest(root, 'tools/style', (m) => (m.contract = 'digest'));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/style/manifest.json: / must not have contract'] });
+});
+
+test('a directory symlink loop does not crash the scan', () => {
+  const root = copy();
+  symlinkSync('.', join(root, 'atoms/digest/src/loop'));
+  assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
+});
+
+const wrongKinds = [
+  ['an atom kinded pipeline', 'atoms/frames', 'pipeline', '/kind pipeline is not a kind of atom'],
+  ['an atom kinded skill', 'atoms/frames', 'skill', '/kind skill is not a kind of atom'],
+  ['a tool kinded model', 'tools/youtube', 'model', '/kind model is not a kind of tool'],
+  ['a model atom with an unknown kind', 'atoms/see', 'vision', '/kind is not one of pipeline, skill, transform, model, observe, act'],
+];
+for (const [what, rel, kind, message] of wrongKinds) {
+  test(`${what} reports only the kind error`, () => {
+    const root = copy();
+    manifest(root, rel, (m) => (m.kind = kind));
+    assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule manifest-matches-schema: ${rel}/manifest.json: ${message}`] });
+  });
+}

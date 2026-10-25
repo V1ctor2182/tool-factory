@@ -45,17 +45,22 @@
     },
     "adapters": { "type": "array", "items": { "enum": ["cli", "skill", "mcp", "http"] }, "uniqueItems": true }
   },
-  "required": ["name", "type", "kind", "description", "status", "contract", "needs", "adapters"],
+  "required": ["name", "type", "kind", "description", "status", "needs", "adapters"],
   "additionalProperties": false,
   "allOf": [
     {
       "if": { "properties": { "kind": { "const": "skill" } } },
       "then": {
-        "description": "A skill tool is SKILL.md and this manifest, with no CLI.",
-        "properties": { "uses": { "maxItems": 0 } },
-        "allOf": [{ "not": { "required": ["runtime"] } }, { "not": { "required": ["entry"] } }, { "not": { "required": ["verbs"] } }]
+        "description": "A skill tool is SKILL.md and this manifest, with no CLI and no contract.",
+        "properties": { "uses": { "maxItems": 0 }, "adapters": { "items": { "const": "skill" } } },
+        "allOf": [
+          { "not": { "required": ["runtime"] } },
+          { "not": { "required": ["entry"] } },
+          { "not": { "required": ["verbs"] } },
+          { "not": { "required": ["contract"] } }
+        ]
       },
-      "else": { "required": ["runtime", "entry", "verbs"] }
+      "else": { "required": ["runtime", "entry", "verbs", "contract"] }
     },
     { "if": { "properties": { "kind": { "const": "pipeline" } } }, "then": { "required": ["uses"], "properties": { "uses": { "minItems": 1 } } } },
     { "if": { "properties": { "type": { "const": "atom" } } }, "then": { "not": { "required": ["uses"] } } },

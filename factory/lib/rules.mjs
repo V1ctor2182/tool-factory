@@ -10,24 +10,31 @@ const KIT = 'kit/py/src/factory_kit';
 
 const BIN = String.raw`["']([\w.+-]+)(?=[\s"'])`;
 const SPAWNERS = [String.raw`subprocess\.\w+`, String.raw`os\.system`, String.raw`os\.popen`, String.raw`asyncio\.create_subprocess_\w+`, 'spawn', 'spawnSync', 'execFile', 'execFileSync', 'execSync'];
-const COMMAND_LIST = new RegExp(String.raw`^[ \t]*(\w+)[ \t]*(?::[^=\n]+)?=\s*\[\s*${BIN}`);
+const COMMAND_LIST = new RegExp(String.raw`^[ \t]*(\w+)[ \t]*(?::[^=\n]+)?=\s*[[(]\s*${BIN}`);
 const JS_RUNTIME = new RegExp(String.raw`js_runtimes["']?\s*[:=]\s*\{\s*${BIN}`);
 const STATEMENT = String.raw`(?:^|;)[ \t]*(?:(?:if|elif|else|try|except|finally|with|for|while)\b[^\n]*?:[ \t]*)?`;
 const FROM_IMPORT = new RegExp(String.raw`${STATEMENT}from[ \t]+(\.?[\w.]*)[ \t]+import[ \t]+(\([^)]*\)|[^\n#;]+)`);
 const IMPORT = new RegExp(String.raw`${STATEMENT}import[ \t]+([\w., \t]+)`);
 const SHELL_SCRIPT = /^#!(?:\S*\/)?(?:env[ \t]+)?(?:ba|da|z)?sh\b/;
-const SHELL_COMMAND = /(?:^|[;&|(`]|\$\()[ \t]*(?:(?:exec|then|do|else|command|time|if|while|until|!)[ \t]+)*([A-Za-z_][\w.+-]*)(?=[ \t;&|)`]|$)/;
+const SHELL_COMMAND = /(?:^|[;&|(`]|\$\()[ \t]*(?:(?:exec|then|do|else|elif|command|time|if|while|until|!)[ \t]+|[A-Za-z_]\w*=\S*[ \t]+)*([A-Za-z_][\w.+-]*)(?=[ \t;&|)`]|$)/;
 const POSIX = new Set(
-  'alias cd command echo eval exec exit export false getopts local printf pwd read readonly return set shift test trap true type ulimit umask unset wait basename cat chmod cp cut date dirname env expr find grep head ln ls mkdir mktemp mv readlink rm sed sleep sort tail tee touch tr uname uniq wc xargs'.split(' '),
+  'if then elif else fi case esac for select while until do done in function time break continue source alias cd command echo eval exec exit export false getopts kill local printf pwd read readonly return set shift test trap true type ulimit umask unset wait basename cat chmod cp cut date dirname env expr find grep head ln ls mkdir mktemp mv readlink rm sed sleep sort tail tee touch tr uname uniq wc xargs'.split(' '),
 );
 
-function files(dir, root, top = true) {
-  return readdirSync(dir).flatMap((name) => {
-    if (ANY_SKIP.has(name) || (top && TOP_SKIP.has(name)) || name.startsWith('.')) return [];
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return files(path, root, false);
-    return [{ rel: relative(root, path), text: readFileSync(path, 'utf8') }];
+function walk(dir, skip, top = true) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+    if (skip(d.name, top)) return [];
+    const path = join(dir, d.name);
+    if (d.isDirectory()) return walk(path, skip, false);
+    return d.isFile() || (d.isSymbolicLink() && isFile(path)) ? [path] : [];
   });
+}
+
+function files(dir, root) {
+  return walk(dir, (name, top) => ANY_SKIP.has(name) || (top && TOP_SKIP.has(name)) || name.startsWith('.')).map((path) => ({
+    rel: relative(root, path),
+    text: readFileSync(path, 'utf8'),
+  }));
 }
 
 function scan(sources, pattern) {
@@ -92,7 +99,7 @@ function binariesRun(sources, found = imports(sources)) {
     const passed = new RegExp(String.raw`${runs}\[?\s*\*?${match[1]}\b`);
     return sources.some(({ text }) => passed.test(text));
   });
-  const literal = [new RegExp(String.raw`shutil\.which\(\s*${BIN}`), new RegExp(`${runs}\\[?\\s*${BIN}`), JS_RUNTIME];
+  const literal = [new RegExp(String.raw`shutil\.which\(\s*${BIN}`), new RegExp(String.raw`${runs}(?:shlex\.split\(\s*)?[[(]?\s*${BIN}`), JS_RUNTIME];
   return [...literal.flatMap((pattern) => scan(sources, pattern)), ...lists, ...shellCommands(sources)].map(({ at, match }) => ({ at, bin: match.at(-1) }));
 }
 
@@ -104,7 +111,8 @@ function references(entry, sources, found, entries) {
       const [head, next] = i.module.split('.');
       return head === module || (head === folder && (next ? next === module : i.names.some((n) => n.name === module)));
     };
-    const named = entry.type === 'tool' ? `["']${other.name}["']` : String.raw`(?:\w\(\s*|/\s*)["']${other.name}["']|["']${other.name}["']\s*/`;
+    const quoted = String.raw`(?<!\.get\(\s*|[\w\])]\[\s*)["']${other.name}["'](?!\s*:)`;
+    const named = entry.type === 'tool' ? quoted : String.raw`(?:\w\(\s*|/\s*)${quoted}|${quoted}\s*/`;
     return [
       ...found.filter(imported).map(({ at }) => ({ at, other, how: 'imports' })),
       ...scan(sources, new RegExp(`(?:^|[^\\w-])(?:${folder}/|(?:\\.\\./)+)${other.name}/src`)).map(({ at }) => ({ at, other, how: 'imports' })),
@@ -169,8 +177,8 @@ export const RULES = [
       if (tool.type !== 'tool') return [];
       const skillMd = existsSync(join(tool.dir, 'SKILL.md')) ? [] : [`${tool.rel}: ${describe(tool)}, but it has no SKILL.md.`];
       if (tool.kind !== 'skill') return skillMd;
-      const scripts = f.sources.filter(({ rel }) => executable(join(root, rel)));
-      return [...skillMd, ...scripts.map(({ rel }) => `${rel}: ${describe(tool)}, which holds SKILL.md and no script.`)];
+      const extra = walk(tool.dir, (name) => name.startsWith('.')).filter((path) => !path.endsWith('.md') && path !== join(tool.dir, 'manifest.json'));
+      return [...skillMd, ...extra.map((path) => `${relative(root, path)}: ${describe(tool)}, which holds only manifest.json, SKILL.md, and Markdown.`)];
     },
   },
   {
@@ -222,7 +230,7 @@ export const RULES = [
       const { manifest, rel } = entry;
       const contract = (name) => existsSync(join(root, 'contracts', `${name}.schema.json`));
       const problems = [];
-      if (!contract(manifest.contract)) problems.push(`${rel}/manifest.json: contract ${manifest.contract} has no contracts/${manifest.contract}.schema.json.`);
+      if (manifest.contract && !contract(manifest.contract)) problems.push(`${rel}/manifest.json: contract ${manifest.contract} has no contracts/${manifest.contract}.schema.json.`);
       if (entry.entry && !executable(entry.entry)) problems.push(`${rel}/${manifest.entry}: the entry is missing or not executable.`);
       for (const verb of manifest.verbs ?? []) {
         if (!contract(verb.output)) problems.push(`${rel}/manifest.json: verb ${verb.name} returns ${verb.output}, which has no contracts/${verb.output}.schema.json.`);
@@ -240,13 +248,21 @@ export const RULES = [
   },
 ];
 
-function executable(path) {
+function isFile(path) {
   try {
-    accessSync(path, constants.X_OK);
     return statSync(path).isFile();
   } catch {
     return false;
   }
+}
+
+function executable(path) {
+  try {
+    accessSync(path, constants.X_OK);
+  } catch {
+    return false;
+  }
+  return isFile(path);
 }
 
 function paidBackends(root) {
