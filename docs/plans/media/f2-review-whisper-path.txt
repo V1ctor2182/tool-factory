@@ -1,0 +1,18 @@
+$ tools/youtube/run https://www.youtube.com/watch?v=7VE8U3Z_av8 --json
+TOOL_FACTORY_HOME=/private/tmp/f2proto/fin-l3-BiGx  head=02fc7bc  at=2026-10-25T21:37:13Z
+--- stdout ---
+{"source": "https://www.youtube.com/watch?v=7VE8U3Z_av8", "transcriptPath": "/private/tmp/f2proto/fin-l3-BiGx/youtube/transcripts/8472cafa48feda27c6471cd3ccfd4eee.json", "model": "sonnet", "summary": "In this humorous poem, little Peggy McKay says she cannot go to school and lists a long string of exaggerated ailments: the measles, the mumps, chicken pox, a sprained ankle, a broken leg, a stiff neck, a shrunken brain and a hole in her ear. The complaints get more absurd as she goes, down to a hangnail and a failing heart. Then she realizes that today is Saturday, so she drops every symptom and runs out to play.", "chapters": [{"start": 0, "title": "Peggy McKay can't go to school"}, {"start": 21, "title": "Growing list of ailments"}, {"start": 48, "title": "Aches, sprains and pains"}, {"start": 69, "title": "Weak voice and absurd symptoms"}, {"start": 98, "title": "Saturday twist and going out to play"}], "keyPoints": ["Peggy McKay claims she is too sick to go to school.", "She lists many ailments, including measles, mumps, chicken pox, a rash and purple bumps.", "The symptoms grow more exaggerated, such as a temperature of 108 and a shrunken brain.", "Her heart seems to fail at the end of the list, and then she is interrupted.", "She realizes that today is Saturday.", "She says goodbye and goes out to play, so the illness was imaginary."], "costUsd": 0.007801799999999999, "cacheHit": false}
+--- stderr ---
+youtube: captions get https://www.youtube.com/watch?v=7VE8U3Z_av8
+youtube: no captions, so downloading the audio
+youtube: transcribe file /private/tmp/f2proto/fin-l3-BiGx/download/files/Youtube-7VE8U3Z_av8-audio.m4a
+whisper_lang_id: unknown language 'auto'
+whisper_full_with_state: auto-detected language: en (p = 0.999434)
+ggml_metal_free: deallocating
+youtube: digest make --transcript /private/tmp/f2proto/fin-l3-BiGx/youtube/transcripts/8472cafa48feda27c6471cd3ccfd4eee.json
+--- exit 0, wall 24.608 s ---
+--- runs.jsonl ---
+{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:13Z","ms":2298,"ok":false,"cacheHit":false,"costUsd":0.0,"error":"no_captions","caller":"youtube"}
+{"type":"atom","name":"download","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:16Z","ms":7601,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"transcribe","verb":"file","kind":"transform","startedAt":"2026-10-25T21:37:24Z","ms":9249,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T21:37:33Z","ms":4648,"ok":true,"cacheHit":false,"costUsd":0.007801799999999999,"caller":"youtube"}

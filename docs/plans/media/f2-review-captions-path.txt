@@ -1,0 +1,11 @@
+$ tools/youtube/run https://www.youtube.com/watch?v=jNQXAC9IVRw --json
+TOOL_FACTORY_HOME=/private/tmp/f2proto/fin-l2-fAhH  head=02fc7bc  at=2026-10-25T21:37:05Z
+--- stdout ---
+{"source": "https://www.youtube.com/watch?v=jNQXAC9IVRw", "transcriptPath": "/private/tmp/f2proto/fin-l2-fAhH/youtube/transcripts/82087ee0d9470d2d57f04e5e51443889.json", "model": "sonnet", "summary": "The speaker stands in front of the elephants and says the cool thing about them is their really, really long trunks. An elephant bellows at one point, and the speaker then says that's pretty much all there is to say.", "chapters": [{"start": 1, "title": "In front of the elephants"}], "keyPoints": ["The speaker is standing in front of the elephants.", "The speaker thinks the cool thing about elephants is their really, really long trunks.", "An elephant bellows during the recording.", "The speaker has nothing more to say about them."], "costUsd": 0.0051472, "cacheHit": false}
+--- stderr ---
+youtube: captions get https://www.youtube.com/watch?v=jNQXAC9IVRw
+youtube: digest make --transcript /private/tmp/f2proto/fin-l2-fAhH/youtube/transcripts/82087ee0d9470d2d57f04e5e51443889.json
+--- exit 0, wall 6.800 s ---
+--- runs.jsonl ---
+{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:06Z","ms":1233,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T21:37:07Z","ms":5147,"ok":true,"cacheHit":false,"costUsd":0.0051472,"caller":"youtube"}
