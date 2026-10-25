@@ -40,8 +40,7 @@ jq -r .srt "$out/srt.json" | cmp - "$test_dir/expected/hello.srt" || fail "srt -
 if "$bin" file "$test_dir/no-such-file.wav" --json > "$out/missing.json"; then fail "missing file exited 0"; fi
 [ "$(jq -r .error.code "$out/missing.json")" = invalid_source ] || fail "missing file did not report invalid_source"
 
-offline() { HF_HOME="$TOOL_FACTORY_HOME/no-weights" HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 "$bin" "$@"; }
-if offline file "$repo/README.md" --json > "$out/not-audio.json" 2> "$out/not-audio.err"; then fail "README.md exited 0"; fi
+if HF_HOME="$TOOL_FACTORY_HOME/no-weights" HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 "$bin" file "$repo/README.md" --json > "$out/not-audio.json" 2> "$out/not-audio.err"; then fail "README.md exited 0"; fi
 [ "$(jq -r .error.code "$out/not-audio.json")" = invalid_source ] || fail "README.md reached the network before the input check"
 [ ! -e "$TOOL_FACTORY_HOME/no-weights" ] || fail "README.md touched the weights cache"
 

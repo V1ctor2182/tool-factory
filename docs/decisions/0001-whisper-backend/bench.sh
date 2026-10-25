@@ -6,6 +6,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../.." && pwd)
 [ $# -eq 1 ] || { echo "usage: bench.sh <out dir>" >&2; exit 1; }
 out=$1
+model=${MODEL:-large-v3-turbo-q5_0}
 mkdir -p "$out"
 sh "$repo/atoms/transcribe/test/make-long-fixture.sh" "$out/ten.aiff" "$out/ten.txt" > "$out/fixture-seconds.txt"
 
@@ -16,8 +17,8 @@ round=1
 while [ "$round" -le "${RUNS:-5}" ]; do
 	/usr/bin/time -p uv run --quiet --script "$here/faster_whisper_small.py" "$out/ten.aiff" > "$out/faster-whisper-$round.json" 2> "$out/faster-whisper-$round.err"
 	printf '%s\tfaster-whisper small\t%s\t%s\n' "$round" "$(field real "$out/faster-whisper-$round.err")" "$(field user "$out/faster-whisper-$round.err")" >> "$out/times.tsv"
-	TOOL_FACTORY_HOME="$out/home-$round" /usr/bin/time -p "$repo/atoms/transcribe/bin/transcribe" file "$out/ten.aiff" --model "${MODEL:-large-v3-turbo-q5_0}" --json > "$out/whisper-cpp-$round.json" 2> "$out/whisper-cpp-$round.err"
-	printf '%s\twhisper.cpp %s\t%s\t%s\n' "$round" "${MODEL:-large-v3-turbo-q5_0}" "$(field real "$out/whisper-cpp-$round.err")" "$(field user "$out/whisper-cpp-$round.err")" >> "$out/times.tsv"
+	TOOL_FACTORY_HOME="$out/home-$round" /usr/bin/time -p "$repo/atoms/transcribe/bin/transcribe" file "$out/ten.aiff" --model "$model" --json > "$out/whisper-cpp-$round.json" 2> "$out/whisper-cpp-$round.err"
+	printf '%s\twhisper.cpp %s\t%s\t%s\n' "$round" "$model" "$(field real "$out/whisper-cpp-$round.err")" "$(field user "$out/whisper-cpp-$round.err")" >> "$out/times.tsv"
 	round=$((round + 1))
 done
 cat "$out/times.tsv"
