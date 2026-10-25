@@ -9,7 +9,11 @@ export const SOCKETS = {
   bin: (entry) => ({ path: join(process.env.FACTORY_BIN_DIR || join(homedir(), '.local', 'bin'), entry.name), target: entry.entry }),
 };
 
-const ledgerPath = () => join(home(), 'links.json');
+export const ledgerPath = () => join(home(), 'links.json');
+
+export function linkedTo(record) {
+  return record.socket === 'into' ? resolve(record.path, '..', '..', '..') : record.path;
+}
 
 export function ledger() {
   try {

@@ -70,20 +70,18 @@ header { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .name { font-size: 18px; font-weight: 650; }
 .tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); border: 1px solid var(--border); }
-.health { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.ok { --c: var(--ok); --c-soft: var(--ok-soft); }
+.warn { --c: var(--warn); --c-soft: var(--warn-soft); }
+.red { --c: var(--red); --c-soft: var(--red-soft); }
+.health { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; color: var(--c); background: var(--c-soft); }
 .health::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.health.ok { color: var(--ok); background: var(--ok-soft); }
-.health.warn { color: var(--warn); background: var(--warn-soft); }
-.health.red { color: var(--red); background: var(--red-soft); }
 .desc { margin-top: 6px; color: var(--muted); }
 .stats { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 18px; margin-top: 12px; font-size: 13px; }
 .stats b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; }
 .bars span { width: 7px; min-height: 2px; border-radius: 2px; background: var(--bar); display: flex; flex-direction: column-reverse; overflow: hidden; }
 .bars span i { display: block; background: var(--red); }
-.notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
-.notes.red { color: var(--red); }
-.notes.warn { color: var(--warn); }
+.notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--c); }
 .links { margin-top: 10px; font-size: 13px; }
 .links ul { margin: 2px 0 0; padding-left: 18px; }
 .atoms { margin-top: 14px; border-top: 1px solid var(--border); }
@@ -96,16 +94,11 @@ summary .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 summary .who::before { content: "\25B8"; color: var(--muted); font-size: 11px; width: 10px; }
 details[open] summary .who::before { content: "\25BE"; }
 .atom-name { font-weight: 600; }
-.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.dot.ok { background: var(--ok); }
-.dot.warn { background: var(--warn); }
-.dot.red { background: var(--red); }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--c); }
 .usedby { font-size: 13px; color: var(--muted); }
 .usedby b { color: var(--text); font-weight: 500; }
 .count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.inline-notes { grid-column: 1 / -1; margin: 0; padding-left: 28px; font-size: 13px; }
-.inline-notes.red { color: var(--red); }
-.inline-notes.warn { color: var(--warn); }
+.inline-notes { grid-column: 1 / -1; margin: 0; padding-left: 28px; font-size: 13px; color: var(--c); }
 .more { padding: 0 2px 12px 20px; font-size: 13px; }
 .more dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 8px 0 0; }
 .more dt { color: var(--muted); }
@@ -174,7 +167,7 @@ function stats(row) {
     h('span', null, 'median ', h('b', null, seconds(row.medianMs))),
     h('span', null, h('b', null, usd(row.spentUsd)), ' spent'),
     h('span', null, 'last run ', h('b', null, ago(row.lastRunAt))),
-    row.type === 'tool' ? bars(row.perDay) : null);
+    row.type === 'tool' && row.runs ? bars(row.perDay) : null);
 }
 
 function notes(row, cls) {
@@ -255,7 +248,7 @@ function render() {
         h('p', { class: 'desc' }, t.description),
         h('p', { class: 'small', style: 'margin-top:8px' }, h('span', { class: 'muted' }, 'Lives in '), h('span', { class: 'mono' }, t.where))))
       : h('p', { class: 'muted' }, 'external.json lists no tools.')),
-    h('footer', null, 'Data home ', h('span', { class: 'mono' }, model.home), `. Run log ${model.logLines === null ? 'unreadable' : plural(model.logLines, 'line')}. Days ${model.days[0]} to ${model.day}, UTC.`),
+    h('footer', null, 'Data home ', h('span', { class: 'mono' }, model.home), `. Run log ${model.logLines === null ? 'unreadable' : plural(model.logLines, 'line')}. Days ${model.days[0]} to ${model.days.at(-1)}, UTC.`),
   ].flat(Infinity).filter(Boolean));
 }
 

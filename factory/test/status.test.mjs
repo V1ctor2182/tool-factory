@@ -72,7 +72,8 @@ test('spend counts today against the budget and charges atom spend to the callin
 test('runs, failures, and the median of ok runs cover seven days', () => {
   const digest = row('digest');
   assert.deepEqual([digest.runs, digest.failed, digest.medianMs], [3, 1, 6000]);
-  assert.deepEqual(digest.perDay.map((d) => d.runs), [0, 0, 0, 1, 0, 0, 2]);
+  assert.deepEqual(row('youtube').perDay.map((d) => [d.runs, d.failed]), [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 0]]);
+  assert.deepEqual(row('meeting-notes').perDay.at(-1), { day: day(0), runs: 1, failed: 1 });
   assert.deepEqual(model.calls, { runs: 3, failed: 1 });
 });
 

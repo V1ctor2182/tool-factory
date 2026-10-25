@@ -4,7 +4,6 @@ import { existsSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { dashboard } from '../dashboard/server.mjs';
 import { doctor } from '../lib/doctor.mjs';
 import { link, SOCKETS, unlink } from '../lib/links.mjs';
 import { serve } from '../lib/mcp.mjs';
@@ -38,9 +37,9 @@ function pick(registry, names) {
   });
 }
 
-function reportProblems(registry) {
-  for (const { path, message } of registry.problems) console.error(`invalid ${path}: ${message}`);
-  return registry.problems.length ? 1 : 0;
+function reportProblems(problems) {
+  for (const { path, message } of problems) console.error(`invalid ${path}: ${message}`);
+  return problems.length ? 1 : 0;
 }
 
 function options(args, extra = {}) {
@@ -86,7 +85,7 @@ const COMMANDS = {
   list(registry) {
     const rows = ordered(registry).map((e) => [e.name, e.type, e.kind, e.manifest.status, e.manifest.uses?.join(' ') ?? '']);
     console.log(table([['name', 'type', 'kind', 'status', 'uses'], ...rows]));
-    return reportProblems(registry);
+    return reportProblems(registry.problems);
   },
 
   status(registry, args) {
@@ -112,14 +111,13 @@ const COMMANDS = {
     const { capUsd, spentTodayUsd } = model.budget;
     console.log(`\nbudget: ${spentTodayUsd === null ? 'unknown' : `$${spentTodayUsd.toFixed(4)}`} spent today of ${capUsd === null ? 'an unreadable cap' : `$${capUsd.toFixed(2)}`}`);
     for (const t of model.external) console.log(`external: ${t.name} at ${t.where}`);
-    for (const { path, message } of model.problems) console.error(`problem ${path}: ${message}`);
-    return model.problems.length ? 1 : 0;
+    return reportProblems(model.problems);
   },
 
   doctor(registry) {
     const rows = doctor(registry.entries);
     console.log(table(rows.map((r) => [r.status, r.name, r.notes.join('. ')])));
-    return Math.max(reportProblems(registry), rows.some((r) => r.status === 'red') ? 1 : 0);
+    return Math.max(reportProblems(registry.problems), rows.some((r) => r.status === 'red') ? 1 : 0);
   },
 
   async test(registry, args) {
@@ -181,6 +179,7 @@ const COMMANDS = {
     const port = Number(values.port);
     if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${values.port} is not a port number.`);
     try {
+      const { dashboard } = await import('../dashboard/server.mjs');
       console.log(`dashboard on ${await dashboard(registry.root, port)}, read-only. Stop it with ctrl-c.`);
       return 0;
     } catch (e) {
