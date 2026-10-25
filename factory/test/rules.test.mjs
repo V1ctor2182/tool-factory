@@ -72,3 +72,20 @@ test('a tool that calls an atom outside its uses fails tools-call-only-uses', ()
   assert.equal(result.code, 1);
   assert.match(result.lines.join('\n'), /FAIL rule tools-call-only-uses: tools\/youtube\/run:\d+: tool youtube calls atom frames, which its uses does not list\./);
 });
+
+test('an atom that runs a sibling CLI by path fails atoms-import-only-kit', () => {
+  const root = copy();
+  edit(join(root, 'atoms/frames/src/frames.py'), (text) => `${text}\nSIBLING = Path(__file__).resolve().parents[2] / "captions" / "bin" / "captions"\n`);
+  const result = rules(root);
+  assert.equal(result.code, 1);
+  assert.match(result.lines.join('\n'), /FAIL rule atoms-import-only-kit: atoms\/frames\/src\/frames\.py:\d+: atom frames calls atom captions\./);
+});
+
+test('a free atom that imports the model adapter under an alias fails kind-decides-cost', () => {
+  const root = copy();
+  edit(join(root, 'atoms/frames/src/frames.py'), (text) => text.replace('import subprocess\n', 'import subprocess\nfrom factory_kit import (\n    model as llm,\n)\n'));
+  const result = rules(root);
+  assert.equal(result.code, 1);
+  assert.match(result.lines.join('\n'), /FAIL rule kind-decides-cost: atoms\/frames: frames is a transform atom, which is free, but it imports the kit's model adapter\./);
+  assert.match(result.lines.join('\n'), /FAIL rule declare-binaries: kit\/py\/src\/factory_kit\/model\.py:\d+: frames runs claude, which needs\.bin in atoms\/frames\/manifest\.json does not declare\./);
+});

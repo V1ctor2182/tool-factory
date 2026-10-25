@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
 import { delimiter, join } from 'node:path';
+import { RUNTIMES } from './registry.mjs';
 import { budget, spentToday } from './runs.mjs';
-
-const RUNTIMES = { uv: 'uv', node: 'node', sh: 'sh' };
 
 function which(bin) {
   for (const dir of (process.env.PATH ?? '').split(delimiter)) {

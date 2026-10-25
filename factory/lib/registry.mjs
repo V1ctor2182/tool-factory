@@ -14,6 +14,8 @@ export const KINDS = {
   act: { type: 'atom', cache: null, cost: 'varies', guard: 'confirm' },
 };
 
+export const RUNTIMES = { uv: 'uv', node: 'node', sh: 'sh' };
+
 const FOLDERS = { tool: 'tools', atom: 'atoms' };
 
 export function load(root = REPO) {
@@ -35,6 +37,7 @@ export function load(root = REPO) {
       }
       const errors = validate(schema, manifest);
       if (manifest.name !== name) errors.push(`/name is ${manifest.name}, not the folder name ${name}`);
+      if (entries.has(name)) errors.push(`/name ${name} is taken by ${entries.get(name).rel}`);
       if (manifest.type !== type) errors.push(`/type is ${manifest.type}, but the manifest is under ${folder}/`);
       else if (KINDS[manifest.kind] && KINDS[manifest.kind].type !== type) errors.push(`/kind ${manifest.kind} is not a kind of ${type}`);
       if (errors.length) {
