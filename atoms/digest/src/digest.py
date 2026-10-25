@@ -93,7 +93,7 @@ def _claude(text: str, cap: float) -> tuple[dict, float]:
             "model_error", f"claude exited {done.returncode}: {done.stderr.strip() or done.stdout.strip()}", cap
         )
     cost = reply.get("total_cost_usd")
-    if not isinstance(cost, (int, float)) or not math.isfinite(cost):
+    if not isinstance(cost, (int, float)) or not 0 <= cost < math.inf:
         cost = cap
     if reply.get("subtype") == "error_max_budget_usd":
         raise cli.AtomError("budget_exceeded", f"The call reached its ${cap:.4f} cap.", cost)
