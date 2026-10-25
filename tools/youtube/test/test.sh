@@ -24,14 +24,13 @@ matches_manifest transcript "$out/transcript.json"
 [ "$(jq -r .method "$out/transcript.json")" = captions ] || fail "the zoo video did not use captions"
 [ "$(jq -s '[.[] | select(.name == "captions" and .caller == "youtube")] | length' "$runs")" = 1 ] \
 	|| fail "the run log has no captions line with caller youtube"
-[ "$(jq -s '[.[] | select(.name == "digest")] | length' "$runs")" = 0 ] || fail "the transcript verb ran digest"
 [ "$(jq -s 'map(.costUsd) | add == 0' "$runs")" = true ] || fail "the transcript verb logged model spend"
 
-"$run" "$zoo" --no-digest --json > "$out/no-digest.json" 2> "$out/no-digest.err" \
+"$run" --json "$zoo" --no-digest > "$out/no-digest.json" 2> "$out/no-digest.err" \
 	|| fail "run --no-digest failed: $(cat "$out/no-digest.json")"
 [ "$(jq -c 'del(.cacheHit)' "$out/no-digest.json")" = "$(jq -c 'del(.cacheHit)' "$out/transcript.json")" ] \
 	|| fail "run <url> --no-digest differs from run transcript <url>"
-[ "$(jq -s '[.[] | select(.name == "digest")] | length' "$runs")" = 0 ] || fail "--no-digest ran digest"
+[ "$(jq -s '[.[] | select(.name == "digest")] | length' "$runs")" = 0 ] || fail "transcript or --no-digest ran digest"
 
 mkdir "$out/stub"
 cat > "$out/stub/claude" <<'STUB'
@@ -40,7 +39,7 @@ echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0,"
 STUB
 chmod +x "$out/stub/claude"
 for form in "get $zoo" "$zoo"; do
-	PATH="$out/stub:$PATH" "$run" $form --json > "$out/digest.json" 2> "$out/digest.err" \
+	PATH="$out/stub:$PATH" "$run" --json $form > "$out/digest.json" 2> "$out/digest.err" \
 		|| fail "run $form failed: $(cat "$out/digest.json")"
 	matches_manifest get "$out/digest.json"
 	[ -f "$(jq -r .transcriptPath "$out/digest.json")" ] || fail "run $form named a transcript path that does not exist"

@@ -95,10 +95,12 @@ def parser() -> Parser:
 
 
 def verb_args(argv: list[str]) -> list[str]:
-    if argv[:1] in (["-h"], ["--help"]) or argv[:1] and argv[0] in VERBS:
-        return argv
-    verb = "transcript" if "--no-digest" in argv else "get"
-    return [verb, *(a for a in argv if a != "--no-digest")]
+    flags = [a for a in argv if a == "--json"]
+    words = [a for a in argv if a != "--json"]
+    if words and words[0] in (*VERBS, "-h", "--help"):
+        return [*words, *flags]
+    verb = "transcript" if "--no-digest" in words else "get"
+    return [verb, *(a for a in words if a != "--no-digest"), *flags]
 
 
 def main() -> int:

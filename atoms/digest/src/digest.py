@@ -63,7 +63,7 @@ def _budget() -> float:
         budget = float(raw)
     except ValueError:
         budget = math.nan
-    if not math.isfinite(budget) or budget < 0:
+    if not 0 <= budget < math.inf:
         raise cli.AtomError("invalid_args", f"TOOL_FACTORY_BUDGET_USD is not a finite number of dollars, 0 or more: {raw}")
     return budget
 
