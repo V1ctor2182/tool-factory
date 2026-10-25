@@ -17,7 +17,7 @@ The input is a transcript file, as `captions get` or `transcribe file` print it 
 
 `--image-notes` takes an image-notes file, as `see describe` prints it with `--json`, where each image also has its `time` in seconds. The digest then also has `visual`, notes on what appears on screen with their start times, and the summary uses what the frames show.
 
-It calls headless Claude Code, `claude -p --safe-mode --model sonnet`, through the kit's model adapter, with `prompts/digest.md` as the system prompt and the digest schema as the output schema. It runs on Victor's Claude Code login, so it needs no API key. A short video costs about one cent. `costUsd` holds the spend of the call, and the run log records it.
+It calls headless Claude Code on `sonnet` through the kit's model adapter, with `prompts/digest.md` as the system prompt and the digest schema as the output schema. It runs on Victor's Claude Code login, so it needs no API key. A short video costs about one cent. `costUsd` holds the spend of the call, and the run log records it.
 
 A second call on a transcript with the same timed text and the same image notes, with the same model and prompt, reads the cache. It sets `cacheHit` to true and `costUsd` to 0, and it returns without reading the budget, so it works even over the budget or with an invalid one.
 
@@ -30,5 +30,5 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `budget_exceeded` | Today's model spend reached the budget, or one call reached its cap | Wait for the next UTC day, or raise `TOOL_FACTORY_BUDGET_USD` or `TOOL_FACTORY_CALL_BUDGET_USD` |
 | `invalid_source` | A file is missing, is not a transcript or image notes, or has no segments or no image with a time | Pass a transcript file, and image notes with times |
 | `invalid_args` | No `--transcript`, or a `TOOL_FACTORY_BUDGET_USD` or `TOOL_FACTORY_CALL_BUDGET_USD` that is not a finite number of 0 or more | Check `bin/digest make --help` |
-| `model_error` | `claude` is missing, timed out, or returned no digest | Check `claude -p` works, then retry |
+| `model_error` | `claude` is missing, timed out, or returned no digest | Check that `claude` runs and is logged in, then retry |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |

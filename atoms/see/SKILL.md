@@ -14,7 +14,7 @@ bin/see describe slide.png
 
 The result is image notes, as `contracts/image-notes.schema.json` defines it. Each image gets a `description` and its visible `text`, in the order given. Without `--json` it prints each path, its description, and its text.
 
-It sends every image in one call to headless Claude Code, `claude -p --safe-mode --model haiku`, through the kit's model adapter, with `prompts/see.md` as the system prompt. It runs on Victor's Claude Code login, so it needs no API key. One small frame costs well under one cent. `costUsd` holds the spend of the call, and the run log records it.
+It sends every image in one call to headless Claude Code on `haiku` through the kit's model adapter, with `prompts/see.md` as the system prompt. It runs on Victor's Claude Code login, so it needs no API key. One small frame costs well under one cent. `costUsd` holds the spend of the call, and the run log records it.
 
 Each image is cached by its bytes, the model, and the prompt. The call sends only the images the cache does not hold. When the cache holds every image, `cacheHit` is true, `costUsd` is 0, and the call works even over the budget.
 
@@ -27,5 +27,5 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `budget_exceeded` | Today's model spend reached the budget, or one call reached its cap | Wait for the next UTC day, or raise `TOOL_FACTORY_BUDGET_USD` or `TOOL_FACTORY_CALL_BUDGET_USD` |
 | `invalid_source` | A file is missing or is not a PNG, JPEG, GIF, or WebP file | Pass image files |
 | `invalid_args` | No image, or a `TOOL_FACTORY_BUDGET_USD` or `TOOL_FACTORY_CALL_BUDGET_USD` that is not a finite number of 0 or more | Check `bin/see describe --help` |
-| `model_error` | `claude` is missing, timed out, or returned no notes | Check `claude -p` works, then retry |
+| `model_error` | `claude` is missing, timed out, or returned no notes | Check that `claude` runs and is logged in, then retry |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |
