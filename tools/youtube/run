@@ -10,7 +10,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -61,20 +60,16 @@ def transcript_of(url: str) -> dict:
 
 
 def save(transcript: dict) -> Path:
-    body = json.dumps(transcript, ensure_ascii=False, indent=2)
     stable = json.dumps({k: v for k, v in transcript.items() if k != "cacheHit"}, sort_keys=True)
     folder = HOME / "youtube" / "transcripts"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{hashlib.sha256(stable.encode()).hexdigest()[:32]}.json"
-    fd, tmp = tempfile.mkstemp(dir=folder, suffix=".tmp")
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(body)
-    os.replace(tmp, path)
+    path.write_text(json.dumps(transcript, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
 
 def timed_lines(transcript: dict) -> str:
-    return "\n".join(f"[{int(s['start']) // 60}:{int(s['start']) % 60:02d}] {s['text']}" for s in transcript["segments"])
+    return "\n".join("[%d:%02d] %s" % (*divmod(int(s["start"]), 60), s["text"]) for s in transcript["segments"])
 
 
 class Parser(argparse.ArgumentParser):

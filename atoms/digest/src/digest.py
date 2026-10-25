@@ -26,7 +26,7 @@ OUTPUT_SCHEMA = {
     "required": MODEL_FIELDS,
     "additionalProperties": False,
 }
-PROMPT_HASH = hashlib.sha256((PROMPT + json.dumps(OUTPUT_SCHEMA, sort_keys=True)).encode()).hexdigest()
+PROMPT_HASH = hashlib.sha256((PROMPT + json.dumps(OUTPUT_SCHEMA, sort_keys=True)).encode()).hexdigest()[:16]
 
 
 def _timestamp(seconds: float) -> str:
@@ -95,7 +95,7 @@ def _claude(text: str, remaining: float) -> tuple[dict, float]:
 
 def make(transcript: str | None) -> dict:
     file, parsed, text = _read_transcript(transcript)
-    key = f"{hashlib.sha256(text.encode()).hexdigest()}-{MODEL}-{PROMPT_HASH[:16]}"
+    key = f"{hashlib.sha256(text.encode()).hexdigest()}-{MODEL}-{PROMPT_HASH}"
     here = {"source": parsed.get("source") or str(file), "transcriptPath": str(file)}
     cache = Cache("digest")
     if cached := cache.get(key):
