@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
@@ -98,13 +98,17 @@ for raw in json.loads(sys.argv[1]):
     except Exception:
         out[raw] = False
 print(json.dumps(out))`;
-  const done = spawnSync('uv', ['run', '--quiet', '--project', join(REPO, 'kit', 'py'), 'python', '-c', script, JSON.stringify(CAPS)], { encoding: 'utf8' });
+  const project = scratch();
+  for (const part of ['pyproject.toml', 'src']) cpSync(join(REPO, 'kit', 'py', part), join(project, part), { recursive: true });
+  const done = spawnSync('uv', ['run', '--quiet', '--project', project, 'python', '-c', script, JSON.stringify(CAPS)], { encoding: 'utf8' });
   assert.equal(done.status, 0, done.stderr);
   return JSON.parse(done.stdout);
 }
 
-test('the hook accepts the same caps as the kit', () => {
+test('the hook accepts the same caps as the kit, and checking leaves kit/py as it was', () => {
+  const before = readdirSync(join(REPO, 'kit', 'py'));
   const kit = kitAccepts();
+  assert.deepEqual(readdirSync(join(REPO, 'kit', 'py')), before);
   const hook = Object.fromEntries(CAPS.map((raw) => [raw, !guard('digest make x', { budget: raw }).stderr.includes('is not a finite number of dollars')]));
   assert.deepEqual(hook, kit);
   assert.equal(kit['0x10'], false);
