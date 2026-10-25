@@ -20,9 +20,9 @@ Both packages install through `uv` with no system change. `pywhispercpp` 1.5.1 s
 
 Machine. Apple M5, 4 performance and 6 efficiency cores, macOS 26.5. Load average was between 3.9 and 6.7 during the runs, from other work on the Mac. The rounds alternate between backends, so that load hits both sides.
 
-Fixture. `atoms/transcribe/test/make-long-fixture.sh` speaks the first 1656 words of `ARCHITECTURE.md` with `say`, 608 seconds of audio. `say -f ARCHITECTURE.md` on the raw Markdown stops after 105 seconds, so the script removes the symbols first.
+Fixture. `atoms/transcribe/test/make-long-fixture.sh` speaks the first 1655 words of `ARCHITECTURE.md` with `say`, 608 seconds of audio. `say -f ARCHITECTURE.md` on the raw Markdown stops after 105 seconds, so the script removes the symbols first.
 
-`say` does not give the same bytes on every run. One regenerated fixture was 26836868 bytes against 26836910, and the default model gave 86 segments instead of 88 on it, with word match 94.0 % instead of 93.9 %. Expect small differences when you rerun.
+Two runs of the script on 2026-10-25 gave the same file, 26836910 bytes.
 
 Probe. `atoms/transcribe/test/bench.sh` runs `/usr/bin/time -p` around `bin/transcribe file <fixture> --json`, once cold in a fresh data home and once cached, for each backend in turn. Model weights were already downloaded, so "cold" means a cache miss with the weights on disk. Every cold run reported `cacheHit` false and every cached run reported true.
 
@@ -42,7 +42,7 @@ Round 2 compares faster-whisper `small` with the shipped default, five rounds.
 
 Word match is the share of the 1607 source words that `difflib.SequenceMatcher(autojunk=False)` aligns with the transcript. Both sides are lowercased, and every character other than a letter, digit, or space becomes a space. `0001-whisper-backend/score.py` computes it. With the default `autojunk=True`, the same transcripts score 92.7 % for faster-whisper `small`, 87.3 % for whisper.cpp `small`, and 93.8 % for the default model. Most misses are the same on every backend. Speech synthesis says "atom" so that it sounds like "Adam", and it reads "CLI" as "clee".
 
-Limiters, from `/usr/bin/time -l` on one cold run each.
+Limiters, from one cold run each. `/usr/bin/time -l` timed the whisper.cpp `small` run. `/usr/bin/time -p` timed the others.
 
 - faster-whisper used 261.6 seconds of user CPU in 73.4 seconds of wall time, about 3.6 of its four threads kept busy. This is one round of `0001-whisper-backend/bench.sh`, on 2026-10-25 at load average 4.0 to 4.9, and the wall time includes uv start and model load.
 - whisper.cpp used 5.5 seconds of user CPU in 16.5 seconds of wall time with `small`, and 4.8 in 30.5 with the default model in a separate run. The same bench round measured 4.8 in 30.7. The GPU does the work.
@@ -50,7 +50,7 @@ Limiters, from `/usr/bin/time -l` on one cold run each.
 
 The plan's budget fails a cold run over 300 seconds or a cached run over 1 second. The default passes both.
 
-Stability. `atoms/transcribe/test/test.sh` compares a cold `srt` run on `hello.aiff` with `expected/hello.srt` byte for byte on every run. Two cold runs on the same 608-second fixture file gave the same transcript. whisper.cpp runs beam search with five beams and no temperature fallback, and faster-whisper ran with `temperature=0.0`.
+Stability. `atoms/transcribe/test/test.sh` compares a cold `srt` run on `hello.aiff` with `expected/hello.srt` byte for byte on every run. Two cold runs on the same 608-second fixture file gave the same transcript, byte for byte. To check, make an empty directory and run `BENCH_OUT=<dir> RUNS=1 sh atoms/transcribe/test/bench.sh atoms/transcribe/bin/transcribe atoms/transcribe/bin/transcribe`, then `cmp` the two `transcript-*.json` files in it. whisper.cpp runs beam search with five beams and no temperature fallback, and faster-whisper ran with `temperature=0.0`.
 
 ## What this costs
 
@@ -68,4 +68,4 @@ RUNS=5 sh docs/decisions/0001-whisper-backend/bench.sh /private/tmp/whisper-benc
 RUNS=5 MODEL=small sh docs/decisions/0001-whisper-backend/bench.sh /private/tmp/whisper-bench-small
 ```
 
-The first command repeats round 2, and the second repeats round 1. One round of the first, run on 2026-10-25, gave 73.4 s and 93.1 % for faster-whisper and 30.7 s and 93.9 % for whisper.cpp.
+The first command runs round 2's pair of backends, and the second runs round 1's. Rounds 1 and 2 ran faster-whisper through an earlier version of the atom. The committed script runs it directly. One round of the first, run on 2026-10-25, gave 73.4 s and 93.1 % for faster-whisper and 30.7 s and 93.9 % for whisper.cpp. The 73.4 s falls outside round 2's range of 65.2 to 66.8 s. The cause is not measured. Both the load on the Mac and the way faster-whisper starts differed from round 2.
