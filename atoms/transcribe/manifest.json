@@ -1,0 +1,42 @@
+{
+  "name": "transcribe",
+  "type": "atom",
+  "kind": "transform",
+  "description": "Timed transcript of a local audio or video file, from faster-whisper on this Mac.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/transcribe",
+  "contract": "transcript",
+  "verbs": [
+    {
+      "name": "file",
+      "description": "Transcribe one file. Prints the text, or the transcript with --json. Cached by file hash, model, and language.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Audio or video file to transcribe." },
+          "model": { "type": "string", "default": "small", "description": "faster-whisper model name, such as tiny, small, or large-v3." },
+          "language": { "type": "string", "description": "Language code such as en. Detected when omitted." }
+        },
+        "required": ["path"]
+      },
+      "output": "transcript"
+    },
+    {
+      "name": "srt",
+      "description": "Same as file, but prints SubRip subtitles. The --json output is the transcript.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Audio or video file to transcribe." },
+          "model": { "type": "string", "default": "small", "description": "faster-whisper model name, such as tiny, small, or large-v3." },
+          "language": { "type": "string", "description": "Language code such as en. Detected when omitted." }
+        },
+        "required": ["path"]
+      },
+      "output": "transcript"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

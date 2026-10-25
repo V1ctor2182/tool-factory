@@ -1,0 +1,13 @@
+{
+  "method": "whisper",
+  "language": "en",
+  "model": "small",
+  "text": "Hello from the Tool Factory.",
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 2.0,
+      "text": "Hello from the Tool Factory."
+    }
+  ]
+}
