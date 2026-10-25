@@ -35,27 +35,28 @@ def _atom_error(e: Exception) -> cli.AtomError:
     return cli.AtomError("unavailable", message)
 
 
-def _videos(entries) -> list[dict]:
-    videos = []
+def _collect(entries, videos: dict[str, dict]) -> dict[str, dict]:
     for entry in entries or []:
         if entry is None:
             continue
         if entry.get("_type") == "playlist":
-            videos += _videos(entry.get("entries"))
+            _collect(entry.get("entries"), videos)
         elif url := entry.get("url") or entry.get("webpage_url"):
-            videos.append(
+            videos.setdefault(
+                url,
                 {
                     "url": url,
                     "id": str(entry.get("id") or url),
                     "title": entry.get("title"),
                     "durationSec": entry.get("duration"),
                     "channel": entry.get("channel") or entry.get("uploader"),
-                }
+                },
             )
-    unique = {}
-    for video in videos:
-        unique.setdefault(video["url"], video)
-    return list(unique.values())
+    return videos
+
+
+def _videos(entries) -> list[dict]:
+    return list(_collect(entries, {}).values())
 
 
 def _flat(target: str, limit: int | None) -> dict:

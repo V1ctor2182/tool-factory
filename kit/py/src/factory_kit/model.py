@@ -22,9 +22,9 @@ class Spec(NamedTuple):
 
 
 def load(atom_root: Path) -> Spec:
-    manifest = json.loads((Path(atom_root) / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((atom_root / "manifest.json").read_text(encoding="utf-8"))
     model = manifest["model"]
-    return Spec(manifest["name"], model["default"], (Path(atom_root) / model["prompt"]).read_text(encoding="utf-8"))
+    return Spec(manifest["name"], model["default"], (atom_root / model["prompt"]).read_text(encoding="utf-8"))
 
 
 def fingerprint(spec: Spec, schema: dict) -> str:

@@ -45,14 +45,14 @@ def describe(images: list[str]) -> dict:
     keys = [f"{file_sha256(file)}-{FINGERPRINT}" for file in files]
     cache = Cache("see")
     notes = {key: cached for key in set(keys) if (cached := cache.get(key))}
-    misses = list({key: file for key, file in zip(keys, files) if key not in notes}.items())
+    misses = {key: file for key, file in zip(keys, files) if key not in notes}
     cost = 0.0
     if misses:
-        content = [part for n, (_, file) in enumerate(misses, 1) for part in (f"Image {n}:", file)]
+        content = [part for n, file in enumerate(misses.values(), 1) for part in (f"Image {n}:", file)]
         output, cost = model.ask(SPEC, _schema(len(misses)), content)
         if len(output["images"]) != len(misses):
             raise cli.AtomError("model_error", f"Asked about {len(misses)} images and got {len(output['images'])} notes.", cost)
-        for (key, _), note in zip(misses, output["images"]):
+        for key, note in zip(misses, output["images"]):
             cache.put(key, note)
             notes[key] = note
     return {

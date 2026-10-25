@@ -25,6 +25,10 @@ def _output_schema(fields: list[str]) -> dict:
     }
 
 
+TEXT_ONLY = _output_schema(["summary", "chapters", "keyPoints"])
+WITH_VISUAL = _output_schema(["summary", "chapters", "keyPoints", "visual"])
+
+
 def _timestamp(seconds: float) -> str:
     minutes, secs = divmod(int(seconds), 60)
     return f"{minutes}:{secs:02d}"
@@ -59,11 +63,10 @@ def _read_image_notes(path: str) -> str:
 
 def make(transcript: str, imageNotes: str | None) -> dict:
     file, parsed, text = _read_transcript(transcript)
-    fields = ["summary", "chapters", "keyPoints"]
+    schema = TEXT_ONLY
     if imageNotes:
         text = f"Transcript\n{text}\n\nVisual notes\n{_read_image_notes(imageNotes)}"
-        fields.append("visual")
-    schema = _output_schema(fields)
+        schema = WITH_VISUAL
     key = f"{hashlib.sha256(text.encode()).hexdigest()}-{model.fingerprint(SPEC, schema)}"
     here = {"source": parsed.get("source") or str(file), "transcriptPath": str(file)}
     cache = Cache("digest")
@@ -78,21 +81,10 @@ def make(transcript: str, imageNotes: str | None) -> dict:
 def _text(digest: dict) -> str:
     chapters = [f"  {_timestamp(c['start'])}  {c['title']}" for c in digest["chapters"]]
     points = [f"  - {p}" for p in digest["keyPoints"]]
-    visual = [f"  {_timestamp(v['start'])}  {v['note']}" for v in digest.get("visual", [])]
-    return "\n".join(
-        [
-            digest["summary"],
-            "",
-            "Chapters",
-            *chapters,
-            "",
-            "Key points",
-            *points,
-            *(["", "On screen", *visual] if visual else []),
-            "",
-            f"Transcript: {digest['transcriptPath']}",
-        ]
-    )
+    parts = [digest["summary"], "", "Chapters", *chapters, "", "Key points", *points]
+    if visual := digest.get("visual"):
+        parts += ["", "On screen", *(f"  {_timestamp(v['start'])}  {v['note']}" for v in visual)]
+    return "\n".join([*parts, "", f"Transcript: {digest['transcriptPath']}"])
 
 
 if __name__ == "__main__":
