@@ -1,7 +1,7 @@
 ---
 name: youtube
 description: Summarize a YouTube video, or any video URL yt-dlp supports, from its transcript. Use when someone asks what a video says, wants its summary or chapters, or wants its transcript. Also digests a search, a playlist, or a channel, and notes what appears on screen.
-allowed-tools: Bash(*youtube/run *)
+allowed-tools: Bash(*youtube/run *), Bash(*atoms/download/bin/download *), Bash(*atoms/frames/bin/frames *), Bash(*atoms/see/bin/see *)
 ---
 
 # youtube
@@ -22,9 +22,17 @@ Then answer from the transcript.
 - Chapters with their `m:ss` start times, taken from the transcript lines.
 - The key points, if the person asked for detail.
 
-The `get` verb, which `run <video url>` also means, calls the `digest` atom instead, a paid model call. Victor uses that form in a terminal. An agent needs it only for `--visual`. `run <url> --no-digest` is the same as `run transcript <url>`.
+When the person asks what the video shows, also get notes on its frames with three atom CLIs. The atoms live two folders above this skill's folder.
 
-`get <video url> --visual` also downloads the video, picks up to 8 key frames with the `frames` atom, and describes them with the `see` atom, a paid haiku call of well under one cent a frame. The digest then has a `visual` field with one note per frame and its start time. Use it only when the person asks what the video shows. `transcript` does not take `--visual`.
+```sh
+<this skill's folder>/../../atoms/download/bin/download get "<video url>" --video --json
+<this skill's folder>/../../atoms/frames/bin/frames get "<path from download>" --json
+<this skill's folder>/../../atoms/see/bin/see describe <frame paths> --json
+```
+
+`download` prints the video's `path`. `frames` prints the key frames, each with its `path` and its `time` in seconds. Pass up to 8 of them to `see`, spread evenly over the video. `see` is a paid haiku call of well under one cent a frame. It returns one `description` and the visible `text` for each frame, in the order given. Pair each note with its frame's time, then add what appears on screen, with `m:ss` times, to your answer.
+
+The `get` verb, which `run <video url>` also means, calls the `digest` atom, a paid model call. `get --visual` runs the three atoms above and passes their notes to `digest`. Victor uses these forms in a terminal. An agent does not need them. `run <url> --no-digest` is the same as `run transcript <url>`.
 
 The `search` verb, which `run <words>` and `run <playlist or channel url>` also mean, digests several videos, one paid model call each.
 
