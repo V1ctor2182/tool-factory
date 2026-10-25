@@ -96,7 +96,7 @@ def _claude(text: str, cap: float) -> tuple[dict, float]:
     if not isinstance(cost, (int, float)) or not math.isfinite(cost):
         cost = cap
     if reply.get("subtype") == "error_max_budget_usd":
-        raise cli.AtomError("budget_exceeded", f"The call reached its ${cap:.4f} cap, the per-call ceiling or the rest of today's budget.", cost)
+        raise cli.AtomError("budget_exceeded", f"The call reached its ${cap:.4f} cap.", cost)
     if reply.get("is_error") or not isinstance(reply.get("structured_output"), dict):
         raise cli.AtomError("model_error", f"claude returned no digest: {reply.get('errors') or reply.get('result')}", cost)
     return reply["structured_output"], cost

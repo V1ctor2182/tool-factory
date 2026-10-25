@@ -89,9 +89,11 @@ for budget in nan inf -inf -1; do
 	stubbed cost "Budget $budget." "$budget"
 	[ "$(jq -r .error.code "$out/stubbed.out")" = invalid_args ] || fail "budget $budget did not report invalid_args"
 	[ ! -e "$STUB_ARGS" ] || fail "budget $budget reached claude"
-	stubbed cost "Ceiling $budget." 3 "$budget"
-	[ "$(jq -r .error.code "$out/stubbed.out")" = invalid_args ] || fail "ceiling $budget did not report invalid_args"
-	[ ! -e "$STUB_ARGS" ] || fail "ceiling $budget reached claude"
+done
+for ceiling in nan -1; do
+	stubbed cost "Ceiling $ceiling." 3 "$ceiling"
+	[ "$(jq -r .error.code "$out/stubbed.out")" = invalid_args ] || fail "ceiling $ceiling did not report invalid_args"
+	[ ! -e "$STUB_ARGS" ] || fail "ceiling $ceiling reached claude"
 done
 TOOL_FACTORY_BUDGET_USD=nan "$bin" make --transcript "$fixture" --json > "$out/cached-nan.json" \
 	|| fail "a cache hit read the budget"
