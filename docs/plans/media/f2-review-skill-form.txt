@@ -1,9 +1,9 @@
-$ TOOL_FACTORY_HOME=/private/tmp/f2proto/fin-l8-wUFL sh tools/youtube/test/skill-form.sh
-head=02fc7bc plus uncommitted docs only
+head: a9934e3a4fe8c9f1c8d38f5c20100fa729006434
+$ TOOL_FACTORY_HOME=/private/tmp/f2-review-home-00t8sv sh tools/youtube/test/skill-form.sh
 --- stdout (claude -p --output-format json, selected fields) ---
 {
-  "result": "**Summary:** This is \"Me at the zoo,\" the first video uploaded to YouTube. The speaker stands in front of the elephants at a zoo. They say the notable thing about elephants is their really, really long trunks, and call that cool. There's a brief noise, and then they say that's pretty much all there is to say.\n\n**Chapters**\n- **0:01** Introduction in front of the elephants\n- **0:05** Comment on the elephants' long trunks\n- **0:12** \"That's cool\" and a noise (0:14)\n- **0:16** Sign-off\n\nThe transcript came from the video's captions.",
-  "total_cost_usd": 0.1269293,
+  "result": "**Summary:** This is \"Me at the zoo,\" a short clip from 2005. The speaker stands in front of elephants at a zoo and says the cool thing about them is their really, really long trunks. After a brief off-camera noise, they say that's pretty much all there is to say. The transcript came from the video's captions.\n\n**Chapters:**\n- **0:01** – Introduction in front of the elephants\n- **0:05** – The elephants' long trunks\n- **0:14** – A noise, then the sign-off at 0:16",
+  "total_cost_usd": 0.1259987,
   "permission_denials": [],
   "num_turns": 4,
   "modelUsage": [
@@ -11,7 +11,10 @@ head=02fc7bc plus uncommitted docs only
   ]
 }
 --- stderr ---
-project: /private/tmp/youtube-skill-xxV59R
+data home: /private/tmp/f2-review-home-00t8sv
+project: /private/tmp/youtube-skill-sbMpmV
 --- exit 0 ---
 --- runs.jsonl ---
-{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:56Z","ms":1659,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T22:21:14Z","ms":1663,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+--- digest lines in runs.jsonl: 0 ---
+--- ~/.claude/projects folders: 42 before, 42 after ---

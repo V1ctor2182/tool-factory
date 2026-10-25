@@ -1,20 +1,24 @@
-$ tools/youtube/run https://www.youtube.com/watch?v=7VE8U3Z_av8 --json
-TOOL_FACTORY_HOME=/private/tmp/f2proto/fin-l3-BiGx  head=02fc7bc  at=2026-10-25T21:37:13Z
+head: a9934e3a4fe8c9f1c8d38f5c20100fa729006434
+$ TOOL_FACTORY_HOME=/private/tmp/f2-review-home-e57Bzy tools/youtube/run https://www.youtube.com/watch?v=7VE8U3Z_av8 --json
 --- stdout ---
-{"source": "https://www.youtube.com/watch?v=7VE8U3Z_av8", "transcriptPath": "/private/tmp/f2proto/fin-l3-BiGx/youtube/transcripts/8472cafa48feda27c6471cd3ccfd4eee.json", "model": "sonnet", "summary": "In this humorous poem, little Peggy McKay says she cannot go to school and lists a long string of exaggerated ailments: the measles, the mumps, chicken pox, a sprained ankle, a broken leg, a stiff neck, a shrunken brain and a hole in her ear. The complaints get more absurd as she goes, down to a hangnail and a failing heart. Then she realizes that today is Saturday, so she drops every symptom and runs out to play.", "chapters": [{"start": 0, "title": "Peggy McKay can't go to school"}, {"start": 21, "title": "Growing list of ailments"}, {"start": 48, "title": "Aches, sprains and pains"}, {"start": 69, "title": "Weak voice and absurd symptoms"}, {"start": 98, "title": "Saturday twist and going out to play"}], "keyPoints": ["Peggy McKay claims she is too sick to go to school.", "She lists many ailments, including measles, mumps, chicken pox, a rash and purple bumps.", "The symptoms grow more exaggerated, such as a temperature of 108 and a shrunken brain.", "Her heart seems to fail at the end of the list, and then she is interrupted.", "She realizes that today is Saturday.", "She says goodbye and goes out to play, so the illness was imaginary."], "costUsd": 0.007801799999999999, "cacheHit": false}
+{"source": "https://www.youtube.com/watch?v=7VE8U3Z_av8", "transcriptPath": "/private/tmp/f2-review-home-e57Bzy/youtube/transcripts/94e1cf9c564e3d130d50a0cefdaddf68.json", "model": "sonnet", "summary": "Little Peggy McKay announces she cannot go to school and recites an escalating list of ailments: measles, mumps, chicken pox, a flu, a broken leg, a sprained ankle, a stiff neck, a weak voice, a shrunken brain and a hole in her ear. Partway through her heart complaint she is interrupted and learns that today is Saturday. She immediately says goodbye and runs off to play, revealing that the illnesses were exaggerated or imagined.", "chapters": [{"start": 0, "title": "Peggy McKay can't go to school"}, {"start": 27, "title": "Spots, pox and flu"}, {"start": 42, "title": "Aches, sprains and a broken leg"}, {"start": 62, "title": "Numb toes, weak voice, falling hair"}, {"start": 81, "title": "Bent elbow, shrunken brain, hole in ear"}, {"start": 98, "title": "It's Saturday, so off to play"}], "keyPoints": ["Peggy McKay says she is too sick to go to school.", "She lists many ailments, including measles, mumps, 17 chicken pox, and a possible broken left leg.", "The complaints grow more absurd, such as a temperature of 108, a shrunken brain and a hole in her ear.", "She is interrupted mid-sentence while describing her heart.", "She learns that today is Saturday.", "Her illness vanishes at once and she goes out to play."], "costUsd": 0.008177799999999999, "cacheHit": false}
 --- stderr ---
 youtube: captions get https://www.youtube.com/watch?v=7VE8U3Z_av8
 youtube: no captions, so downloading the audio
-youtube: transcribe file /private/tmp/f2proto/fin-l3-BiGx/download/files/Youtube-7VE8U3Z_av8-audio.m4a
+youtube: transcribe file /private/tmp/f2-review-home-e57Bzy/download/files/Youtube-7VE8U3Z_av8-audio.m4a
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 whisper_lang_id: unknown language 'auto'
 whisper_full_with_state: auto-detected language: en (p = 0.999434)
 ggml_metal_free: deallocating
-youtube: digest make --transcript /private/tmp/f2proto/fin-l3-BiGx/youtube/transcripts/8472cafa48feda27c6471cd3ccfd4eee.json
---- exit 0, wall 24.608 s ---
---- runs.jsonl ---
-{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:13Z","ms":2298,"ok":false,"cacheHit":false,"costUsd":0.0,"error":"no_captions","caller":"youtube"}
-{"type":"atom","name":"download","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:16Z","ms":7601,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
-{"type":"atom","name":"transcribe","verb":"file","kind":"transform","startedAt":"2026-10-25T21:37:24Z","ms":9249,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
-{"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T21:37:33Z","ms":4648,"ok":true,"cacheHit":false,"costUsd":0.007801799999999999,"caller":"youtube"}
---- transcript method: $ jq -r .method /private/tmp/f2proto/fin-l3-BiGx/youtube/transcripts/8472cafa48feda27c6471cd3ccfd4eee.json ---
+youtube: digest make --transcript /private/tmp/f2-review-home-e57Bzy/youtube/transcripts/94e1cf9c564e3d130d50a0cefdaddf68.json
+--- exit 0, wall 24 s ---
+--- digest schema: $ uvx -q check-jsonschema --schemafile contracts/digest.schema.json stdout ---
+ok -- validation done
+check-jsonschema exit 0
+--- transcript method: $ jq -r .method "$(jq -r .transcriptPath stdout)" ---
 whisper
+--- runs.jsonl ---
+{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T22:20:43Z","ms":1889,"ok":false,"cacheHit":false,"costUsd":0.0,"error":"no_captions","caller":"youtube"}
+{"type":"atom","name":"download","verb":"get","kind":"transform","startedAt":"2026-10-25T22:20:45Z","ms":7278,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"transcribe","verb":"file","kind":"transform","startedAt":"2026-10-25T22:20:53Z","ms":8853,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T22:21:02Z","ms":5393,"ok":true,"cacheHit":false,"costUsd":0.008177799999999999,"caller":"youtube"}
