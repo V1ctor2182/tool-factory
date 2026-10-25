@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["factory-kit", "pywhispercpp>=1.5,<2", "av", "huggingface-hub"]
+# dependencies = ["factory-kit", "pywhispercpp>=1.5,<2", "av", "numpy", "huggingface-hub"]
 # [tool.uv.sources]
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
