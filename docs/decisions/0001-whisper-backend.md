@@ -50,7 +50,7 @@ Limiters, from one cold run each. `/usr/bin/time -l` timed the whisper.cpp `smal
 
 The plan's budget fails a cold run over 300 seconds or a cached run over 1 second. The default passes both.
 
-Stability. `atoms/transcribe/test/test.sh` compares a cold `srt` run on `hello.aiff` with `expected/hello.srt` byte for byte on every run. Two cold runs on the same 608-second fixture file gave the same transcript, byte for byte. To check, make an empty directory and run `BENCH_OUT=<dir> RUNS=1 sh atoms/transcribe/test/bench.sh atoms/transcribe/bin/transcribe atoms/transcribe/bin/transcribe`, then `cmp` the two `transcript-*.json` files in it. whisper.cpp runs beam search with five beams and no temperature fallback, and faster-whisper ran with `temperature=0.0`.
+Stability. `atoms/transcribe/test/test.sh` compares a cold `srt` run on `hello.aiff` with `expected/hello.srt` byte for byte on every run. Two cold runs on the same 608-second fixture file gave the same transcript, byte for byte. The last command under Reproduce checks it. whisper.cpp runs beam search with five beams and no temperature fallback, and faster-whisper ran with `temperature=0.0`.
 
 ## What this costs
 
@@ -68,4 +68,12 @@ RUNS=5 sh docs/decisions/0001-whisper-backend/bench.sh /private/tmp/whisper-benc
 RUNS=5 MODEL=small sh docs/decisions/0001-whisper-backend/bench.sh /private/tmp/whisper-bench-small
 ```
 
-The first command runs round 2's pair of backends, and the second runs round 1's. Rounds 1 and 2 ran faster-whisper through an earlier version of the atom. The committed script runs it directly. One round of the first, run on 2026-10-25, gave 73.4 s and 93.1 % for faster-whisper and 30.7 s and 93.9 % for whisper.cpp. The 73.4 s falls outside round 2's range of 65.2 to 66.8 s. The cause is not measured. Both the load on the Mac and the way faster-whisper starts differed from round 2.
+The first command runs round 2's pair of backends, and the second runs round 1's. Rounds 1 and 2 ran faster-whisper through an earlier version of the atom. The committed script runs it directly. One round of the first, run on 2026-10-25, gave 73.4 s and 93.1 % for faster-whisper and 30.7 s and 93.9 % for whisper.cpp. The 73.4 s falls outside round 2's range of 65.2 to 66.8 s. The cause is not measured. Round 2 ran faster at a higher load, so load alone does not explain it.
+
+To check that two cold runs give the same transcript, make an empty directory, run the atom bench with the same bin twice, and compare the two transcripts it keeps.
+
+```sh
+mkdir /private/tmp/whisper-stability
+BENCH_OUT=/private/tmp/whisper-stability RUNS=1 sh atoms/transcribe/test/bench.sh atoms/transcribe/bin/transcribe atoms/transcribe/bin/transcribe
+cmp /private/tmp/whisper-stability/transcript-1.json /private/tmp/whisper-stability/transcript-2.json
+```
