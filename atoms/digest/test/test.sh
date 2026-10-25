@@ -19,6 +19,8 @@ uvx -q check-jsonschema --schemafile "$repo/contracts/digest.schema.json" "$out/
 summary=$(jq -r .summary "$out/digest.json" | tr '[:upper:]' '[:lower:]')
 case "$summary" in *atoms*) ;; *) fail "summary does not mention atoms: $summary" ;; esac
 case "$summary" in *tools*) ;; *) fail "summary does not mention tools: $summary" ;; esac
+starts=$(jq -c --slurpfile t "$fixture" '[.chapters[].start] as $c | ($t[0].segments | map(.start | floor)) as $s | ($c == ($c | sort)) and all($c[]; . as $x | $s | index($x) != null)' "$out/digest.json")
+[ "$starts" = true ] || fail "chapter starts are out of order or match no segment start: $(jq -c '[.chapters[].start]' "$out/digest.json")"
 [ "$(jq -r .transcriptPath "$out/digest.json")" = "$fixture" ] || fail "transcriptPath is not the fixture path"
 [ "$(jq .cacheHit "$out/digest.json")" = false ] || fail "first make reported a cache hit"
 paid=$(tail -n 1 "$runs")

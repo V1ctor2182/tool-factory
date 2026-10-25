@@ -40,7 +40,7 @@ def _read_transcript(path: str | None) -> tuple[Path, dict, str]:
     file = Path(path).expanduser().resolve()
     try:
         transcript = json.loads(file.read_text(encoding="utf-8"))
-        lines = [f"[{_timestamp(s['start'])}] {s['text']}" for s in transcript["segments"]]
+        lines = [f"[{int(s['start'])}] {s['text']}" for s in transcript["segments"]]
     except (OSError, ValueError, TypeError, KeyError) as e:
         raise cli.AtomError("invalid_source", f"Not a readable transcript file: {path}: {e}")
     if not lines:
