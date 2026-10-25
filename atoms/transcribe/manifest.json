@@ -37,6 +37,11 @@
       "output": "transcript"
     }
   ],
-  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "needs": {
+    "bin": [],
+    "secrets": [],
+    "paid": [],
+    "models": ["huggingface.co/ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin"]
+  },
   "adapters": ["cli", "skill", "mcp"]
 }

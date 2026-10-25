@@ -43,8 +43,8 @@ def _whisper(file: Path, model: str, language: str | None) -> dict:
     import _pywhispercpp
     from pywhispercpp.model import Model
 
-    weights = _weights(model)
     audio = _audio(file)
+    weights = _weights(model)
     whisper = Model(
         weights,
         params_sampling_strategy=1,
