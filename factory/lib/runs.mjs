@@ -25,14 +25,27 @@ export function read() {
   return parseLines(text, path);
 }
 
+function unreadable(record) {
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) return 'is not a JSON object';
+  if (record.costUsd != null && !Number.isFinite(record.costUsd)) return 'has a costUsd that is not a number';
+  if (record.startedAt !== undefined && typeof record.startedAt !== 'string') return 'has a startedAt that is not a string';
+  return null;
+}
+
 function parseLines(text, strictPath) {
   return text.split('\n').flatMap((line, i) => {
+    if (!line.trim()) return [];
+    let record;
+    let problem;
     try {
-      return line.trim() ? [JSON.parse(line)] : [];
+      record = JSON.parse(line);
+      problem = strictPath && unreadable(record);
     } catch {
-      if (strictPath) throw new Error(`${strictPath} line ${i + 1} is not JSON, so today's spend is unknown`);
-      return [];
+      problem = 'is not JSON';
     }
+    if (!problem) return [record];
+    if (strictPath) throw new Error(`${strictPath} line ${i + 1} ${problem}, so today's spend is unknown`);
+    return [];
   });
 }
 

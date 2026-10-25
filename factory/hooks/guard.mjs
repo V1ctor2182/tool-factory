@@ -3,12 +3,7 @@ import { readFileSync } from 'node:fs';
 import { load } from '../lib/registry.mjs';
 import { budget, spentToday } from '../lib/runs.mjs';
 
-const payload = JSON.parse(readFileSync(0, 'utf8') || '{}');
-const command = payload.tool_name === 'Bash' ? payload.tool_input?.command ?? '' : '';
-
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const calls = (entry) =>
-  new RegExp(`(?:^|[\\s;&|(\`/"'])${escape(entry.name)}["']?\\s+(?:${entry.manifest.verbs.map((v) => escape(v.name)).join('|')})\\b`).test(command);
 
 function block(message) {
   console.error(message);
@@ -34,11 +29,22 @@ const GUARDS = {
   confirm: (entry) => `${entry.name} is an act atom, so every run needs your confirmation.`,
 };
 
-const reasons = [...load().entries.values()]
-  .filter((entry) => entry.info.guard && calls(entry))
-  .map((entry) => GUARDS[entry.info.guard](entry))
-  .filter(Boolean);
+function guard() {
+  const payload = JSON.parse(readFileSync(0, 'utf8') || '{}');
+  const command = payload.tool_name === 'Bash' ? payload.tool_input?.command ?? '' : '';
+  const calls = (entry) =>
+    new RegExp(`(?:^|[\\s;&|(\`/"'])${escape(entry.name)}["']?\\s+(?:${entry.manifest.verbs.map((v) => escape(v.name)).join('|')})\\b`).test(command);
+  const reasons = [...load().entries.values()]
+    .filter((entry) => entry.info.guard && calls(entry))
+    .map((entry) => GUARDS[entry.info.guard](entry))
+    .filter(Boolean);
+  if (reasons.length) {
+    console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: reasons.join(' ') } }));
+  }
+}
 
-if (reasons.length) {
-  console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: reasons.join(' ') } }));
+try {
+  guard();
+} catch (e) {
+  block(`Blocked: the factory guard failed, so it cannot check this call: ${e.message}`);
 }

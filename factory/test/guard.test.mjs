@@ -62,6 +62,29 @@ test('a corrupt run log line blocks a model atom call and names the file and lin
   });
 });
 
+const unreadable = [
+  ['a string costUsd', JSON.stringify({ type: 'atom', name: 'digest', startedAt: new Date().toISOString(), costUsd: '2' }), 'has a costUsd that is not a number'],
+  ['a bare number', '5', 'is not a JSON object'],
+  ['a bare null', 'null', 'is not a JSON object'],
+  ['a number startedAt', JSON.stringify({ startedAt: 12, costUsd: 1 }), 'has a startedAt that is not a string'],
+];
+for (const [what, line, problem] of unreadable) {
+  test(`a run log line with ${what} blocks a model atom call and names the file and line`, () => {
+    const data = home([spent(1), line]);
+    assert.deepEqual(guard('digest make x', { data }), {
+      code: 2,
+      stdout: '',
+      stderr: `Blocked digest: ${join(data, 'runs.jsonl')} line 2 ${problem}, so today's spend is unknown`,
+    });
+  });
+}
+
+test('a hook payload it cannot read blocks the call', () => {
+  const done = spawnSync('node', [join(REPO, 'factory', 'hooks', 'guard.mjs')], { input: '{not json', encoding: 'utf8' });
+  assert.equal(done.status, 2);
+  assert.match(done.stderr, /^Blocked: the factory guard failed, so it cannot check this call: /);
+});
+
 const CAPS = ['3', '0.5', ' 2.5 ', '1_000', '1e2', '.5', '5.', '+4', '0x10', '0b1', '0o7', '1__0', '_1', '1_', '1e400', 'inf', 'nan', '-1', '', 'abc', '3 dollars'];
 
 function kitAccepts() {
