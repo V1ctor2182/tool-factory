@@ -10,24 +10,26 @@ from factory_kit import cli
 from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
 
+RATE = 16000
+
 
 def _audio(file: Path):
     import av
     import numpy as np
 
-    resampler = av.AudioResampler(format="flt", layout="mono", rate=16000)
+    resampler = av.AudioResampler(format="flt", layout="mono", rate=RATE)
     chunks = []
     try:
         with av.open(str(file)) as container:
             stream = container.streams.audio[0]
-            samples = int(stream.duration * stream.time_base * 16000) if stream.duration else None
+            # PyAV 18 keeps the AAC encoder's end padding, so the stream's duration is the media's length.
+            samples = int(stream.duration * stream.time_base * RATE) if stream.duration else None
             for frame in container.decode(stream):
                 chunks += [f.to_ndarray().reshape(-1) for f in resampler.resample(frame)]
         chunks += [f.to_ndarray().reshape(-1) for f in resampler.resample(None)]
     except (av.error.InvalidDataError, IndexError):
         raise cli.AtomError("invalid_source", f"Not an audio or video file: {file}")
     audio = np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
-    # PyAV 18 keeps the AAC encoder's end padding, so the stream's own duration is the media length.
     return audio[:samples]
 
 
@@ -60,7 +62,7 @@ def _whisper(file: Path, model: str, language: str | None) -> dict:
         print_timestamps=False,
         redirect_whispercpp_logs_to=None,
     )
-    end_cs = len(audio) * 100 // 16000
+    end_cs = len(audio) * 100 // RATE
     segments = [
         {"start": s.t0 / 100, "end": min(s.t1, end_cs) / 100, "text": s.text.strip()}
         for s in whisper.transcribe(audio)
