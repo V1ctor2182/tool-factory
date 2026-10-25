@@ -1,0 +1,178 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+ATOMS = ROOT.parent.parent / "atoms"
+MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+NAME = MANIFEST["name"]
+HOME = Path(os.environ.get("TOOL_FACTORY_HOME") or "~/.local/share/tool-factory").expanduser().absolute()
+ENV = {**os.environ, "TOOL_FACTORY_CALLER": NAME}
+URL = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+
+
+class AtomFailed(Exception):
+    def __init__(self, error: dict):
+        super().__init__(error["message"])
+        self.error = error
+
+
+def log(message: str) -> None:
+    print(f"{NAME}: {message}", file=sys.stderr, flush=True)
+
+
+def bin_of(name: str) -> str:
+    return str(ATOMS / name / "bin" / name)
+
+
+def atom(name: str, *args: str) -> dict:
+    done = subprocess.run([bin_of(name), *args, "--json"], stdout=subprocess.PIPE, text=True, env=ENV)
+    try:
+        result = json.loads(done.stdout)
+    except ValueError:
+        result = {"error": {"code": "internal", "message": f"{name} exited {done.returncode} with no JSON on stdout"}}
+    if "error" in result:
+        raise AtomFailed(result["error"])
+    return result
+
+
+def transcript_of(url: str) -> dict:
+    log(f"download get {url} --audio")
+    media = atom("download", "get", url, "--audio")
+    log(f"transcribe file {media['path']}")
+    return {**atom("transcribe", "file", media["path"]), "source": url}
+
+
+def save(record: dict) -> Path:
+    stable = json.dumps({k: v for k, v in record.items() if k != "cacheHit"}, sort_keys=True)
+    folder = HOME / NAME / "transcripts"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{hashlib.sha256(stable.encode()).hexdigest()[:32]}.json"
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def digest_of(url: str, as_json: bool) -> dict | int:
+    command = ["make", "--transcript", str(save(transcript_of(url)))]
+    log(f"digest {' '.join(command)}")
+    if as_json:
+        return atom("digest", *command)
+    return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
+
+
+def timed_lines(transcript: dict) -> str:
+    return "\n".join("[%d:%02d] %s" % (*divmod(int(s["start"]), 60), s["text"]) for s in transcript["segments"])
+
+
+def get(args, as_json: bool) -> int:
+    result = digest_of(args.input, as_json)
+    if not as_json:
+        return result
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
+def transcript(args, as_json: bool) -> int:
+    found = transcript_of(args.input)
+    print(json.dumps(found, ensure_ascii=False) if as_json else timed_lines(found))
+    return 0
+
+
+def search(args, as_json: bool) -> int:
+    query = ["search", args.input, "--limit", str(args.limit or 1), *(["--site", args.site] if args.site else [])]
+    log(f"find-url {' '.join(query)}")
+    episodes = atom("find-url", *query)["items"]
+    if not episodes:
+        raise AtomFailed({"code": "no_results", "message": f"No episodes found for {args.input}"})
+    items, failed = [], []
+    for n, episode in enumerate(episodes):
+        if not as_json:
+            print(f"{'\n' if n else ''}# {episode['title'] or episode['url']}\n{episode['url']}\n", flush=True)
+        try:
+            result = digest_of(episode["url"], as_json)
+        except AtomFailed as e:
+            failed.append({"url": episode["url"], "error": e.error})
+            if not as_json:
+                print(f"{NAME}: {e.error['code']}: {e.error['message']}", file=sys.stderr, flush=True)
+            continue
+        if as_json:
+            items.append(result)
+        elif result != 0:
+            failed.append({"url": episode["url"]})
+    if as_json:
+        if not items:
+            raise AtomFailed(failed[0]["error"])
+        print(json.dumps({"items": items, "failed": failed}, ensure_ascii=False))
+    return 0 if len(failed) < len(episodes) else 1
+
+
+RUN = {"get": get, "transcript": transcript, "search": search}
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise AtomFailed({"code": "invalid_args", "message": message})
+
+
+def flag_of(name: str) -> str:
+    return "--" + re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
+
+
+def parser() -> Parser:
+    p = Parser(
+        prog=NAME,
+        description=MANIFEST["description"],
+        epilog=f"Without a verb, {NAME} <episode url> means get and {NAME} <words> means search.",
+    )
+    verbs = p.add_subparsers(dest="verb", required=True, parser_class=Parser)
+    for verb in MANIFEST["verbs"]:
+        v = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
+        schema = verb["input"]
+        for name, prop in schema["properties"].items():
+            if name in schema["required"]:
+                v.add_argument(name, help=prop["description"])
+            else:
+                v.add_argument(flag_of(name), dest=name, type=int if prop["type"] == "integer" else str, help=prop["description"])
+        v.add_argument("--json", action="store_true", help="Print one JSON object.")
+    return p
+
+
+def verb_args(argv: list[str]) -> list[str]:
+    words = [a for a in argv if a != "--json"]
+    if words and words[0] in (*RUN, "-h", "--help"):
+        verb = []
+    else:
+        verb = ["get" if words and URL.match(words[0]) else "search"]
+    return [*verb, *words, *(a for a in argv if a == "--json")]
+
+
+def main() -> int:
+    as_json = "--json" in sys.argv[1:]
+    try:
+        args = parser().parse_args(verb_args(sys.argv[1:]))
+        return RUN[args.verb](args, as_json)
+    except AtomFailed as e:
+        error = e.error
+    except Exception as e:
+        traceback.print_exc()
+        error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+    if as_json:
+        print(json.dumps({"error": error}, ensure_ascii=False))
+    else:
+        print(f"{NAME}: {error['code']}: {error['message']}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
