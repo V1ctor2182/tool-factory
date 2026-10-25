@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "transcript",
+  "$id": "https://victor-tool-factory.local/contracts/transcript.schema.json",
   "title": "Transcript",
   "description": "Timed text of one recording, from captions or from speech recognition.",
   "type": "object",

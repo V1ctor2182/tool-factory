@@ -19,7 +19,7 @@ playlist="https://www.youtube.com/playlist?list=PLstub"
 
 fail() { echo "FAIL youtube routing: $1" >&2; exit 1; }
 matches() {
-	uvx -q check-jsonschema --base-uri "file://$repo/contracts/" --schemafile "$repo/contracts/$1.schema.json" "$2" > /dev/null || fail "$3 does not match the $1 contract"
+	"$repo/contracts/check" "$1" "$2" || fail "$3 does not match the $1 contract"
 }
 
 "$repo/atoms/find-url/bin/find-url" parse "$repo/atoms/find-url/test/fixtures/ytsearch3-me-at-the-zoo.json" --json > "$SEARCH_FIXTURE"

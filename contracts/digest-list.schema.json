@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "digest-list",
+  "$id": "https://victor-tool-factory.local/contracts/digest-list.schema.json",
   "title": "Digest list",
   "description": "Digests of the videos a search, a playlist, or a channel resolves to, in the site's order, and the videos that failed.",
   "type": "object",

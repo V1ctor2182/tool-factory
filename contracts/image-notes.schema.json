@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "image-notes",
+  "$id": "https://victor-tool-factory.local/contracts/image-notes.schema.json",
   "title": "Image notes",
   "description": "A description and the visible text of each image, in the order given.",
   "type": "object",

@@ -13,7 +13,7 @@ mkdir "$out"
 fail() { echo "FAIL find-url: $1" >&2; exit 1; }
 
 "$bin" parse "$fixture" --json > "$out/list.json"
-uvx -q check-jsonschema --schemafile "$repo/contracts/url-list.schema.json" "$out/list.json" > /dev/null \
+"$repo/contracts/check" url-list "$out/list.json" \
 	|| fail "parse output does not match url-list.schema.json"
 first=$(jq -c '.items[0]' "$out/list.json")
 [ "$first" = '{"url":"https://www.youtube.com/watch?v=jNQXAC9IVRw","id":"jNQXAC9IVRw","title":"Me at the zoo","durationSec":19,"channel":"jawed"}' ] \

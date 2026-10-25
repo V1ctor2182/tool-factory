@@ -15,7 +15,7 @@ ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=red:s=160x120:d=2:r=10 -
 	-filter_complex "[0][1]concat=n=2:v=1:a=0" -pix_fmt yuv420p "$out/two-scenes.mp4"
 
 "$bin" get "$out/two-scenes.mp4" --json > "$out/first.json"
-uvx -q check-jsonschema --schemafile "$repo/contracts/frame-set.schema.json" "$out/first.json" > /dev/null \
+"$repo/contracts/check" frame-set "$out/first.json" \
 	|| fail "get output does not match frame-set.schema.json"
 [ "$(jq '[.frames[].time] == [0, 2]' "$out/first.json")" = true ] || fail "frame times are $(jq -c '[.frames[].time]' "$out/first.json")"
 [ "$(jq .cacheHit "$out/first.json")" = false ] || fail "first get reported a cache hit"

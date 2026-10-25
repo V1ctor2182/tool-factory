@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "frame-set",
+  "$id": "https://victor-tool-factory.local/contracts/frame-set.schema.json",
   "title": "Frame set",
   "description": "Key frames of one video file, the first frame plus one at each scene change.",
   "type": "object",

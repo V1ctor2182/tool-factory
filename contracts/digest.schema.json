@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "digest",
+  "$id": "https://victor-tool-factory.local/contracts/digest.schema.json",
   "title": "Digest",
   "description": "Summary, chapters, and key points of one transcript.",
   "type": "object",

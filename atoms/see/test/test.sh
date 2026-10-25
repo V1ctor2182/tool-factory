@@ -22,7 +22,7 @@ for word, background in (("FACTORY", "white"), ("ATOMS", "yellow")):
 PY
 
 TOOL_FACTORY_CALLER=see-test "$bin" describe "$out/factory.png" "$out/atoms.png" --json > "$out/notes.json"
-uvx -q check-jsonschema --schemafile "$repo/contracts/image-notes.schema.json" "$out/notes.json" > /dev/null \
+"$repo/contracts/check" image-notes "$out/notes.json" \
 	|| fail "describe output does not match image-notes.schema.json"
 [ "$(jq -r '.images[0].path' "$out/notes.json")" = "$out/factory.png" ] || fail "the first note is not for factory.png"
 case "$(jq -r '.images[0].text' "$out/notes.json")" in *FACTORY*) ;; *) fail "factory.png notes miss FACTORY: $(jq -c '.images[0]' "$out/notes.json")" ;; esac

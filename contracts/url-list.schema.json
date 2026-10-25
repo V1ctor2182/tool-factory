@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "url-list",
+  "$id": "https://victor-tool-factory.local/contracts/url-list.schema.json",
   "title": "URL list",
   "description": "Video URLs that a search, a playlist, or a channel resolves to, in the site's order.",
   "type": "object",

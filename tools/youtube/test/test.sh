@@ -15,7 +15,7 @@ fail() { echo "FAIL youtube: $1" >&2; exit 1; }
 sh "$test_dir/routing.sh"
 matches_manifest() {
 	contract=$(jq -r --arg v "$1" '.verbs[] | select(.name == $v) | .output' "$test_dir/../manifest.json")
-	uvx -q check-jsonschema --schemafile "$repo/contracts/$contract.schema.json" "$2" > /dev/null \
+	"$repo/contracts/check" "$contract" "$2" \
 		|| fail "$1 output does not match the $contract contract its manifest names"
 }
 

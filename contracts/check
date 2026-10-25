@@ -1,0 +1,22 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["jsonschema>=4.18", "referencing"]
+# ///
+import json
+import sys
+from pathlib import Path
+
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
+
+if len(sys.argv) != 3:
+    sys.exit("usage: contracts/check <contract> <file.json>")
+name, document = sys.argv[1:]
+schemas = {path.name: json.loads(path.read_text(encoding="utf-8")) for path in Path(__file__).parent.glob("*.schema.json")}
+registry = Registry().with_resources((schema["$id"], Resource.from_contents(schema)) for schema in schemas.values())
+schema = schemas[f"{name}.schema.json"]
+errors = sorted(Draft202012Validator(schema, registry=registry).iter_errors(json.loads(Path(document).read_text(encoding="utf-8"))), key=str)
+for error in errors:
+    print(f"{document}: {error.json_path}: {error.message}", file=sys.stderr)
+sys.exit(1 if errors else 0)
