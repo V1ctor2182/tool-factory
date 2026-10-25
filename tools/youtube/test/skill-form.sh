@@ -11,6 +11,6 @@ mkdir -p "$project/.claude/skills"
 ln -s "$tool" "$project/.claude/skills/youtube"
 echo "project: $project" >&2
 cd "$project"
-claude -p "Summarize $url using the youtube skill" --model sonnet --output-format json --no-session-persistence \
+CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p "Summarize $url using the youtube skill" --model sonnet --output-format json --no-session-persistence \
 	--allowedTools "Skill(youtube)" "Bash($project/.claude/skills/youtube/run:*)" "Bash(.claude/skills/youtube/run:*)" "Bash($tool/run:*)" \
 	< /dev/null
