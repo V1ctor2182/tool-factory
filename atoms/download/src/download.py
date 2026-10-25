@@ -69,6 +69,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
         "extract_flat": "in_playlist",
         # Without a JS runtime, YouTube hides most formats and some videos.
         "js_runtimes": {"node": {}},
+        "cachedir": str(paths.atom_dir("download", "yt-dlp")),
         "format": FORMATS[kind],
         "paths": {"home": str(paths.atom_dir("download", "files")), "temp": str(paths.atom_dir("download", "tmp"))},
         "outtmpl": f"%(extractor_key)s-%(id)s-{kind}.%(ext)s",

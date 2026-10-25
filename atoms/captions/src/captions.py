@@ -12,7 +12,7 @@ import yt_dlp
 from yt_dlp.extractor import gen_extractor_classes
 from yt_dlp.networking.exceptions import TransportError
 
-from factory_kit import cli
+from factory_kit import cli, paths
 from factory_kit.cache import Cache
 
 
@@ -91,6 +91,7 @@ def get(url: str, lang: str) -> dict:
         "skip_download": True,
         # Without a JS runtime, YouTube hides most formats and some videos.
         "js_runtimes": {"node": {}},
+        "cachedir": str(paths.atom_dir("captions", "yt-dlp")),
     }
     try:
         with yt_dlp.YoutubeDL(settings) as ydl:
