@@ -77,7 +77,7 @@ case "$name $2" in
 "find-url nothing") echo '{"source":"nothing","items":[],"cacheHit":false}' ;;
 "find-url "*) echo '{"source":"words","items":[{"url":"https://example.com/ep1","id":"ep1","title":"One","durationSec":60},{"url":"https://example.com/broken","id":"broken","title":"Broken","durationSec":60}],"cacheHit":false}' ;;
 "download https://example.com/broken") echo '{"error":{"code":"unavailable","message":"stub refused"}}'; exit 1 ;;
-"download "*) jq -cn --arg s "$2" --arg p "$REPO/atoms/transcribe/test/fixtures/hello.aiff" '{source: $s, path: $p, kind: "audio", extractor: "stub", id: "ep1", title: "One", durationSec: 2, bytes: 1, cacheHit: false}' ;;
+"download "*) jq -cn --arg s "$2" --arg p "$REPO/atoms/transcribe/test/fixtures/hello.aiff" '{source: $s, path: $p, kind: "audio", extractor: "stub", id: "ep1", title: "One", durationSec: 2, bytes: 1, cacheHit: false}'; exit "${DOWNLOAD_EXIT:-0}" ;;
 *) exec "$REPO/atoms/$name/bin/$name" "$@" ;;
 esac
 STUB
@@ -98,5 +98,10 @@ grep -qx 'find-url search tool factory --limit 2 --site scsearch --json' "$STUB_
 
 if "$fake/tools/podcast/run" search nothing --json > "$out/none.json" 2> "$out/none.err"; then fail "a search with no results exited 0"; fi
 [ "$(jq -r .error.code "$out/none.json")" = no_results ] || fail "a search with no results did not report no_results"
+
+if DOWNLOAD_EXIT=1 "$fake/tools/podcast/run" transcript https://example.com/ep1 --json > "$out/exit1.json" 2> /dev/null; then fail "a download that printed JSON and exited 1 exited 0"; fi
+[ "$(jq -r .error.message "$out/exit1.json")" = "download exited 1 without an error object on stdout" ] \
+	|| fail "a download that printed JSON and exited 1 did not report it as internal: $(cat "$out/exit1.json")"
+[ "$(jq -r .error.code "$out/exit1.json")" = internal ] || fail "a download that printed JSON and exited 1 did not report internal"
 
 echo "PASS podcast"

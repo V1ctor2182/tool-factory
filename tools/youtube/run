@@ -44,9 +44,12 @@ def atom(name: str, *args: str) -> dict:
     try:
         result = json.loads(done.stdout)
     except ValueError:
-        result = {"error": {"code": "internal", "message": f"{name} exited {done.returncode} with no JSON on stdout"}}
-    if "error" in result:
+        result = None
+    if isinstance(result, dict) and isinstance(result.get("error"), dict):
         raise AtomFailed(result["error"])
+    if done.returncode or not isinstance(result, dict):
+        wanted = "an error" if done.returncode else "a result"
+        raise AtomFailed({"code": "internal", "message": f"{name} exited {done.returncode} without {wanted} object on stdout"})
     return result
 
 

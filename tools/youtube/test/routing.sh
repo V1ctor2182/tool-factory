@@ -43,7 +43,8 @@ case "$name $1" in
 "captions get")
 	case "$2" in *broken*) fail unavailable ;; esac
 	case "$2" in http://*|https://*) ;; *) fail invalid_source ;; esac
-	jq -cn --arg s "$2" '{source: $s, method: "captions", language: "en", model: null, text: "Elephants.", segments: [{start: 0, end: 2, text: "Elephants."}], cacheHit: false}' ;;
+	jq -cn --arg s "$2" '{source: $s, method: "captions", language: "en", model: null, text: "Elephants.", segments: [{start: 0, end: 2, text: "Elephants."}], cacheHit: false}'
+	exit "${CAPTIONS_EXIT:-0}" ;;
 "download get") jq -cn --arg s "$2" '{source: $s, path: "/stub/video.mp4", kind: "video", extractor: "stub", id: "stub", title: null, durationSec: 19, bytes: 1, cacheHit: false}' ;;
 "frames get") echo '{"source":"/stub/video.mp4","threshold":0.3,"frames":[{"time":0,"path":"/stub/f0.jpg"},{"time":9,"path":"/stub/f9.jpg"}],"cacheHit":false}' ;;
 "see describe") echo '{"model":"haiku","images":[{"path":"/stub/f0.jpg","description":"A man by elephants.","text":""},{"path":"/stub/f9.jpg","description":"Elephants.","text":"ZOO"}],"costUsd":0,"cacheHit":false}' ;;
@@ -123,5 +124,10 @@ if call "$zoo" --no-digest --visual --json; then fail "--no-digest --visual exit
 
 call "me at the zoo" --limit 2 || fail "text search failed"
 [ "$(grep -c '^# ' "$out/stdout")" = 2 ] || fail "text search did not print a header per video"
+
+if CAPTIONS_EXIT=1 call transcript "$zoo" --json; then fail "captions that printed JSON and exited 1 exited 0"; fi
+[ "$(jq -r .error.message "$out/stdout")" = "captions exited 1 without an error object on stdout" ] \
+	|| fail "captions that printed JSON and exited 1 did not report it as internal: $(cat "$out/stdout")"
+[ "$(jq -r .error.code "$out/stdout")" = internal ] || fail "captions that printed JSON and exited 1 did not report internal"
 
 echo "PASS youtube routing"

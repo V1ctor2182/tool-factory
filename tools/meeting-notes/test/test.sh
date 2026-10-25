@@ -51,5 +51,33 @@ touch "$TOOL_FACTORY_HOME/meeting-notes"
 if PATH="$out/stub:$PATH" "$run" get "$hello" --json > "$out/blocked.json" 2> "$out/blocked.err"; then fail "a data home where meeting-notes is a file exited 0"; fi
 [ "$(jq -r .error.code "$out/blocked.json")" = internal ] \
 	|| fail "a data home where meeting-notes is a file did not report internal: $(cat "$out/blocked.json")"
+rm "$TOOL_FACTORY_HOME/meeting-notes"
+
+
+fake="$TOOL_FACTORY_HOME/repo"
+mkdir -p "$fake/tools/meeting-notes"
+cp "$run" "$manifest" "$fake/tools/meeting-notes/"
+echo '{"source":"/x.wav","language":"en","text":"stub","segments":[{"start":0,"end":1,"text":"stub"}],"cacheHit":false}' > "$out/stub-transcript.json"
+STUB_TRANSCRIPT="$out/stub-transcript.json"
+export STUB_TRANSCRIPT
+cat > "$out/atom" <<'STUB'
+#!/bin/sh
+case "$(basename "$0")" in
+transcribe) if [ -n "${TRANSCRIBE_OUT:-}" ]; then echo "$TRANSCRIBE_OUT"; else cat "$STUB_TRANSCRIPT"; fi; exit "${TRANSCRIBE_EXIT:-0}" ;;
+digest) echo summary; exit "${DIGEST_EXIT:-0}" ;;
+esac
+STUB
+for name in transcribe digest; do
+	mkdir -p "$fake/atoms/$name/bin"
+	cp "$out/atom" "$fake/atoms/$name/bin/$name"
+	chmod +x "$fake/atoms/$name/bin/$name"
+done
+"$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/stubbed.json" 2> /dev/null || fail "the stubbed transcript failed: $(cat "$out/stubbed.json")"
+if TRANSCRIBE_EXIT=1 "$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/exit1.json" 2> /dev/null; then fail "an atom that printed JSON and exited 1 exited 0"; fi
+[ "$(jq -r .error.code "$out/exit1.json")" = internal ] || fail "an atom that printed JSON and exited 1 did not report internal: $(cat "$out/exit1.json")"
+jq -r .error.message "$out/exit1.json" | grep -q "transcribe exited 1" || fail "the internal error does not name the atom and its exit code: $(cat "$out/exit1.json")"
+if TRANSCRIBE_OUT=null "$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/null.json" 2> /dev/null; then fail "an atom that printed JSON null exited 0"; fi
+[ "$(jq -r .error.message "$out/null.json")" = "transcribe exited 0 without a result object on stdout" ] \
+	|| fail "an atom that printed JSON null did not report it as internal: $(cat "$out/null.json")"
 
 echo "PASS meeting-notes"
