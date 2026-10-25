@@ -19,12 +19,16 @@ def _audio(file: Path):
     chunks = []
     try:
         with av.open(str(file)) as container:
-            for frame in container.decode(container.streams.audio[0]):
+            stream = container.streams.audio[0]
+            samples = int(stream.duration * stream.time_base * 16000) if stream.duration else None
+            for frame in container.decode(stream):
                 chunks += [f.to_ndarray().reshape(-1) for f in resampler.resample(frame)]
         chunks += [f.to_ndarray().reshape(-1) for f in resampler.resample(None)]
     except (av.error.InvalidDataError, IndexError):
         raise cli.AtomError("invalid_source", f"Not an audio or video file: {file}")
-    return np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+    audio = np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+    # PyAV 18 keeps the AAC encoder's end padding, so the stream's own duration is the media length.
+    return audio[:samples]
 
 
 def _weights(model: str) -> str:
@@ -56,8 +60,11 @@ def _whisper(file: Path, model: str, language: str | None) -> dict:
         print_timestamps=False,
         redirect_whispercpp_logs_to=None,
     )
+    end_cs = len(audio) * 100 // 16000
     segments = [
-        {"start": s.t0 / 100, "end": s.t1 / 100, "text": s.text.strip()} for s in whisper.transcribe(audio) if s.text.strip()
+        {"start": s.t0 / 100, "end": min(s.t1, end_cs) / 100, "text": s.text.strip()}
+        for s in whisper.transcribe(audio)
+        if s.text.strip() and s.t0 < end_cs
     ]
     detected = _pywhispercpp.whisper_lang_str(_pywhispercpp.whisper_full_lang_id(whisper._ctx))
     return {
