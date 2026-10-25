@@ -1,14 +1,48 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["factory-kit[ytdlp]"]
+# dependencies = ["factory-kit", "yt-dlp[default]"]
 # [tool.uv.sources]
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 
-from factory_kit import cli, ytdlp
+import yt_dlp
+from yt_dlp.extractor import gen_extractor_classes
+from yt_dlp.networking.exceptions import TransportError
+
+from factory_kit import cli
 from factory_kit.cache import Cache
+
+
+def _offline_key(url: str) -> str | None:
+    for ie in gen_extractor_classes():
+        if ie.suitable(url):
+            video_id = ie.get_temp_id(url)
+            return f"{ie.ie_key()}-{video_id}" if video_id else None
+    return None
+
+
+def _next_cause(e: BaseException) -> BaseException | None:
+    if cause := getattr(e, "cause", None):
+        return cause
+    if exc_info := getattr(e, "exc_info", None):
+        return exc_info[1]
+    return e.__context__
+
+
+def _atom_error(e: Exception) -> cli.AtomError:
+    seen, cause = set(), e
+    while cause is not None and id(cause) not in seen:
+        if isinstance(cause, TransportError):
+            return cli.AtomError("network_error", str(cause))
+        seen.add(id(cause))
+        cause = _next_cause(cause)
+    message = str(e).removeprefix("ERROR: ")
+    if "Unsupported URL" in message:
+        return cli.AtomError("invalid_source", message)
+    return cli.AtomError("unavailable", message)
 
 
 def _json3_url(info: dict, lang: str) -> str | None:
@@ -38,13 +72,42 @@ def _transcript(source: str, lang: str, json3: dict) -> dict:
 
 
 def get(url: str, lang: str) -> dict:
-    def fetch(ydl, info):
-        track = _json3_url(info, lang)
-        if track is None:
-            raise cli.AtomError("no_captions", f"No {lang} captions for {url}")
-        return _transcript(url, lang, json.loads(ydl.urlopen(track).read()))
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise cli.AtomError("invalid_source", f"Not an http or https URL: {url}")
+    cache = Cache("captions")
 
-    return ytdlp.cached(Cache("captions"), url, lang, fetch, select_formats=False, skip_download=True)
+    def hit(key: str) -> dict | None:
+        value = cache.get(f"{key}-{lang}")
+        return {**value, "source": url} if value else None
+
+    if (key := _offline_key(url)) and (value := hit(key)):
+        return value
+    settings = {
+        "quiet": True,
+        "noprogress": True,
+        "noplaylist": True,
+        "extract_flat": "in_playlist",
+        "skip_download": True,
+        # Without a JS runtime, YouTube hides most formats and some videos.
+        "js_runtimes": {"node": {}},
+    }
+    try:
+        with yt_dlp.YoutubeDL(settings) as ydl:
+            info = ydl.extract_info(url, download=False, process=False)
+            if info.get("_type") == "playlist":
+                raise cli.AtomError("invalid_source", f"A playlist, not one video: {url}")
+            key = f"{info['extractor_key']}-{info['id']}"
+            if value := hit(key):
+                return value
+            track = _json3_url(info, lang)
+            if track is None:
+                raise cli.AtomError("no_captions", f"No {lang} captions for {url}")
+            transcript = _transcript(url, lang, json.loads(ydl.urlopen(track).read()))
+    except yt_dlp.utils.YoutubeDLError as e:
+        raise _atom_error(e) from None
+    cache.put(f"{key}-{lang}", transcript)
+    return transcript
 
 
 def parse(path: str, lang: str) -> dict:
