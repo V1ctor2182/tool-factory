@@ -368,9 +368,9 @@ Usable first, machinery second. Each step ends in a check that runs before the n
 
 ## Decisions still open
 
-- **Whisper backend.** PR 1 decides with measured numbers.
+- **Whisper backend.** PR 1 decides with measured numbers. faster-whisper 1.2.1 needs PyAV pinned below 19. With that pin it transcribed a test clip with no system ffmpeg, checked 2026-10-25.
 - **Default model per model atom.** `digest` starts on `sonnet` and `see` on `haiku`. Both are guesses to revisit once the run log shows cost and quality.
 - **Daily budget.** Pick a number before PR 2 merges. Until then the adapter refuses model calls past $3 a day. That figure is a placeholder.
 - **yt-dlp goes stale.** It stays unpinned, and `doctor` reports its age.
-- **YouTube may refuse this network.** PR 1 shows whether it does.
+- **YouTube may refuse this network.** Captions downloaded fine on 2026-10-25. PR 1 shows whether audio downloads work too.
 - **The data home grows.** Add a prune command when it first matters.
