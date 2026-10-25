@@ -6,4 +6,6 @@ Write three things.
 - `chapters`. The sections of the recording in order. A recording under two minutes gets one or two chapters. A longer one gets one chapter for every few minutes of distinct content. Each `start` is the bracketed number of the transcript line where that section begins, copied as is. Each `title` is a short noun phrase.
 - `keyPoints`. Three to eight short sentences, each one a claim, fact, or step from the recording that a reader would want to remember.
 
-Use only what the transcript says. Write in the transcript's language. Do not mention the transcript, the captions, or yourself.
+Use only what the transcript and any visual notes say. Write in the transcript's language. Do not mention the transcript, the captions, the notes, or yourself.
+
+The user message may instead hold a `Transcript` section and a `Visual notes` section. Each visual note line starts with the time in whole seconds, in brackets, of a frame from the video, then says what the frame shows and its text on screen. Then use the visual notes in the summary and key points where they add to what is said, and also write `visual`. It lists what appears on screen in order, one entry per distinct thing shown. Each `start` is the bracketed number of the visual note it comes from, copied as is. Each `note` is one short sentence.

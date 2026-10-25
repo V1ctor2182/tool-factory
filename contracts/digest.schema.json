@@ -27,6 +27,20 @@
       "description": "The claims, facts, or steps worth remembering.",
       "items": { "type": "string", "minLength": 1 }
     },
+    "visual": {
+      "type": "array",
+      "description": "What appears on screen, in order. Only a digest made with image notes has it.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "start": { "type": "number", "minimum": 0, "description": "Time in seconds, taken from an image note." },
+          "note": { "type": "string", "minLength": 1 }
+        },
+        "required": ["start", "note"],
+        "additionalProperties": false
+      }
+    },
     "costUsd": { "type": "number", "minimum": 0, "description": "Model spend of this call. Zero on a cache hit." },
     "cacheHit": { "type": "boolean" }
   },

@@ -1,0 +1,151 @@
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
+from factory_kit import model
+from factory_kit.cli import AtomError
+
+SCHEMA = {"type": "object", "properties": {"answer": {"type": "string"}}, "required": ["answer"]}
+
+STUB = """#!/bin/sh
+printf '%s\\n' "$@" > "{calls}/argv"
+cat > "{calls}/stdin"
+printf '%s\\n' '{{"type":"system"}}' '{reply}'
+"""
+
+
+@pytest.fixture
+def atom(tmp_path, monkeypatch):
+    home, calls, bin_dir, root = (tmp_path / name for name in ("home", "calls", "bin", "atom"))
+    for folder in (home, calls, bin_dir, root):
+        folder.mkdir()
+    monkeypatch.setenv("TOOL_FACTORY_HOME", str(home))
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.delenv("TOOL_FACTORY_BUDGET_USD", raising=False)
+    monkeypatch.delenv("TOOL_FACTORY_CALL_BUDGET_USD", raising=False)
+    (root / "manifest.json").write_text(json.dumps({"name": "stub", "model": {"default": "haiku", "prompt": "p.md"}}))
+    (root / "p.md").write_text("Answer.")
+
+    def backend(reply: dict) -> None:
+        claude = bin_dir / "claude"
+        claude.write_text(STUB.format(calls=calls, reply=json.dumps(reply)))
+        claude.chmod(0o755)
+
+    backend({"type": "result", "subtype": "success", "total_cost_usd": 0.02, "structured_output": {"answer": "yes"}})
+    return model.load(root), home, calls, backend
+
+
+def spend(home: Path, usd: float) -> None:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with open(home / "runs.jsonl", "a") as f:
+        f.write(json.dumps({"name": "other", "startedAt": now, "costUsd": usd}) + "\n")
+
+
+def test_returns_structured_output_and_cost(atom):
+    spec, home, calls, _ = atom
+    spend(home, 1.0)
+    assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.02)
+    argv = (calls / "argv").read_text().splitlines()
+    assert argv[argv.index("--model") + 1] == "haiku"
+    assert argv[argv.index("--max-budget-usd") + 1] == "0.250000"
+
+
+def cap_passed(calls: Path) -> str:
+    argv = (calls / "argv").read_text().splitlines()
+    return argv[argv.index("--max-budget-usd") + 1]
+
+
+@pytest.mark.parametrize(
+    ("budget", "ceiling", "cap"), [("3", None, "0.250000"), ("1.1", None, "0.100000"), ("3", "0.05", "0.050000")]
+)
+def test_caps_each_call_at_the_ceiling_or_the_rest_of_the_budget(atom, monkeypatch, budget, ceiling, cap):
+    spec, home, calls, _ = atom
+    spend(home, 1.0)
+    monkeypatch.setenv("TOOL_FACTORY_BUDGET_USD", budget)
+    if ceiling:
+        monkeypatch.setenv("TOOL_FACTORY_CALL_BUDGET_USD", ceiling)
+    model.ask(spec, SCHEMA, ["question"])
+    assert cap_passed(calls) == cap
+
+
+def test_refuses_past_budget_without_calling_the_backend(atom, monkeypatch):
+    spec, home, calls, _ = atom
+    spend(home, 0.3)
+    spend(home, 0.3)
+    monkeypatch.setenv("TOOL_FACTORY_BUDGET_USD", "0.5")
+    with pytest.raises(AtomError) as refused:
+        model.ask(spec, SCHEMA, ["question"])
+    assert refused.value.code == "budget_exceeded"
+    assert refused.value.cost_usd == 0
+    assert not (calls / "argv").exists()
+
+
+def test_ignores_spend_from_earlier_days(atom, monkeypatch):
+    spec, home, _, _ = atom
+    with open(home / "runs.jsonl", "a") as f:
+        f.write(json.dumps({"name": "other", "startedAt": "2000-01-01T00:00:00Z", "costUsd": 9.0}) + "\n")
+    monkeypatch.setenv("TOOL_FACTORY_BUDGET_USD", "0.5")
+    assert model.ask(spec, SCHEMA, ["question"])[0] == {"answer": "yes"}
+
+
+def test_maps_the_backend_budget_stop_to_budget_exceeded_with_its_cost(atom):
+    spec, _, _, backend = atom
+    backend({"type": "result", "subtype": "error_max_budget_usd", "is_error": True, "total_cost_usd": 0.4})
+    with pytest.raises(AtomError) as refused:
+        model.ask(spec, SCHEMA, ["question"])
+    assert (refused.value.code, refused.value.cost_usd) == ("budget_exceeded", 0.4)
+
+
+@pytest.mark.parametrize("reply", [{"type": "assistant"}, {"type": "result", "is_error": True, "result": "boom"}])
+def test_charges_the_call_cap_when_the_cost_is_unknown(atom, reply):
+    spec, _, _, backend = atom
+    backend(reply)
+    with pytest.raises(AtomError) as failed:
+        model.ask(spec, SCHEMA, ["question"])
+    assert (failed.value.code, failed.value.cost_usd) == ("model_error", 0.25)
+
+
+def test_charges_the_call_cap_for_a_negative_cost(atom):
+    spec, _, _, backend = atom
+    backend({"type": "result", "subtype": "success", "total_cost_usd": -5, "structured_output": {"answer": "yes"}})
+    assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.25)
+
+
+@pytest.mark.parametrize(("budget", "ceiling"), [("3", "0"), ("3", "0.0000004"), ("0.0000004", "0.25")])
+def test_refuses_a_cap_that_rounds_to_zero_without_calling_the_backend(atom, monkeypatch, budget, ceiling):
+    spec, _, calls, _ = atom
+    monkeypatch.setenv("TOOL_FACTORY_BUDGET_USD", budget)
+    monkeypatch.setenv("TOOL_FACTORY_CALL_BUDGET_USD", ceiling)
+    with pytest.raises(AtomError) as refused:
+        model.ask(spec, SCHEMA, ["question"])
+    assert refused.value.code == "budget_exceeded"
+    assert not (calls / "argv").exists()
+
+
+@pytest.mark.parametrize("name", ["TOOL_FACTORY_BUDGET_USD", "TOOL_FACTORY_CALL_BUDGET_USD"])
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "-1", "three"])
+def test_rejects_an_amount_that_is_not_finite_and_at_least_zero(atom, monkeypatch, name, raw):
+    spec, _, calls, _ = atom
+    monkeypatch.setenv(name, raw)
+    with pytest.raises(AtomError) as refused:
+        model.ask(spec, SCHEMA, ["question"])
+    assert refused.value.code == "invalid_args"
+    assert not (calls / "argv").exists()
+
+
+def test_sends_images_as_base64_blocks(atom, tmp_path):
+    spec, _, calls, _ = atom
+    image = tmp_path / "frame.png"
+    image.write_bytes(b"\x89PNG fake")
+    model.ask(spec, SCHEMA, ["Image 1:", image])
+    content = json.loads((calls / "stdin").read_text())["message"]["content"]
+    assert content[0] == {"type": "text", "text": "Image 1:"}
+    assert content[1]["source"] == {"type": "base64", "media_type": "image/png", "data": "iVBORyBmYWtl"}
+
+
+def test_fingerprint_changes_with_the_schema(atom):
+    spec = atom[0]
+    assert model.fingerprint(spec, SCHEMA) != model.fingerprint(spec, {**SCHEMA, "required": []})
+    assert model.fingerprint(spec, SCHEMA).startswith("haiku-")
