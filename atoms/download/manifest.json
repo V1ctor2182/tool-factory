@@ -23,6 +23,6 @@
       "output": "media"
     }
   ],
-  "needs": { "bin": ["node"], "secrets": [], "paid": [] },
+  "needs": { "bin": ["node>=22"], "secrets": [], "paid": [] },
   "adapters": ["cli", "skill", "mcp"]
 }

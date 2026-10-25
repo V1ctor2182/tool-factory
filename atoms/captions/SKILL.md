@@ -15,6 +15,8 @@ bin/captions parse saved.en.json3 --json
 
 The result is a transcript, as `contracts/transcript.schema.json` defines it, with `method` set to `captions`. Uploaded captions win over automatic ones.
 
+It needs node 22 or newer as the first `node` on `PATH`. yt-dlp runs the site's player code in node. With an older node it only logs a warning, and some videos or formats go missing.
+
 On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 
 | Code | Meaning | What to do |
