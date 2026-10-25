@@ -79,6 +79,7 @@ function ownProblems(entry) {
 }
 
 export function doctor(entries) {
+  probed.clear();
   const own = new Map([...entries.values()].map((entry) => [entry.name, ownProblems(entry)]));
   const rows = [...entries.values()].map((entry) => {
     const problems = own.get(entry.name);

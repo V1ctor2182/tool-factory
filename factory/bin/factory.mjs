@@ -4,18 +4,24 @@ import { existsSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
+import { dashboard } from '../dashboard/server.mjs';
 import { doctor } from '../lib/doctor.mjs';
-import { ledger, link, SOCKETS, unlink } from '../lib/links.mjs';
+import { link, SOCKETS, unlink } from '../lib/links.mjs';
 import { serve } from '../lib/mcp.mjs';
 import { load } from '../lib/registry.mjs';
 import { check } from '../lib/rules.mjs';
-import { invoke, spend, today } from '../lib/runs.mjs';
+import { invoke } from '../lib/runs.mjs';
+import { statusModel } from '../lib/status.mjs';
 
 class UsageError extends Error {}
 
 function table(rows) {
   const widths = rows[0].map((_, i) => Math.max(...rows.map((r) => String(r[i]).length)));
   return rows.map((r) => r.map((c, i) => String(c).padEnd(widths[i])).join('  ').trimEnd()).join('\n');
+}
+
+function seconds(ms) {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
 
 function ordered(registry) {
@@ -83,21 +89,31 @@ const COMMANDS = {
     return reportProblems(registry);
   },
 
-  status(registry) {
-    let runs;
-    try {
-      runs = today();
-    } catch (e) {
-      console.error(`factory: ${e.message}`);
-      return 1;
+  status(registry, args) {
+    const { values } = options(args, { json: { type: 'boolean' } });
+    const model = statusModel(registry);
+    if (values.json) {
+      console.log(JSON.stringify(model, null, 2));
+      return model.problems.length ? 1 : 0;
     }
-    const links = ledger();
-    const rows = ordered(registry).map((e) => {
-      const mine = runs.filter((r) => r.name === e.name);
-      return [e.name, mine.length, mine.filter((r) => !r.ok).length, `$${spend(mine).toFixed(4)}`, mine.at(-1)?.startedAt ?? '', links.filter((l) => l.name === e.name).map((l) => l.socket).join(' ')];
-    });
-    console.log(table([['name', 'runs today', 'failed', 'spent', 'last run', 'links'], ...rows]));
-    return reportProblems(registry);
+    const rows = [...model.tools, ...model.atoms].map((r) => [
+      r.name,
+      r.type,
+      r.kind,
+      r.health,
+      r.runs,
+      r.failed,
+      r.medianMs === null ? '' : seconds(r.medianMs),
+      `$${r.spentUsd.toFixed(4)}`,
+      (r.uses ?? r.usedBy).join(' '),
+      r.links.map((l) => `${l.socket}:${l.where}`).join(' '),
+    ]);
+    console.log(table([['name', 'type', 'kind', 'health', 'runs 7d', 'failed', 'median', 'spent 7d', 'uses or used by', 'links'], ...rows]));
+    const { capUsd, spentTodayUsd } = model.budget;
+    console.log(`\nbudget: ${spentTodayUsd === null ? 'unknown' : `$${spentTodayUsd.toFixed(4)}`} spent today of ${capUsd === null ? 'an unreadable cap' : `$${capUsd.toFixed(2)}`}`);
+    for (const t of model.external) console.log(`external: ${t.name} at ${t.where}`);
+    for (const { path, message } of model.problems) console.error(`problem ${path}: ${message}`);
+    return model.problems.length ? 1 : 0;
   },
 
   doctor(registry) {
@@ -160,6 +176,19 @@ const COMMANDS = {
     return 0;
   },
 
+  async dashboard(registry, args) {
+    const { values } = options(args, { port: { type: 'string', default: '4100' } });
+    const port = Number(values.port);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${values.port} is not a port number.`);
+    try {
+      console.log(`dashboard on ${await dashboard(registry.root, port)}, read-only. Stop it with ctrl-c.`);
+      return 0;
+    } catch (e) {
+      console.error(`factory: ${e.message}`);
+      return 1;
+    }
+  },
+
   async mcp(registry, args) {
     const entries = pick(registry, args);
     const closed = entries.filter((e) => !e.manifest.adapters.includes('mcp') || !e.entry);
@@ -171,13 +200,14 @@ const COMMANDS = {
 
 const USAGE = `usage: factory <command>
   list                      every tool and atom with its type and kind
-  status                    runs, failures, spend, and links today
+  status [--json]           health, runs, failures, spend, and links over 7 days
   doctor                    binaries, secrets, and budget
   test [names...] [--rules] the rules, then factory/test and every test/test.sh
   run <name> [args...]      run a CLI and log the call
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]
-  mcp <names...>            stdio MCP server with one tool per verb`;
+  mcp <names...>            stdio MCP server with one tool per verb
+  dashboard [--port 4100]   the status page on 127.0.0.1, read-only`;
 
 const [command, ...args] = process.argv.slice(2);
 try {

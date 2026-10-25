@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tool factory</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --sunken: #f0f2f5;
+  --border: #dde1e7;
+  --text: #16191d;
+  --muted: #5b6470;
+  --ok: #1f7a46;
+  --ok-soft: #e3f4ea;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d9;
+  --red: #b42318;
+  --red-soft: #fde7e5;
+  --bar: #8c96a3;
+  --meter: #2f6fdb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317;
+    --surface: #1a1d23;
+    --sunken: #22262d;
+    --border: #2e333b;
+    --text: #e8eaed;
+    --muted: #a2aab5;
+    --ok: #5fd08f;
+    --ok-soft: #173325;
+    --warn: #f2bf5e;
+    --warn-soft: #3a2d12;
+    --red: #ff8a80;
+    --red-soft: #3d1a18;
+    --bar: #6c7684;
+    --meter: #7aa7ff;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main { max-width: 980px; margin: 0 auto; padding: 28px 16px 48px; }
+h1 { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 32px 0 12px; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 20px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .label { font-size: 13px; color: var(--muted); }
+.tile .value { font-size: 22px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.meter { height: 6px; border-radius: 3px; background: var(--sunken); margin-top: 10px; overflow: hidden; }
+.meter > div { height: 100%; background: var(--meter); }
+.meter.over > div { background: var(--red); }
+.problems { margin-top: 20px; border: 1px solid var(--red); background: var(--red-soft); border-radius: 12px; padding: 12px 16px; }
+.problems strong { color: var(--red); }
+.problems ul { margin: 6px 0 0; padding-left: 18px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.name { font-size: 18px; font-weight: 650; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); border: 1px solid var(--border); }
+.health { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.health::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.health.ok { color: var(--ok); background: var(--ok-soft); }
+.health.warn { color: var(--warn); background: var(--warn-soft); }
+.health.red { color: var(--red); background: var(--red-soft); }
+.desc { margin-top: 6px; color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 18px; margin-top: 12px; font-size: 13px; }
+.stats b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; }
+.bars span { width: 7px; min-height: 2px; border-radius: 2px; background: var(--bar); display: flex; flex-direction: column-reverse; overflow: hidden; }
+.bars span i { display: block; background: var(--red); }
+.notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+.notes.red { color: var(--red); }
+.notes.warn { color: var(--warn); }
+.links { margin-top: 10px; font-size: 13px; }
+.links ul { margin: 2px 0 0; padding-left: 18px; }
+.atoms { margin-top: 14px; border-top: 1px solid var(--border); }
+details { border-bottom: 1px solid var(--border); }
+details:last-child { border-bottom: 0; }
+summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 210px 1fr auto; gap: 4px 14px; align-items: center; padding: 10px 2px; }
+summary::-webkit-details-marker { display: none; }
+summary:focus-visible { outline: 2px solid var(--meter); outline-offset: 2px; border-radius: 6px; }
+summary .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+summary .who::before { content: "\25B8"; color: var(--muted); font-size: 11px; width: 10px; }
+details[open] summary .who::before { content: "\25BE"; }
+.atom-name { font-weight: 600; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.red { background: var(--red); }
+.usedby { font-size: 13px; color: var(--muted); }
+.usedby b { color: var(--text); font-weight: 500; }
+.count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.inline-notes { grid-column: 1 / -1; margin: 0; padding-left: 28px; font-size: 13px; }
+.inline-notes.red { color: var(--red); }
+.inline-notes.warn { color: var(--warn); }
+.more { padding: 0 2px 12px 20px; font-size: 13px; }
+.more dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 8px 0 0; }
+.more dt { color: var(--muted); }
+.more dd { margin: 0; overflow-wrap: anywhere; }
+.external .card { margin-bottom: 10px; }
+footer { margin-top: 36px; font-size: 13px; color: var(--muted); }
+@media (max-width: 600px) {
+  main { padding-top: 20px; }
+  summary { grid-template-columns: 1fr auto; }
+  summary .usedby { grid-column: 1 / -1; order: 3; padding-left: 18px; }
+  .inline-notes { order: 4; padding-left: 18px; }
+  .tile .value { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script id="status" type="application/json"></script>
+<script>
+const model = JSON.parse(document.getElementById('status').textContent || 'null');
+const app = document.getElementById('app');
+const HEALTH = { ok: 'Healthy', warn: 'Warning', red: 'Broken' };
+const SOCKET = { into: 'Project', global: 'Global skill', bin: 'On PATH' };
+
+function h(tag, props, ...children) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(props ?? {})) {
+    if (key === 'class') el.className = value;
+    else el.setAttribute(key, value);
+  }
+  for (const child of children.flat(Infinity)) {
+    if (child === null || child === undefined || child === false) continue;
+    el.append(child instanceof Node ? child : String(child));
+  }
+  return el;
+}
+
+const usd = (n) => (n === null ? 'unknown' : `$${n.toFixed(4)}`);
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const seconds = (ms) => (ms === null ? 'no runs' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
+
+function ago(iso) {
+  if (!iso) return 'never';
+  const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  if (min < 48 * 60) return `${Math.round(min / 60)} h ago`;
+  return `${Math.round(min / 1440)} days ago`;
+}
+
+function healthPill(level) {
+  return h('span', { class: `health ${level}` }, HEALTH[level]);
+}
+
+function bars(perDay) {
+  const top = Math.max(1, ...perDay.map((d) => d.runs));
+  return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs per day: ${perDay.map((d) => d.runs).join(', ')}` },
+    perDay.map((d) => h('span', { title: `${d.day}: ${plural(d.runs, 'run')}, ${d.failed} failed`, style: `height:${Math.max(2, (d.runs / top) * 22)}px` },
+      d.failed ? h('i', { style: `height:${(d.failed / d.runs) * 100}%` }) : null)));
+}
+
+function stats(row) {
+  return h('div', { class: 'stats' },
+    h('span', null, h('b', null, row.runs), ' runs in 7 days'),
+    h('span', null, h('b', null, row.failed), ' failed'),
+    h('span', null, 'median ', h('b', null, seconds(row.medianMs))),
+    h('span', null, h('b', null, usd(row.spentUsd)), ' spent'),
+    h('span', null, 'last run ', h('b', null, ago(row.lastRunAt))),
+    row.type === 'tool' ? bars(row.perDay) : null);
+}
+
+function notes(row, cls) {
+  if (row.health === 'ok' || !row.notes.length) return null;
+  return h('ul', { class: `${cls} ${row.health}` }, row.notes.map((n) => h('li', null, n)));
+}
+
+function links(row) {
+  if (!row.links.length) return h('div', { class: 'links muted' }, 'Not linked anywhere.');
+  return h('div', { class: 'links' }, h('span', { class: 'muted' }, 'Linked'),
+    h('ul', null, row.links.map((l) => h('li', null, `${SOCKET[l.socket]} `, h('span', { class: 'mono' }, l.where)))));
+}
+
+function atomRow(atom) {
+  return h('details', { 'data-atom': atom.name },
+    h('summary', null,
+      h('span', { class: 'who' }, h('span', { class: `dot ${atom.health}`, title: HEALTH[atom.health] }), h('span', { class: 'atom-name' }, atom.name), h('span', { class: 'tag' }, atom.kind)),
+      h('span', { class: 'usedby' }, atom.usedBy.length ? ['Used by ', atom.usedBy.map((t, i) => [i ? ', ' : '', h('b', null, t)])] : 'Used by no tool'),
+      h('span', { class: 'count' }, plural(atom.runs, 'run'), atom.failed ? `, ${atom.failed} failed` : ''),
+      notes(atom, 'inline-notes')),
+    h('div', { class: 'more' },
+      h('p', { class: 'muted' }, atom.description),
+      h('dl', null,
+        h('dt', null, 'Health'), h('dd', null, HEALTH[atom.health]),
+        h('dt', null, 'Status'), h('dd', null, atom.status),
+        h('dt', null, 'Median'), h('dd', null, seconds(atom.medianMs)),
+        h('dt', null, 'Spent, 7 days'), h('dd', null, usd(atom.spentUsd)),
+        h('dt', null, 'Last run'), h('dd', null, ago(atom.lastRunAt)),
+        h('dt', null, 'Linked'), h('dd', null, atom.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere'))));
+}
+
+function toolCard(tool, atoms) {
+  return h('section', { class: 'card', 'data-tool': tool.name },
+    h('div', { class: 'head' }, h('span', { class: 'name' }, tool.name), h('span', { class: 'tag' }, tool.kind), h('span', { class: 'tag' }, tool.status), healthPill(tool.health)),
+    h('p', { class: 'desc' }, tool.description),
+    notes(tool, 'notes'),
+    stats(tool),
+    links(tool),
+    tool.uses.length
+      ? h('div', { class: 'atoms', 'aria-label': `Atoms ${tool.name} uses` }, tool.uses.map((name) => atomRow(atoms.get(name))))
+      : h('p', { class: 'small muted', style: 'margin-top:10px' }, 'A skill-only tool. It calls no atoms.'));
+}
+
+function render() {
+  if (!model) {
+    app.append(h('p', null, 'No status model. Open this page through factory dashboard.'));
+    return;
+  }
+  const atoms = new Map(model.atoms.map((a) => [a.name, a]));
+  const rows = [...model.tools, ...model.atoms];
+  const counts = Object.keys(HEALTH).map((level) => [level, rows.filter((r) => r.health === level).length]);
+  const { capUsd, spentTodayUsd } = model.budget;
+  const share = capUsd && spentTodayUsd !== null ? Math.min(1, spentTodayUsd / capUsd) : 0;
+  const orphans = model.atoms.filter((a) => !a.usedBy.length);
+
+  app.append(...[
+    h('header', null, h('h1', null, 'Tool factory'), h('p', { class: 'small muted' }, `${plural(model.tools.length, 'tool')}, ${plural(model.atoms.length, 'atom')}. Read-only, reload to refresh.`)),
+    model.problems.length
+      ? h('div', { class: 'problems', role: 'alert' }, h('strong', null, `${plural(model.problems.length, 'problem')} found`),
+        h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
+      : null,
+    h('div', { class: 'tiles' },
+      h('div', { class: 'tile', 'data-tile': 'spend' }, h('div', { class: 'label' }, 'Spent today'),
+        h('div', { class: 'value' }, usd(spentTodayUsd)),
+        h('div', { class: 'small muted' }, capUsd === null ? 'budget unreadable' : `of the $${capUsd.toFixed(2)} daily budget`),
+        h('div', { class: `meter${spentTodayUsd !== null && capUsd !== null && spentTodayUsd >= capUsd ? ' over' : ''}` }, h('div', { style: `width:${share * 100}%` }))),
+      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Calls, 7 days'), h('div', { class: 'value' }, model.calls.runs)),
+      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Failed calls, 7 days'), h('div', { class: 'value' }, model.calls.failed)),
+      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Health'),
+        h('div', { class: 'stats', style: 'margin-top:8px' }, counts.map(([level, n]) => h('span', { class: `health ${level}` }, `${n} ${HEALTH[level].toLowerCase()}`))))),
+    h('h2', null, 'Tools'),
+    model.tools.map((t) => toolCard(t, atoms)),
+    orphans.length ? [h('h2', null, 'Atoms no tool uses'), h('div', { class: 'card' }, orphans.map(atomRow))] : null,
+    h('h2', null, 'Tools in other repos'),
+    h('div', { class: 'external' }, model.external.length
+      ? model.external.map((t) => h('section', { class: 'card', 'data-external': t.name },
+        h('div', { class: 'head' }, h('span', { class: 'name' }, t.name), h('span', { class: 'tag' }, 'external')),
+        h('p', { class: 'desc' }, t.description),
+        h('p', { class: 'small', style: 'margin-top:8px' }, h('span', { class: 'muted' }, 'Lives in '), h('span', { class: 'mono' }, t.where))))
+      : h('p', { class: 'muted' }, 'external.json lists no tools.')),
+    h('footer', null, 'Data home ', h('span', { class: 'mono' }, model.home), `. Run log ${model.logLines === null ? 'unreadable' : plural(model.logLines, 'line')}. Days ${model.days[0]} to ${model.day}, UTC.`),
+  ].flat(Infinity).filter(Boolean));
+}
+
+render();
+performance.mark('rendered');
+</script>
+</body>
+</html>

@@ -62,6 +62,17 @@ export function spentToday() {
   return spend(today());
 }
 
+export function lastDays(count, now = new Date()) {
+  return Array.from({ length: count }, (_, i) => new Date(now.getTime() - (count - 1 - i) * 86_400_000).toISOString().slice(0, 10));
+}
+
+export function median(values) {
+  if (!values.length) return null;
+  const sorted = values.toSorted((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 const DECIMAL = /^[+-]?(?:\d+(?:_\d+)*(?:\.(?:\d+(?:_\d+)*)?)?|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?$/;
 
 export function budget() {
