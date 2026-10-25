@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -77,26 +76,37 @@ class Parser(argparse.ArgumentParser):
         raise AtomFailed({"code": "invalid_args", "message": message})
 
 
+VERBS = {verb["name"]: verb for verb in MANIFEST["verbs"]}
+
+
 def parser() -> Parser:
-    verb = MANIFEST["verbs"][0]
-    schema = verb["input"]
-    p = Parser(prog=MANIFEST["name"], description=verb["description"])
-    for name, prop in schema["properties"].items():
-        if name in schema["required"]:
-            p.add_argument(name, help=prop["description"])
-        else:
-            flag = "--" + re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
-            p.add_argument(flag, dest=name, action="store_true", help=prop["description"])
-    p.add_argument("--json", action="store_true", help="Print one JSON object.")
+    p = Parser(
+        prog=MANIFEST["name"],
+        description=MANIFEST["description"],
+        epilog="Without a verb, run <input> means get, and run <input> --no-digest means transcript.",
+    )
+    verbs = p.add_subparsers(dest="verb", required=True, parser_class=Parser)
+    for verb in MANIFEST["verbs"]:
+        v = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
+        for name in verb["input"]["required"]:
+            v.add_argument(name, help=verb["input"]["properties"][name]["description"])
+        v.add_argument("--json", action="store_true", help="Print one JSON object.")
     return p
+
+
+def verb_args(argv: list[str]) -> list[str]:
+    if argv[:1] in (["-h"], ["--help"]) or argv[:1] and argv[0] in VERBS:
+        return argv
+    verb = "transcript" if "--no-digest" in argv else "get"
+    return [verb, *(a for a in argv if a != "--no-digest")]
 
 
 def main() -> int:
     as_json = "--json" in sys.argv[1:]
     try:
-        args = parser().parse_args()
+        args = parser().parse_args(verb_args(sys.argv[1:]))
         transcript = transcript_of(args.input)
-        if args.noDigest:
+        if args.verb == "transcript":
             print(json.dumps(transcript, ensure_ascii=False) if as_json else timed_lines(transcript))
             return 0
         path = save(transcript)

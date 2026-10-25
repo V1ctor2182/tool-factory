@@ -11,16 +11,27 @@
   "verbs": [
     {
       "name": "get",
-      "description": "Digest of one video URL, with the transcript path inside. With --no-digest, the transcript and no model call.",
+      "description": "Digest of one video URL, with the path of its saved transcript inside. Makes one paid model call unless the digest is cached.",
       "input": {
         "type": "object",
         "properties": {
-          "input": { "type": "string", "description": "Video URL on any site yt-dlp supports." },
-          "noDigest": { "type": "boolean", "description": "Stop at the transcript. Makes no model call." }
+          "input": { "type": "string", "description": "Video URL on any site yt-dlp supports." }
         },
         "required": ["input"]
       },
       "output": "digest"
+    },
+    {
+      "name": "transcript",
+      "description": "Transcript of one video URL. Makes no model call.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "description": "Video URL on any site yt-dlp supports." }
+        },
+        "required": ["input"]
+      },
+      "output": "transcript"
     }
   ],
   "needs": { "bin": [], "secrets": [], "paid": [] },
