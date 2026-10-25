@@ -86,11 +86,12 @@ function shellCommands(sources) {
   return scan(scripts, SHELL_COMMAND).filter(({ match }) => !POSIX.has(match[1]));
 }
 
-function binariesRun(sources) {
-  const runs = spawners(imports(sources));
-  const lists = scan(sources, COMMAND_LIST).filter(({ match }) =>
-    sources.some(({ text }) => new RegExp(String.raw`${runs}\[?\s*\*?${match[1]}\b`).test(text)),
-  );
+function binariesRun(sources, found = imports(sources)) {
+  const runs = spawners(found);
+  const lists = scan(sources, COMMAND_LIST).filter(({ match }) => {
+    const passed = new RegExp(String.raw`${runs}\[?\s*\*?${match[1]}\b`);
+    return sources.some(({ text }) => passed.test(text));
+  });
   const literal = [new RegExp(String.raw`shutil\.which\(\s*${BIN}`), new RegExp(`${runs}\\[?\\s*${BIN}`), JS_RUNTIME];
   return [...literal.flatMap((pattern) => scan(sources, pattern)), ...lists, ...shellCommands(sources)].map(({ at, match }) => ({ at, bin: match.at(-1) }));
 }
@@ -118,9 +119,10 @@ function facts(entry, root, entries) {
   const kit = kitClosure(root, found);
   const cached = uncomment(sources);
   return {
+    sources,
     kitImports: found.filter((i) => i.module === 'factory_kit' || i.module.startsWith('factory_kit.')),
     usesModel: kit.has('model'),
-    binaries: binariesRun(sources),
+    binaries: binariesRun(sources, found),
     kitBinaries: binariesRun([...kit.values()]),
     caches: scan(cached, new RegExp(`\\b(?:${['Cache', ...imports(cached).flatMap((i) => i.names.filter((n) => n.name === 'Cache').map((n) => n.as))].join('|')})\\(`)),
     references: references(entry, sources, found, entries).filter((r) => r.other !== entry),
@@ -167,7 +169,7 @@ export const RULES = [
       if (tool.type !== 'tool') return [];
       const skillMd = existsSync(join(tool.dir, 'SKILL.md')) ? [] : [`${tool.rel}: ${describe(tool)}, but it has no SKILL.md.`];
       if (tool.kind !== 'skill') return skillMd;
-      const scripts = files(tool.dir, root).filter(({ rel }) => executable(join(root, rel)));
+      const scripts = f.sources.filter(({ rel }) => executable(join(root, rel)));
       return [...skillMd, ...scripts.map(({ rel }) => `${rel}: ${describe(tool)}, which holds SKILL.md and no script.`)];
     },
   },

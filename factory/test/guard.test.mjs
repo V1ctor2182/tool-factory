@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { after, test } from 'node:test';
+import { copyRepo, manifest, REPO } from './repo.mjs';
 
-const REPO = resolve(import.meta.dirname, '..', '..');
 const dirs = [];
 const CAP = 'model spend today is $3.0000, at the $3.00 daily cap. To raise the cap, export TOOL_FACTORY_BUDGET_USD in the shell that starts Claude Code, or wait for the next UTC day.';
 
@@ -89,12 +89,8 @@ test('the hook accepts the same caps as the kit', () => {
 });
 
 function actCopy() {
-  const root = scratch();
-  for (const dir of ['atoms', 'tools', 'contracts', 'kit', 'factory']) {
-    cpSync(join(REPO, dir), join(root, dir), { recursive: true, filter: (src) => !src.includes('__pycache__') && !src.includes('.venv') });
-  }
-  const path = join(root, 'atoms/find-url/manifest.json');
-  writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), kind: 'act' }));
+  const root = copyRepo(scratch());
+  manifest(root, 'atoms/find-url', (m) => (m.kind = 'act'));
   return root;
 }
 

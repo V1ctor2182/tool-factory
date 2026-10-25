@@ -1,20 +1,17 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, test } from 'node:test';
+import { copyRepo, manifest } from './repo.mjs';
 
-const REPO = resolve(import.meta.dirname, '..', '..');
 const copies = [];
 
 function copy() {
   const root = mkdtempSync(join(tmpdir(), 'factory-rules-'));
   copies.push(root);
-  for (const dir of ['atoms', 'tools', 'contracts', 'kit', 'factory']) {
-    cpSync(join(REPO, dir), join(root, dir), { recursive: true, filter: (src) => !src.includes('__pycache__') });
-  }
-  return root;
+  return copyRepo(root);
 }
 
 function rules(root) {
@@ -96,13 +93,6 @@ function plant(root, rel, text) {
   const before = existsSync(path) ? readFileSync(path, 'utf8') : '';
   writeFileSync(path, `${before}\n${text}\n`);
   return before.split('\n').length + 1;
-}
-
-function manifest(root, rel, change) {
-  const path = join(root, rel, 'manifest.json');
-  const m = JSON.parse(readFileSync(path, 'utf8'));
-  change(m);
-  writeFileSync(path, JSON.stringify(m, null, 2));
 }
 
 const CROSS = 'Atoms import the kit, never each other.';

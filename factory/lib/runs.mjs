@@ -22,21 +22,15 @@ export function read() {
     if (e.code === 'ENOENT') return [];
     throw e;
   }
-  return text.split('\n').flatMap((line, i) => {
-    if (!line.trim()) return [];
-    try {
-      return [JSON.parse(line)];
-    } catch {
-      throw new Error(`${path} line ${i + 1} is not JSON, so today's spend is unknown`);
-    }
-  });
+  return parseLines(text, path);
 }
 
-function parseLines(text) {
-  return text.split('\n').flatMap((line) => {
+function parseLines(text, strictPath) {
+  return text.split('\n').flatMap((line, i) => {
     try {
       return line.trim() ? [JSON.parse(line)] : [];
     } catch {
+      if (strictPath) throw new Error(`${strictPath} line ${i + 1} is not JSON, so today's spend is unknown`);
       return [];
     }
   });

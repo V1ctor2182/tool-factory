@@ -30,7 +30,6 @@ const GUARDS = {
         `Blocked ${entry.name}: model spend today is $${spent.toFixed(4)}, at the $${cap.toFixed(2)} daily cap. To raise the cap, export TOOL_FACTORY_BUDGET_USD in the shell that starts Claude Code, or wait for the next UTC day.`,
       );
     }
-    return null;
   },
   confirm: (entry) => `${entry.name} is an act atom, so every run needs your confirmation.`,
 };
