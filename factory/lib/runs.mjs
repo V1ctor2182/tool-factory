@@ -14,14 +14,22 @@ export function append(record) {
 }
 
 export function read() {
+  const path = join(home(), 'runs.jsonl');
   let text;
   try {
-    text = readFileSync(join(home(), 'runs.jsonl'), 'utf8');
+    text = readFileSync(path, 'utf8');
   } catch (e) {
     if (e.code === 'ENOENT') return [];
     throw e;
   }
-  return parseLines(text);
+  return text.split('\n').flatMap((line, i) => {
+    if (!line.trim()) return [];
+    try {
+      return [JSON.parse(line)];
+    } catch {
+      throw new Error(`${path} line ${i + 1} is not JSON, so today's spend is unknown`);
+    }
+  });
 }
 
 function parseLines(text) {
@@ -47,12 +55,13 @@ export function spentToday() {
   return spend(today());
 }
 
+const DECIMAL = /^[+-]?(?:\d+(?:_\d+)*(?:\.(?:\d+(?:_\d+)*)?)?|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?$/;
+
 export function budget() {
   const raw = process.env.TOOL_FACTORY_BUDGET_USD ?? '3';
-  const value = Number(raw);
-  if (raw.trim() === '' || !Number.isFinite(value) || value < 0) {
-    throw new Error(`TOOL_FACTORY_BUDGET_USD is not a number of dollars at or above 0: ${raw}`);
-  }
+  const text = raw.trim();
+  const value = DECIMAL.test(text) ? Number(text.replaceAll('_', '')) : NaN;
+  if (!(value >= 0 && value < Infinity)) throw new Error(`TOOL_FACTORY_BUDGET_USD is not a finite number of dollars, 0 or more: ${raw}`);
   return value;
 }
 

@@ -84,7 +84,13 @@ const COMMANDS = {
   },
 
   status(registry) {
-    const runs = today();
+    let runs;
+    try {
+      runs = today();
+    } catch (e) {
+      console.error(`factory: ${e.message}`);
+      return 1;
+    }
     const links = ledger();
     const rows = ordered(registry).map((e) => {
       const mine = runs.filter((r) => r.name === e.name);
