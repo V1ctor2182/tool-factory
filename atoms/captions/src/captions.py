@@ -124,7 +124,10 @@ def parse(path: str, lang: str) -> dict:
         json3 = json.loads(file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise cli.AtomError("invalid_source", f"Not a readable json3 file: {path}: {e}")
-    transcript = _transcript(str(file), lang, json3)
+    try:
+        transcript = _transcript(str(file), lang, json3)
+    except (AttributeError, KeyError, TypeError) as e:
+        raise cli.AtomError("invalid_source", f"Not json3 captions, an object whose events have tStartMs: {path}: {e!r}")
     cache.put(key, transcript)
     return transcript
 
