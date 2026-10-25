@@ -1,0 +1,28 @@
+{
+  "name": "youtube",
+  "type": "tool",
+  "kind": "pipeline",
+  "description": "Summary, chapters, and transcript of one YouTube video. Falls back to speech recognition when the video has no captions.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "run",
+  "contract": "digest",
+  "uses": ["captions", "download", "transcribe", "digest"],
+  "verbs": [
+    {
+      "name": "get",
+      "description": "Digest of one video URL, with the transcript path inside. With --no-digest, the transcript and no model call.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "description": "Video URL on any site yt-dlp supports." },
+          "noDigest": { "type": "boolean", "description": "Stop at the transcript. Makes no model call." }
+        },
+        "required": ["input"]
+      },
+      "output": "digest"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
