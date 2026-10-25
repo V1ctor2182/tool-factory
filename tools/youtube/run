@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -120,6 +121,7 @@ def main() -> int:
     except AtomFailed as e:
         error = e.error
     except Exception as e:
+        traceback.print_exc()
         error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
     if as_json:
         print(json.dumps({"error": error}, ensure_ascii=False))
