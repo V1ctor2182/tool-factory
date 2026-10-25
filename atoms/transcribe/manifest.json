@@ -24,7 +24,7 @@
     },
     {
       "name": "srt",
-      "description": "Same as file, but prints SubRip subtitles. The --json output is the transcript.",
+      "description": "Same as file, but prints SubRip subtitles. The --json output is the transcript with the same subtitles in its srt field.",
       "input": {
         "type": "object",
         "properties": {

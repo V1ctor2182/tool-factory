@@ -13,7 +13,7 @@ bin/transcribe file talk.mp4 --model small --language en --json
 bin/transcribe srt recording.m4a > recording.srt
 ```
 
-The result is a transcript, as `contracts/transcript.schema.json` defines it, with `method` set to `whisper`. `srt` prints SubRip text, and its `--json` output is the same transcript as `file`.
+The result is a transcript, as `contracts/transcript.schema.json` defines it, with `method` set to `whisper`. `srt` prints SubRip text. Its `--json` output is the same transcript as `file`, plus an `srt` field that holds the SubRip text.
 
 The default model is `large-v3-turbo-q5_0`. A ten-minute file takes about 30 seconds on this Mac, and `--model small` takes about 17. See `docs/decisions/0001-whisper-backend.md`. The first call with a new model downloads its weights from huggingface.co to `~/.cache/huggingface/`. The default weights are about 574 MB, and the manifest lists them under `needs.models`. The atom checks the input file before it looks for weights, so a bad input fails without the network.
 

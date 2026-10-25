@@ -23,6 +23,7 @@
         "additionalProperties": false
       }
     },
+    "srt": { "type": "string", "description": "SubRip subtitles of the segments. Only the srt verb sets it." },
     "cacheHit": { "type": "boolean" }
   },
   "required": ["source", "method", "language", "model", "text", "segments", "cacheHit"],

@@ -24,6 +24,10 @@ diff "$out/expected.json" "$out/actual.json" || fail "file output differs from e
 
 "$bin" srt "$fixture" > "$out/hello.srt"
 cmp "$out/hello.srt" "$test_dir/expected/hello.srt" || fail "srt output differs from expected/hello.srt"
+"$bin" srt "$fixture" --json > "$out/srt.json"
+uvx -q check-jsonschema --schemafile "$repo/contracts/transcript.schema.json" "$out/srt.json" > /dev/null \
+	|| fail "srt --json output does not match transcript.schema.json"
+jq -r .srt "$out/srt.json" | cmp - "$test_dir/expected/hello.srt" || fail "srt --json srt field differs from expected/hello.srt"
 
 "$bin" file "$fixture" --json > "$out/again.json"
 [ "$(jq .cacheHit "$out/again.json")" = true ] || fail "second run missed the cache"

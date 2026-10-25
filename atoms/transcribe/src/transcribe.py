@@ -91,11 +91,13 @@ def _timestamp(seconds: float) -> str:
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 
-def srt(transcript: dict) -> str:
-    return "\n".join(
+def subtitles(path: str, model: str, language: str | None) -> dict:
+    transcript = transcribe(path, model, language)
+    srt = "\n".join(
         f"{i}\n{_timestamp(s['start'])} --> {_timestamp(s['end'])}\n{s['text']}\n"
         for i, s in enumerate(transcript["segments"], 1)
     )
+    return {**transcript, "srt": srt}
 
 
 if __name__ == "__main__":
@@ -103,6 +105,6 @@ if __name__ == "__main__":
         Path(__file__).resolve().parent.parent,
         {
             "file": cli.Verb(transcribe),
-            "srt": cli.Verb(transcribe, srt),
+            "srt": cli.Verb(subtitles, lambda result: result["srt"]),
         },
     )
