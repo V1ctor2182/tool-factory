@@ -114,7 +114,7 @@ def ask(spec: Spec, schema: dict, content: list[str | Path]) -> tuple[dict, floa
         detail = done.stderr.strip() or done.stdout.strip()
         raise AtomError("model_error", f"claude exited {done.returncode} with no result: {detail}", cap)
     cost = reply.get("total_cost_usd")
-    if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not 0 <= cost < math.inf:
+    if type(cost) not in (int, float) or not 0 <= cost < math.inf:
         cost = cap
     if reply.get("subtype") == "error_max_budget_usd":
         raise AtomError("budget_exceeded", f"The call reached its ${cap:.4f} cap.", cost)
