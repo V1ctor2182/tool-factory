@@ -18,4 +18,4 @@ It needs node 22 or newer as the first `node` on `PATH`. yt-dlp runs the site's 
 
 On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`. The codes are `invalid_source`, `invalid_args`, `network_error`, and `unavailable`, with the same meanings as in the captions atom.
 
-A second call for the same video and kind returns the same path with `cacheHit` set to true, and downloads nothing.
+A second call for the same video and kind returns the same path with `cacheHit` set to true, and downloads nothing. `bytes` records the file size. If the file is gone or its size changed, the next call downloads it again.

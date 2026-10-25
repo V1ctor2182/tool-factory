@@ -47,6 +47,11 @@ def _atom_error(e: Exception) -> cli.AtomError:
     return cli.AtomError("unavailable", message)
 
 
+def _intact(media: dict) -> bool:
+    file = Path(media["path"])
+    return file.is_file() and file.stat().st_size == media.get("bytes")
+
+
 def get(url: str, audio: bool, video: bool) -> dict:
     if audio and video:
         raise cli.AtomError("invalid_args", "Pass --audio or --video, not both.")
@@ -58,7 +63,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
 
     def hit(key: str) -> dict | None:
         media = cache.get(f"{key}-{kind}")
-        return {**media, "source": url} if media and Path(media["path"]).is_file() else None
+        return {**media, "source": url} if media and _intact(media) else None
 
     if (key := _offline_key(url)) and (media := hit(key)):
         return media
@@ -73,6 +78,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
         "format": FORMATS[kind],
         "paths": {"home": str(paths.atom_dir("download", "files")), "temp": str(paths.atom_dir("download", "tmp"))},
         "outtmpl": f"%(extractor_key)s-%(id)s-{kind}.%(ext)s",
+        "overwrites": True,
     }
     try:
         with yt_dlp.YoutubeDL(settings) as ydl:
@@ -94,6 +100,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
         "id": info["id"],
         "title": info.get("title"),
         "durationSec": info.get("duration"),
+        "bytes": Path(path).stat().st_size,
     }
     cache.put(f"{key}-{kind}", media)
     return media

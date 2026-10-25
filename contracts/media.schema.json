@@ -12,8 +12,9 @@
     "id": { "type": "string" },
     "title": { "type": ["string", "null"] },
     "durationSec": { "type": ["number", "null"], "minimum": 0 },
+    "bytes": { "type": "integer", "minimum": 0, "description": "File size when downloaded. A cached file of another size is downloaded again." },
     "cacheHit": { "type": "boolean" }
   },
-  "required": ["source", "path", "kind", "extractor", "id", "title", "durationSec", "cacheHit"],
+  "required": ["source", "path", "kind", "extractor", "id", "title", "durationSec", "bytes", "cacheHit"],
   "additionalProperties": false
 }

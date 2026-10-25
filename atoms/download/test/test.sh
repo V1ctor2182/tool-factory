@@ -35,10 +35,15 @@ record=$(jq -c '{extractor, id, kind, title, durationSec}' "$out/first.json")
 path=$(jq -r .path "$out/first.json")
 [ "$path" = "$TOOL_FACTORY_HOME/download/files/Generic-clip-audio.aiff" ] || fail "path is $path"
 cmp "$path" "$site/clip.aiff" || fail "downloaded file differs from the served file"
+[ "$(jq .bytes "$out/first.json")" = "$(wc -c < "$site/clip.aiff" | tr -d ' ')" ] || fail "bytes is not the served file size"
 
 "$bin" get "$url" --audio --json > "$out/second.json"
 [ "$(jq .cacheHit "$out/second.json")" = true ] || fail "second call missed the cache"
 [ "$(jq -r .path "$out/second.json")" = "$path" ] || fail "second call returned a different path"
 
+head -c 100 "$site/clip.aiff" > "$path"
+"$bin" get "$url" --audio --json > "$out/third.json"
+[ "$(jq .cacheHit "$out/third.json")" = false ] || fail "a truncated cached file counted as a cache hit"
+cmp "$path" "$site/clip.aiff" || fail "a truncated cached file was not downloaded again"
 
 echo "PASS download"
