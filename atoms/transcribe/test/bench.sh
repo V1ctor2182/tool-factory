@@ -1,6 +1,7 @@
 #!/bin/sh
 # Usage: bench.sh [transcribe bin ...]. Times a cold run and a cached run of each bin on the ten-minute fixture.
 # Runs alternate between bins, so drift and warm-up favor none. RUNS sets the rounds, default 5.
+# BENCH_OUT, when set, keeps each bin's last cold transcript.
 set -eu
 test_dir=$(cd "$(dirname "$0")" && pwd)
 [ $# -gt 0 ] || set -- "$test_dir/../bin/transcribe"
@@ -22,7 +23,7 @@ while [ "$round" -le "${RUNS:-5}" ]; do
 		TOOL_FACTORY_HOME="$home" /usr/bin/time -p "$bin" file "$work/ten.aiff" --json > "$work/cached.json" 2> "$work/cached.err"
 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$round" "$bin" "$(seconds "$work/cold.err")" "$(seconds "$work/cached.err")" \
 			"$(jq .cacheHit "$work/cold.json")" "$(jq .cacheHit "$work/cached.json")" "$(jq '.segments | length' "$work/cold.json")"
-		cp "$work/cold.json" "${BENCH_OUT:-$work}/transcript-$n.json"
+		[ -z "${BENCH_OUT:-}" ] || cp "$work/cold.json" "$BENCH_OUT/transcript-$n.json"
 	done
 	round=$((round + 1))
 done

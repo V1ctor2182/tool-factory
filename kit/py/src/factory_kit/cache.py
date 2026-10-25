@@ -18,15 +18,16 @@ class Cache:
 
     def get(self, key: str) -> dict | None:
         try:
-            return json.loads(self._path(key).read_text(encoding="utf-8"))
+            value = json.loads(self._path(key).read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
+        return {**value, "cacheHit": True}
 
     def put(self, key: str, value: dict) -> None:
         fd, tmp = tempfile.mkstemp(dir=self._tmp, suffix=".json")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(value, f, ensure_ascii=False)
+                json.dump({k: v for k, v in value.items() if k != "cacheHit"}, f, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp, self._path(key))

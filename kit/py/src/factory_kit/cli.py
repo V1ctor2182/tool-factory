@@ -15,12 +15,11 @@ class AtomError(Exception):
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
-        self.message = message
 
 
 class Verb(NamedTuple):
     run: Callable[..., dict]
-    text: Callable[[dict], str]
+    text: Callable[[dict], str] = lambda result: result["text"]
 
 
 class _Parser(argparse.ArgumentParser):
@@ -55,7 +54,6 @@ def _parser(manifest: dict) -> _Parser:
 
 
 def main(atom_root: Path, verbs: dict[str, Verb]) -> None:
-    """Run one verb. The manifest's verb input schemas define the arguments."""
     manifest = json.loads((Path(atom_root) / "manifest.json").read_text(encoding="utf-8"))
     as_json = "--json" in sys.argv[1:]
     started = datetime.now(timezone.utc)
@@ -65,11 +63,12 @@ def main(atom_root: Path, verbs: dict[str, Verb]) -> None:
     try:
         args = vars(_parser(manifest).parse_args())
         verb_name = args.pop("verb")
-        as_json = args.pop("json")
+        args.pop("json")
         result = verbs[verb_name].run(**args)
+        result.setdefault("cacheHit", False)
         error = None
     except AtomError as e:
-        error = {"code": e.code, "message": e.message}
+        error = {"code": e.code, "message": str(e)}
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
         error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
@@ -82,7 +81,7 @@ def main(atom_root: Path, verbs: dict[str, Verb]) -> None:
         "startedAt": started.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "ms": round((time.monotonic() - clock) * 1000),
         "ok": error is None,
-        "cacheHit": bool(result and result.get("cacheHit")),
+        "cacheHit": bool(result and result["cacheHit"]),
     }
     if error:
         record["error"] = error["code"]

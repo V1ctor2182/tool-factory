@@ -34,30 +34,18 @@ def _transcript(source: str, lang: str, json3: dict) -> dict:
         "model": None,
         "text": " ".join(s["text"] for s in segments),
         "segments": segments,
-        "cacheHit": False,
     }
 
 
 def get(url: str, lang: str) -> dict:
-    ytdlp.check_url(url)
-    cache = Cache("captions")
-    key = ytdlp.offline_key(url)
-    if key and (cached := cache.get(f"{key}-{lang}")):
-        return {**cached, "source": url, "cacheHit": True}
-
-    with ytdlp.errors(), ytdlp.client(skip_download=True) as ydl:
-        info = ydl.extract_info(url, download=False)
-        key = ytdlp.video_key(info)
-        if cached := cache.get(f"{key}-{lang}"):
-            return {**cached, "source": url, "cacheHit": True}
+    def fetch(ydl, info):
         track = _json3_url(info, lang)
         if track is None:
             raise cli.AtomError("no_captions", f"No {lang} captions for {url}")
-        json3 = json.loads(ydl.urlopen(track).read())
+        return _transcript(url, lang, json.loads(ydl.urlopen(track).read()))
 
-    transcript = _transcript(url, lang, json3)
-    cache.put(f"{key}-{lang}", transcript)
-    return transcript
+    # Captions need no formats, so the info is not processed.
+    return ytdlp.cached(Cache("captions"), url, lang, fetch, process=False, skip_download=True)
 
 
 def parse(path: str, lang: str) -> dict:
@@ -72,5 +60,5 @@ def parse(path: str, lang: str) -> dict:
 if __name__ == "__main__":
     cli.main(
         Path(__file__).resolve().parent.parent,
-        {"get": cli.Verb(get, lambda t: t["text"]), "parse": cli.Verb(parse, lambda t: t["text"])},
+        {"get": cli.Verb(get), "parse": cli.Verb(parse)},
     )

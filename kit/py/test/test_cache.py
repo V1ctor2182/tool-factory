@@ -31,9 +31,9 @@ def entries(home: Path) -> list[str]:
     return sorted(p.name for p in (home / "atom" / "cache").iterdir())
 
 
-def test_put_then_get_returns_the_value(home):
+def test_put_then_get_returns_the_value_marked_as_a_hit(home):
     Cache("atom").put("key", {"text": "hello"})
-    assert Cache("atom").get("key") == {"text": "hello"}
+    assert Cache("atom").get("key") == {"text": "hello", "cacheHit": True}
 
 
 def test_missing_key_returns_none(home):
@@ -55,5 +55,5 @@ def test_process_killed_mid_write_leaves_no_entry_and_a_rerun_converges(home):
     assert entries(home) == []
 
     Cache("atom").put("key", {"text": "hello"})
-    assert Cache("atom").get("key") == {"text": "hello"}
+    assert Cache("atom").get("key") == {"text": "hello", "cacheHit": True}
     assert entries(home) == ["key.json"]

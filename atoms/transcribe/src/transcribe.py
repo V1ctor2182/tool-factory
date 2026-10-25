@@ -46,15 +46,16 @@ def transcribe(path: str, model: str, language: str | None) -> dict:
     cache = Cache("transcribe")
     key = f"{file_sha256(file)}-whispercpp-{model}-{language or 'auto'}"
     if cached := cache.get(key):
-        return {**cached, "source": str(file), "cacheHit": True}
+        return {**cached, "source": str(file)}
 
     # Imported after the cache check, so a cache hit skips loading whisper.cpp and PyAV.
     import _pywhispercpp
     from pywhispercpp.model import Model
 
+    weights = _weights(model)
     audio = _audio(file)
     whisper = Model(
-        _weights(model),
+        weights,
         params_sampling_strategy=1,
         beam_search={"beam_size": 5, "patience": -1.0},
         temperature_inc=0.0,
@@ -75,7 +76,6 @@ def transcribe(path: str, model: str, language: str | None) -> dict:
         "model": model,
         "text": " ".join(s["text"] for s in segments),
         "segments": segments,
-        "cacheHit": False,
     }
     cache.put(key, transcript)
     return transcript
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     cli.main(
         Path(__file__).resolve().parent.parent,
         {
-            "file": cli.Verb(transcribe, lambda t: t["text"]),
+            "file": cli.Verb(transcribe),
             "srt": cli.Verb(transcribe, srt),
         },
     )

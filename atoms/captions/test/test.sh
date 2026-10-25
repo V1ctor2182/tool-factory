@@ -17,8 +17,9 @@ uvx -q check-jsonschema --schemafile "$repo/contracts/transcript.schema.json" "$
 first=$(jq -c '.segments[0]' "$out/zoo.json")
 [ "$first" = '{"start":1.2,"end":3.36,"text":"All right, so here we are, in front of the elephants"}' ] \
 	|| fail "first segment is $first"
-[ "$(jq -r .method "$out/zoo.json")" = captions ] || fail "method is not captions"
-[ "$(jq '.segments | length' "$out/zoo.json")" = 6 ] || fail "expected 6 segments"
+jq -S 'del(.source, .cacheHit)' "$out/zoo.json" > "$out/actual.json"
+jq -S . "$test_dir/expected/jNQXAC9IVRw.en.json" > "$out/expected.json"
+diff "$out/expected.json" "$out/actual.json" || fail "parse output differs from expected/jNQXAC9IVRw.en.json"
 
 if "$bin" get not-a-url --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "not-a-url exited 0"; fi
 [ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "not-a-url did not report invalid_source"
