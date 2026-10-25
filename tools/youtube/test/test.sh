@@ -48,4 +48,10 @@ done
 if "$run" not-a-url --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "not-a-url exited 0"; fi
 [ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "not-a-url did not report invalid_source"
 
+rm -rf "$TOOL_FACTORY_HOME/youtube"
+touch "$TOOL_FACTORY_HOME/youtube"
+if PATH="$out/stub:$PATH" "$run" get "$zoo" --json > "$out/blocked.json" 2> "$out/blocked.err"; then fail "a data home where youtube is a file exited 0"; fi
+[ "$(jq -r .error.code "$out/blocked.json")" = internal ] \
+	|| fail "a data home where youtube is a file did not report internal: $(cat "$out/blocked.json") $(tail -n 1 "$out/blocked.err")"
+
 echo "PASS youtube"
