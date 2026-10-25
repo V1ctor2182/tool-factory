@@ -79,5 +79,7 @@ jq -r .error.message "$out/exit1.json" | grep -q "transcribe exited 1" || fail "
 if TRANSCRIBE_OUT=null "$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/null.json" 2> /dev/null; then fail "an atom that printed JSON null exited 0"; fi
 [ "$(jq -r .error.message "$out/null.json")" = "transcribe exited 0 without a result object on stdout" ] \
 	|| fail "an atom that printed JSON null did not report it as internal: $(cat "$out/null.json")"
+DIGEST_EXIT=3 "$fake/tools/meeting-notes/run" get /x.wav > /dev/null 2>&1 && code=0 || code=$?
+[ "$code" = 1 ] || fail "plain get exited $code when digest exited 3"
 
 echo "PASS meeting-notes"

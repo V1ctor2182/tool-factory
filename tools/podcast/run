@@ -71,7 +71,7 @@ def digest_of(url: str, as_json: bool) -> dict | int:
     log(f"digest {' '.join(command)}")
     if as_json:
         return atom("digest", *command)
-    return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
+    return 1 if subprocess.run([bin_of("digest"), *command], env=ENV).returncode else 0
 
 
 def timed_lines(transcript: dict) -> str:

@@ -52,7 +52,8 @@ case "$name $1" in
 	transcript=$(arg 3 "$@")
 	visual=null
 	case "$*" in *--image-notes*) visual='[{"start":0,"note":"A man by elephants."}]' ;; esac
-	jq -c --arg p "$transcript" --argjson v "$visual" '{source, transcriptPath: $p, model: "stub", summary: "A man at the zoo.", chapters: [{start: 0, title: "Elephants"}], keyPoints: ["Long trunks."], costUsd: 0, cacheHit: false} + (if $v then {visual: $v} else {} end)' "$transcript" ;;
+	jq -c --arg p "$transcript" --argjson v "$visual" '{source, transcriptPath: $p, model: "stub", summary: "A man at the zoo.", chapters: [{start: 0, title: "Elephants"}], keyPoints: ["Long trunks."], costUsd: 0, cacheHit: false} + (if $v then {visual: $v} else {} end)' "$transcript"
+	exit "${DIGEST_EXIT:-0}" ;;
 *) fail internal ;;
 esac
 STUB
@@ -125,9 +126,11 @@ if call "$zoo" --no-digest --visual --json; then fail "--no-digest --visual exit
 call "me at the zoo" --limit 2 || fail "text search failed"
 [ "$(grep -c '^# ' "$out/stdout")" = 2 ] || fail "text search did not print a header per video"
 
-if CAPTIONS_EXIT=1 call transcript "$zoo" --json; then fail "captions that printed JSON and exited 1 exited 0"; fi
+if CAPTIONS_EXIT=1 "$run" transcript "$zoo" --json > "$out/stdout" 2> /dev/null; then fail "captions that printed JSON and exited 1 exited 0"; fi
 [ "$(jq -r .error.message "$out/stdout")" = "captions exited 1 without an error object on stdout" ] \
 	|| fail "captions that printed JSON and exited 1 did not report it as internal: $(cat "$out/stdout")"
 [ "$(jq -r .error.code "$out/stdout")" = internal ] || fail "captions that printed JSON and exited 1 did not report internal"
+DIGEST_EXIT=3 "$run" "$zoo" > /dev/null 2>&1 && code=0 || code=$?
+[ "$code" = 1 ] || fail "plain get exited $code when digest exited 3"
 
 echo "PASS youtube routing"

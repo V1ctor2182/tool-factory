@@ -71,7 +71,7 @@ def get(args, as_json: bool) -> int:
     command = ["make", "--transcript", str(save(transcript_of(args)))]
     log(f"digest {' '.join(command)}")
     if not as_json:
-        return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
+        return 1 if subprocess.run([bin_of("digest"), *command], env=ENV).returncode else 0
     print(json.dumps(atom("digest", *command), ensure_ascii=False))
     return 0
 

@@ -129,7 +129,7 @@ def timed_lines(transcript: dict) -> str:
 
 
 def stream_digest(command: list[str]) -> int:
-    return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
+    return 1 if subprocess.run([bin_of("digest"), *command], env=ENV).returncode else 0
 
 
 def get(args, as_json: bool) -> int:
