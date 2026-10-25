@@ -51,6 +51,7 @@ case "$STUB_REPLY" in
 	text) echo "Error: the session ended"; exit 1 ;;
 	no-cost) echo '{"type":"result","is_error":true,"result":"boom"}' ;;
 	cost) echo '{"type":"result","is_error":true,"total_cost_usd":0.02,"result":"boom"}' ;;
+	negative) echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":-5,"structured_output":{"summary":"Atoms and tools.","chapters":[{"start":0,"title":"Intro"}],"keyPoints":["Tools call atoms."]}}' ;;
 esac
 STUB
 chmod +x "$stub/claude"
@@ -84,6 +85,21 @@ stubbed text "A smaller ceiling." 3 0.05
 [ "$(stub_cost)" = 0.05 ] || fail "TOOL_FACTORY_CALL_BUDGET_USD=0.05 logged $(stub_cost), not 0.05"
 stubbed cost "Reply with a cost."
 [ "$(stub_cost)" = 0.02 ] || fail "a failed reply with a cost logged $(stub_cost), not its 0.02"
+
+rm -rf "$out/stub-home"
+jq '.segments[0].text = "A reply with a negative cost."' "$fixture" > "$out/stubbed.json"
+env STUB_REPLY=negative PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" "$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out" \
+	|| fail "a reply with a negative cost failed: $(cat "$out/stubbed.out")"
+uvx -q check-jsonschema --schemafile "$repo/contracts/digest.schema.json" "$out/stubbed.out" > /dev/null \
+	|| fail "a reply with a negative cost broke digest.schema.json: $(jq -c .costUsd "$out/stubbed.out")"
+[ "$(stub_cost)" = 0.25 ] || fail "a reply with a negative cost logged $(stub_cost), not the 0.25 per-call ceiling"
+
+for caps in "3 0" "3 0.0000004" "0.0000004 0.25"; do
+	set -- $caps
+	stubbed cost "Cap $1 $2." "$1" "$2"
+	[ "$(jq -r .error.code "$out/stubbed.out")" = budget_exceeded ] || fail "budget $1 and ceiling $2 did not report budget_exceeded"
+	[ ! -e "$STUB_ARGS" ] || fail "budget $1 and ceiling $2 reached claude with --max-budget-usd $(stub_cap)"
+done
 
 for budget in nan inf -inf -1; do
 	stubbed cost "Budget $budget." "$budget"
