@@ -69,7 +69,6 @@ def _dollars(name: str, default: str) -> float:
 
 
 def _claude(text: str, cap: float) -> tuple[dict, float]:
-    cap = round(cap, 6)
     command = [
         "claude", "-p", "--safe-mode", "--model", MODEL,
         "--output-format", "json", "--json-schema", json.dumps(OUTPUT_SCHEMA),
@@ -116,7 +115,12 @@ def make(transcript: str) -> dict:
         raise cli.AtomError(
             "budget_exceeded", f"Model spend today is ${spent:.4f} of the ${budget:.4f} budget. Set TOOL_FACTORY_BUDGET_USD to raise it."
         )
-    fields, cost = _claude(text, min(budget - spent, ceiling))
+    cap = round(min(budget - spent, ceiling), 6)
+    if cap <= 0:
+        raise cli.AtomError(
+            "budget_exceeded", f"The call cap rounds to ${cap:.6f}, and claude needs more than $0. Raise TOOL_FACTORY_CALL_BUDGET_USD or TOOL_FACTORY_BUDGET_USD."
+        )
+    fields, cost = _claude(text, cap)
     digest = {**here, "model": MODEL, **fields, "costUsd": cost}
     cache.put(key, digest)
     return digest
