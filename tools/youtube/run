@@ -63,23 +63,22 @@ def transcript_of(url: str) -> dict:
     return {**atom("transcribe", "file", media["path"]), "source": url}
 
 
-def is_url(text: str) -> bool:
-    return bool(re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", text))
-
-
-def is_list(text: str) -> bool:
+def kind_of(text: str) -> str:
+    if not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", text):
+        return "words"
     url = urlparse(text)
     query = parse_qs(url.query)
-    return ("list" in query and "v" not in query) or url.path.startswith(LIST_PATHS)
+    return "list" if ("list" in query and "v" not in query) or url.path.startswith(LIST_PATHS) else "video"
 
 
 def videos_of(text: str, limit: int | None) -> list[dict]:
-    if not is_url(text):
-        args = ["search", text, "--site", "ytsearch", "--limit", str(1 if limit is None else limit)]
-    elif is_list(text):
-        args = ["list", text, *([] if limit is None else ["--limit", str(limit)])]
-    else:
+    kind = kind_of(text)
+    if kind == "video":
         return [{"url": text, "title": None}]
+    if kind == "words":
+        args = ["search", text, "--site", "ytsearch", "--limit", str(1 if limit is None else limit)]
+    else:
+        args = ["list", text, *([] if limit is None else ["--limit", str(limit)])]
     log(f"find-url {' '.join(args)}")
     found = atom("find-url", *args)
     if not found["items"]:
@@ -126,10 +125,14 @@ def timed_lines(transcript: dict) -> str:
     return "\n".join("[%d:%02d] %s" % (*divmod(int(s["start"]), 60), s["text"]) for s in transcript["segments"])
 
 
+def stream_digest(command: list[str]) -> int:
+    return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
+
+
 def get(args, as_json: bool) -> int:
     command = digest_args(args.input, args.visual)
     if not as_json:
-        return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
+        return stream_digest(command)
     print(json.dumps(atom("digest", *command), ensure_ascii=False))
     return 0
 
@@ -142,7 +145,7 @@ def transcript(args, as_json: bool) -> int:
 
 def search(args, as_json: bool) -> int:
     videos = videos_of(args.input, args.limit)
-    items, failed, done = [], [], 0
+    items, failed, succeeded = [], [], 0
     for n, video in enumerate(videos):
         if not as_json:
             print(f"{'\n' if n else ''}# {video['title'] or video['url']}\n{video['url']}\n", flush=True)
@@ -150,17 +153,18 @@ def search(args, as_json: bool) -> int:
             command = digest_args(video["url"], args.visual)
             if as_json:
                 items.append(atom("digest", *command))
-            elif subprocess.run([bin_of("digest"), *command], env=ENV).returncode == 0:
-                done += 1
+                succeeded += 1
+            elif stream_digest(command) == 0:
+                succeeded += 1
         except AtomFailed as e:
             failed.append({"url": video["url"], "error": e.error})
             if not as_json:
                 print(f"youtube: {e.error['code']}: {e.error['message']}", file=sys.stderr, flush=True)
-    if as_json and not items:
-        raise AtomFailed(failed[0]["error"])
     if as_json:
+        if not items:
+            raise AtomFailed(failed[0]["error"])
         print(json.dumps({"items": items, "failed": failed}, ensure_ascii=False))
-    return 0 if items or done else 1
+    return 0 if succeeded else 1
 
 
 RUN = {"get": get, "transcript": transcript, "search": search}
@@ -212,7 +216,7 @@ def verb_args(argv: list[str]) -> list[str]:
     inputs = [a for i, a in enumerate(words) if not a.startswith("-") and (i == 0 or words[i - 1] not in VALUE_FLAGS)]
     if "--no-digest" in words:
         verb = "transcript"
-    elif inputs and (not is_url(inputs[0]) or is_list(inputs[0])):
+    elif inputs and kind_of(inputs[0]) != "video":
         verb = "search"
     else:
         verb = "get"

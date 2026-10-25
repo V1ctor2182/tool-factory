@@ -43,18 +43,17 @@ def spend(home: Path, usd: float) -> None:
         f.write(json.dumps({"name": "other", "startedAt": now, "costUsd": usd}) + "\n")
 
 
+def passed(calls: Path, flag: str) -> str:
+    argv = (calls / "argv").read_text().splitlines()
+    return argv[argv.index(flag) + 1]
+
+
 def test_returns_structured_output_and_cost(atom):
     spec, home, calls, _ = atom
     spend(home, 1.0)
     assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.02)
-    argv = (calls / "argv").read_text().splitlines()
-    assert argv[argv.index("--model") + 1] == "haiku"
-    assert argv[argv.index("--max-budget-usd") + 1] == "0.250000"
-
-
-def cap_passed(calls: Path) -> str:
-    argv = (calls / "argv").read_text().splitlines()
-    return argv[argv.index("--max-budget-usd") + 1]
+    assert passed(calls, "--model") == "haiku"
+    assert passed(calls, "--max-budget-usd") == "0.250000"
 
 
 @pytest.mark.parametrize(
@@ -67,7 +66,7 @@ def test_caps_each_call_at_the_ceiling_or_the_rest_of_the_budget(atom, monkeypat
     if ceiling:
         monkeypatch.setenv("TOOL_FACTORY_CALL_BUDGET_USD", ceiling)
     model.ask(spec, SCHEMA, ["question"])
-    assert cap_passed(calls) == cap
+    assert passed(calls, "--max-budget-usd") == cap
 
 
 def test_refuses_past_budget_without_calling_the_backend(atom, monkeypatch):
