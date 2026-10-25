@@ -6,6 +6,7 @@
 # ///
 import hashlib
 import json
+import math
 import os
 import subprocess
 from datetime import datetime, timezone
@@ -59,17 +60,21 @@ def _spent_today() -> float:
 def _budget() -> float:
     raw = os.environ.get("TOOL_FACTORY_BUDGET_USD", "3")
     try:
-        return float(raw)
+        budget = float(raw)
     except ValueError:
-        raise cli.AtomError("invalid_args", f"TOOL_FACTORY_BUDGET_USD is not a number: {raw}")
+        budget = math.nan
+    if not math.isfinite(budget) or budget < 0:
+        raise cli.AtomError("invalid_args", f"TOOL_FACTORY_BUDGET_USD is not a finite number of dollars, 0 or more: {raw}")
+    return budget
 
 
 def _claude(text: str, remaining: float) -> tuple[dict, float]:
+    cap = round(remaining, 6)
     command = [
         "claude", "-p", "--safe-mode", "--model", MODEL,
         "--output-format", "json", "--json-schema", json.dumps(OUTPUT_SCHEMA),
         "--system-prompt", PROMPT, "--tools", "", "--no-session-persistence",
-        "--max-budget-usd", f"{remaining:.6f}",
+        "--max-budget-usd", f"{cap:.6f}",
     ]
     try:
         done = subprocess.run(
@@ -78,12 +83,18 @@ def _claude(text: str, remaining: float) -> tuple[dict, float]:
     except FileNotFoundError:
         raise cli.AtomError("model_error", "The claude CLI is not on PATH.")
     except subprocess.TimeoutExpired:
-        raise cli.AtomError("model_error", "claude did not answer within 600 seconds.")
+        raise cli.AtomError("model_error", "claude did not answer within 600 seconds.", cap)
     try:
         reply = json.loads(done.stdout)
     except ValueError:
-        raise cli.AtomError("model_error", f"claude exited {done.returncode}: {done.stderr.strip() or done.stdout.strip()}")
-    cost = reply.get("total_cost_usd") or 0.0
+        reply = None
+    if not isinstance(reply, dict):
+        raise cli.AtomError(
+            "model_error", f"claude exited {done.returncode}: {done.stderr.strip() or done.stdout.strip()}", cap
+        )
+    cost = reply.get("total_cost_usd")
+    if not isinstance(cost, (int, float)) or not math.isfinite(cost):
+        cost = cap
     if reply.get("subtype") == "error_max_budget_usd":
         raise cli.AtomError("budget_exceeded", "The call reached the rest of today's model budget.", cost)
     if reply.get("is_error") or not isinstance(reply.get("structured_output"), dict):

@@ -42,4 +42,43 @@ if "$bin" make --transcript "$test_dir/no-such-file.json" --json > "$out/missing
 if "$bin" make --json > "$out/no-arg.json"; then fail "no --transcript exited 0"; fi
 [ "$(jq -r .error.code "$out/no-arg.json")" = invalid_args ] || fail "no --transcript did not report invalid_args"
 
+stub="$out/stub"
+mkdir "$stub"
+cat > "$stub/claude" <<'STUB'
+#!/bin/sh
+printf '%s\n' "$@" > "$STUB_ARGS"
+case "$STUB_REPLY" in
+	text) echo "Error: the session ended"; exit 1 ;;
+	no-cost) echo '{"type":"result","is_error":true,"result":"boom"}' ;;
+	cost) echo '{"type":"result","is_error":true,"total_cost_usd":0.02,"result":"boom"}' ;;
+esac
+STUB
+chmod +x "$stub/claude"
+STUB_ARGS="$out/stub.args"
+export STUB_ARGS
+
+stubbed() {
+	rm -rf "$STUB_ARGS" "$out/stub-home"
+	jq --arg t "$2" '.segments[0].text = $t' "$fixture" > "$out/stubbed.json"
+	if STUB_REPLY=$1 PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" TOOL_FACTORY_BUDGET_USD=${3:-0.5} \
+		"$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out"; then fail "$1 reply exited 0"; fi
+}
+stub_cost() { tail -n 1 "$out/stub-home/runs.jsonl" | jq .costUsd; }
+
+stubbed text "Unreadable reply."
+[ "$(jq -r .error.code "$out/stubbed.out")" = model_error ] || fail "a reply that is not JSON did not report model_error"
+[ "$(stub_cost)" = 0.5 ] || fail "a reply that is not JSON logged $(stub_cost), not the 0.5 cap of the call"
+stubbed no-cost "Reply without a cost."
+[ "$(stub_cost)" = 0.5 ] || fail "a JSON reply without a cost logged $(stub_cost), not the 0.5 cap of the call"
+stubbed cost "Reply with a cost."
+[ "$(stub_cost)" = 0.02 ] || fail "a failed reply with a cost logged $(stub_cost), not its 0.02"
+
+for budget in nan inf -inf -1; do
+	stubbed cost "Budget $budget." "$budget"
+	[ "$(jq -r .error.code "$out/stubbed.out")" = invalid_args ] || fail "budget $budget did not report invalid_args"
+	[ ! -e "$STUB_ARGS" ] || fail "budget $budget reached claude"
+done
+TOOL_FACTORY_BUDGET_USD=nan "$bin" make --transcript "$fixture" --json > "$out/cached-nan.json" \
+	|| fail "a cache hit read the budget"
+
 echo "PASS digest"
