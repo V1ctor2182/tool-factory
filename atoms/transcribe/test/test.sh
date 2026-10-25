@@ -37,6 +37,10 @@ jq -r .srt "$out/srt.json" | cmp - "$test_dir/expected/hello.srt" || fail "srt -
 [ "$(jq .cacheHit "$out/en-again.json")" = true ] || fail "second --language en run missed the cache"
 [ "$(ls "$TOOL_FACTORY_HOME/transcribe/cache" | wc -l | tr -d ' ')" = 2 ] || fail "auto and en did not make exactly two cache entries"
 
+"$bin" file "$test_dir/fixtures/hello-pink-tail.m4a" --json > "$out/tail.json"
+times=$(jq -c '[.segments[] | [.start, .end]]' "$out/tail.json")
+[ "$times" = '[[0.0,2.0],[30.0,33.99]]' ] || fail "segment times on the 33.9966 s pink-tail fixture are $times"
+
 if "$bin" file "$test_dir/no-such-file.wav" --json > "$out/missing.json"; then fail "missing file exited 0"; fi
 [ "$(jq -r .error.code "$out/missing.json")" = invalid_source ] || fail "missing file did not report invalid_source"
 
