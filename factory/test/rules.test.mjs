@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { after, test } from 'node:test';
 
 const REPO = resolve(import.meta.dirname, '..', '..');
@@ -88,4 +88,103 @@ test('a free atom that imports the model adapter under an alias fails kind-decid
   assert.equal(result.code, 1);
   assert.match(result.lines.join('\n'), /FAIL rule kind-decides-cost: atoms\/frames: frames is a transform atom, which is free, but it imports the kit's model adapter\./);
   assert.match(result.lines.join('\n'), /FAIL rule declare-binaries: kit\/py\/src\/factory_kit\/model\.py:\d+: frames runs claude, which needs\.bin in atoms\/frames\/manifest\.json does not declare\./);
+});
+
+function plant(root, rel, text) {
+  const path = join(root, rel);
+  mkdirSync(dirname(path), { recursive: true });
+  const before = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  writeFileSync(path, `${before}\n${text}\n`);
+  return before.split('\n').length + 1;
+}
+
+function manifest(root, rel, change) {
+  const path = join(root, rel, 'manifest.json');
+  const m = JSON.parse(readFileSync(path, 'utf8'));
+  change(m);
+  writeFileSync(path, JSON.stringify(m, null, 2));
+}
+
+const CROSS = 'Atoms import the kit, never each other.';
+const crossAtom = [
+  ['a dotted import through the atoms folder', 'atoms/digest/src/digest.py', 'from atoms.captions.src import captions'],
+  ['a dotted plain import through the atoms folder', 'atoms/digest/src/digest.py', 'import atoms.captions.src.captions'],
+  ['an import after a semicolon', 'atoms/digest/src/digest.py', 'import os; import captions'],
+  ['an import inside a one-line if', 'atoms/digest/src/digest.py', 'if True: import captions'],
+  ['an import in a nested prompts folder', 'atoms/digest/src/prompts/helper.py', 'import captions'],
+  ['an import in a nested test folder', 'atoms/digest/src/test/helper.py', 'import captions'],
+];
+for (const [what, rel, text] of crossAtom) {
+  test(`${what} fails atoms-import-only-kit`, () => {
+    const root = copy();
+    const line = plant(root, rel, text);
+    assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule atoms-import-only-kit: ${rel}:${line}: atom digest imports atom captions. ${CROSS}`] });
+  });
+}
+
+test('a shell entry that runs a sibling CLI fails atoms-import-only-kit', () => {
+  const root = copy();
+  const line = plant(root, 'atoms/digest/bin/digest', '"$(dirname "$self")/../../captions/bin/captions" get x');
+  assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule atoms-import-only-kit: atoms/digest/bin/digest:${line}: atom digest calls atom captions. ${CROSS}`] });
+});
+
+test('a tool that names an atom outside its uses in a constant fails tools-call-only-uses', () => {
+  const root = copy();
+  manifest(root, 'tools/youtube', (m) => m.uses.splice(m.uses.indexOf('see'), 1));
+  edit(join(root, 'tools/youtube/run'), (text) => text.replace('atom("see",', 'atom(SEE,').replace('MAX_FRAMES = 8\n', 'MAX_FRAMES = 8\nSEE = "see"\n'));
+  const line = readFileSync(join(root, 'tools/youtube/run'), 'utf8').split('\n').indexOf('SEE = "see"') + 1;
+  assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule tools-call-only-uses: tools/youtube/run:${line}: tool youtube calls atom see, which its uses does not list.`] });
+});
+
+const undeclared = (rel, line, name, bin) => `FAIL rule declare-binaries: ${rel}:${line}: ${name} runs ${bin}, which needs.bin in atoms/${name}/manifest.json does not declare.`;
+const binaryShapes = [
+  ['a run imported from subprocess', 'from subprocess import run\nrun(["ffprobe", "-v"])', 1],
+  ['subprocess under an alias', 'import subprocess as sp\nsp.run(["ffprobe", "-v"])', 1],
+  ['a command list passed with a splat', 'cmd = ["ffprobe", "-v"]\nsubprocess.run([*cmd])', 0],
+  ['a command list passed as args=', 'subprocess.run(args=["ffprobe", "-v"])', 0],
+];
+for (const [what, text, offset] of binaryShapes) {
+  test(`${what} fails declare-binaries`, () => {
+    const root = copy();
+    const line = plant(root, 'atoms/frames/src/frames.py', text) + offset;
+    assert.deepEqual(rules(root), { code: 1, lines: [undeclared('atoms/frames/src/frames.py', line, 'frames', 'ffprobe')] });
+  });
+}
+
+test('a shell entry that runs an undeclared binary fails declare-binaries', () => {
+  const root = copy();
+  const line = plant(root, 'atoms/frames/bin/frames', 'jq --version >/dev/null');
+  assert.deepEqual(rules(root), { code: 1, lines: [undeclared('atoms/frames/bin/frames', line, 'frames', 'jq')] });
+});
+
+test('a yt-dlp js_runtimes entry counts as running that runtime', () => {
+  const root = copy();
+  manifest(root, 'atoms/captions', (m) => (m.needs.bin = []));
+  const line = readFileSync(join(root, 'atoms/captions/src/captions.py'), 'utf8').split('\n').findIndex((l) => l.includes('"js_runtimes"')) + 1;
+  assert.deepEqual(rules(root), { code: 1, lines: [undeclared('atoms/captions/src/captions.py', line, 'captions', 'node')] });
+});
+
+test('a Cache named only in a comment does not count as caching', () => {
+  const root = copy();
+  edit(join(root, 'atoms/frames/src/frames.py'), (text) => text.replace('cache = Cache("frames")', 'cache = None  # was Cache("frames")'));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule kind-decides-caching: atoms/frames: frames is a transform atom, cached by content, but no source builds a Cache.'] });
+});
+
+test('a free atom that runs the paid backend fails kind-decides-cost', () => {
+  const root = copy();
+  manifest(root, 'atoms/find-url', (m) => m.needs.bin.push('claude'));
+  const line = plant(root, 'atoms/find-url/src/find-url.py', 'import subprocess\nsubprocess.run(["claude", "-p", "hi"])') + 1;
+  assert.deepEqual(rules(root), {
+    code: 1,
+    lines: [
+      'FAIL rule kind-decides-cost: atoms/find-url/manifest.json: find-url is an observe atom, which is free, but needs.bin lists the paid backend claude.',
+      `FAIL rule kind-decides-cost: atoms/find-url/src/find-url.py:${line}: find-url is an observe atom, which is free, but it runs the paid backend claude.`,
+    ],
+  });
+});
+
+test('an invalid atom manifest reports only the schema error', () => {
+  const root = copy();
+  manifest(root, 'atoms/frames', (m) => delete m.contract);
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: atoms/frames/manifest.json: / lacks contract'] });
 });
