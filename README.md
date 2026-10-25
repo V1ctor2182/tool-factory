@@ -6,13 +6,13 @@ The first tool comes from an AI video pipeline. The research below is where it s
 
 ## Research (2026-10-10)
 
-Three briefs live under `research/`. Each claim carries a source URL. Anything the researcher could not verify is marked `(guess)` or `(inferred)` inline.
+Three briefs live under `docs/research/`. Each claim carries a source URL. Anything the researcher could not verify is marked `(guess)` or `(inferred)` inline.
 
 | Brief | What it answers |
 |---|---|
-| [research/higgsfield.md](research/higgsfield.md) | What Higgsfield is, its models, pricing, API, MCP, comparison with Kling / Veo / Runway / Seedance, known complaints, cost per finished minute |
-| [research/coding-agents.md](research/coding-agents.md) | Pipeline stages and tools, Claude Code vs Codex CLI for automation, open-source projects to borrow from, MCP servers, model pricing, recommended architecture |
-| [research/skills.md](research/skills.md) | The SKILL.md spec, registries, existing video skills, best practices, a proposed 11-skill set for this studio |
+| [docs/research/higgsfield.md](docs/research/higgsfield.md) | What Higgsfield is, its models, pricing, API, MCP, comparison with Kling / Veo / Runway / Seedance, known complaints, cost per finished minute |
+| [docs/research/coding-agents.md](docs/research/coding-agents.md) | Pipeline stages and tools, Claude Code vs Codex CLI for automation, open-source projects to borrow from, MCP servers, model pricing, recommended architecture |
+| [docs/research/skills.md](docs/research/skills.md) | The SKILL.md spec, registries, existing video skills, best practices, a proposed 11-skill set for this studio |
 
 ## Decisions the research supports
 

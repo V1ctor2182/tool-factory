@@ -1,10 +1,9 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["factory-kit", "faster-whisper", "av<19"]
+# dependencies = ["factory-kit", "pywhispercpp>=1.5,<2", "av", "huggingface-hub"]
 # [tool.uv.sources]
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
-# faster-whisper 1.2.1 passes an argument that PyAV 19 removed, so av stays below 19.
 from pathlib import Path
 
 from factory_kit import cli
@@ -12,35 +11,67 @@ from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
 
 
+def _audio(file: Path):
+    import av
+    import numpy as np
+
+    resampler = av.AudioResampler(format="flt", layout="mono", rate=16000)
+    chunks = []
+    try:
+        with av.open(str(file)) as container:
+            for frame in container.decode(container.streams.audio[0]):
+                chunks += [f.to_ndarray().reshape(-1) for f in resampler.resample(frame)]
+        chunks += [f.to_ndarray().reshape(-1) for f in resampler.resample(None)]
+    except (av.error.InvalidDataError, IndexError):
+        raise cli.AtomError("invalid_source", f"Not an audio or video file: {file}")
+    return np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+
+
+def _weights(model: str) -> str:
+    from huggingface_hub import hf_hub_download
+    from huggingface_hub.errors import EntryNotFoundError, LocalEntryNotFoundError
+
+    try:
+        return hf_hub_download("ggerganov/whisper.cpp", f"ggml-{model}.bin")
+    except LocalEntryNotFoundError as e:
+        raise cli.AtomError("network_error", f"Could not download the {model} weights: {e}")
+    except EntryNotFoundError:
+        raise cli.AtomError("invalid_args", f"Unknown whisper.cpp model: {model}")
+
+
 def transcribe(path: str, model: str, language: str | None) -> dict:
     file = Path(path).expanduser().resolve()
     if not file.is_file():
         raise cli.AtomError("invalid_source", f"No such file: {path}")
     cache = Cache("transcribe")
-    key = f"{file_sha256(file)}-{model}-{language or 'auto'}"
+    key = f"{file_sha256(file)}-whispercpp-{model}-{language or 'auto'}"
     if cached := cache.get(key):
         return {**cached, "source": str(file), "cacheHit": True}
 
-    # Imported after the cache check because loading CTranslate2 and PyAV costs about a second.
-    import av
-    from faster_whisper import WhisperModel
+    # Imported after the cache check, so a cache hit skips loading whisper.cpp and PyAV.
+    import _pywhispercpp
+    from pywhispercpp.model import Model
 
-    try:
-        whisper = WhisperModel(model, device="cpu", compute_type="int8")
-    except ValueError as e:
-        raise cli.AtomError("invalid_args", str(e))
-    try:
-        raw, info = whisper.transcribe(str(file), language=language, temperature=0.0)
-        segments = [
-            {"start": round(s.start, 2), "end": round(s.end, 2), "text": s.text.strip()} for s in raw if s.text.strip()
-        ]
-    except av.error.InvalidDataError:
-        raise cli.AtomError("invalid_source", f"Not an audio or video file: {path}")
+    audio = _audio(file)
+    whisper = Model(
+        _weights(model),
+        params_sampling_strategy=1,
+        beam_search={"beam_size": 5, "patience": -1.0},
+        temperature_inc=0.0,
+        language=language or "auto",
+        print_progress=False,
+        print_realtime=False,
+        print_timestamps=False,
+        redirect_whispercpp_logs_to=None,
+    )
+    raw = whisper.transcribe(audio)
+    segments = [{"start": s.t0 / 100, "end": s.t1 / 100, "text": s.text.strip()} for s in raw if s.text.strip()]
+    detected = _pywhispercpp.whisper_lang_str(_pywhispercpp.whisper_full_lang_id(whisper._ctx))
 
     transcript = {
         "source": str(file),
         "method": "whisper",
-        "language": info.language,
+        "language": language or detected,
         "model": model,
         "text": " ".join(s["text"] for s in segments),
         "segments": segments,

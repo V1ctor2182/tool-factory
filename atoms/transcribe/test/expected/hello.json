@@ -1,12 +1,12 @@
 {
   "method": "whisper",
   "language": "en",
-  "model": "small",
+  "model": "large-v3-turbo-q5_0",
   "text": "Hello from the Tool Factory.",
   "segments": [
     {
       "start": 0.0,
-      "end": 2.0,
+      "end": 1.24,
       "text": "Hello from the Tool Factory."
     }
   ]

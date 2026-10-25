@@ -2,7 +2,7 @@
   "name": "transcribe",
   "type": "atom",
   "kind": "transform",
-  "description": "Timed transcript of a local audio or video file, from faster-whisper on this Mac.",
+  "description": "Timed transcript of a local audio or video file, from whisper.cpp on this Mac.",
   "status": "alpha",
   "runtime": "uv",
   "entry": "bin/transcribe",
@@ -15,7 +15,7 @@
         "type": "object",
         "properties": {
           "path": { "type": "string", "description": "Audio or video file to transcribe." },
-          "model": { "type": "string", "default": "small", "description": "faster-whisper model name, such as tiny, small, or large-v3." },
+          "model": { "type": "string", "default": "large-v3-turbo-q5_0", "description": "whisper.cpp model name from huggingface.co/ggerganov/whisper.cpp, such as small or large-v3-turbo-q5_0." },
           "language": { "type": "string", "description": "Language code such as en. Detected when omitted." }
         },
         "required": ["path"]
@@ -29,7 +29,7 @@
         "type": "object",
         "properties": {
           "path": { "type": "string", "description": "Audio or video file to transcribe." },
-          "model": { "type": "string", "default": "small", "description": "faster-whisper model name, such as tiny, small, or large-v3." },
+          "model": { "type": "string", "default": "large-v3-turbo-q5_0", "description": "whisper.cpp model name from huggingface.co/ggerganov/whisper.cpp, such as small or large-v3-turbo-q5_0." },
           "language": { "type": "string", "description": "Language code such as en. Detected when omitted." }
         },
         "required": ["path"]
