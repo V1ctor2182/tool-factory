@@ -39,16 +39,22 @@ def _parser(manifest: dict) -> _Parser:
         p = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
         schema = verb["input"]
         required = schema.get("required", [])
-        for name in required:
+        positional = [name for name in required if not schema["properties"][name].get("x-flag")]
+        for name in positional:
             p.add_argument(name, help=schema["properties"][name].get("description"))
         for name, prop in schema["properties"].items():
-            if name in required:
+            if name in positional:
                 continue
             if prop.get("type") == "boolean":
                 p.add_argument(_flag(name), dest=name, action="store_true", help=prop.get("description"))
             else:
                 p.add_argument(
-                    _flag(name), dest=name, default=prop.get("default"), choices=prop.get("enum"), help=prop.get("description")
+                    _flag(name),
+                    dest=name,
+                    required=name in required,
+                    default=prop.get("default"),
+                    choices=prop.get("enum"),
+                    help=prop.get("description"),
                 )
         p.add_argument("--json", action="store_true", help="Print the result as one JSON object.")
     return root

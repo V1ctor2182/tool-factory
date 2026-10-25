@@ -15,8 +15,9 @@
       "input": {
         "type": "object",
         "properties": {
-          "transcript": { "type": "string", "description": "Path of a transcript JSON file, as captions or transcribe print it with --json." }
-        }
+          "transcript": { "type": "string", "description": "Path of a transcript JSON file, as captions or transcribe print it with --json.", "x-flag": true }
+        },
+        "required": ["transcript"]
       },
       "output": "digest"
     }

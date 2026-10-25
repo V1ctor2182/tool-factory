@@ -34,9 +34,7 @@ def _timestamp(seconds: float) -> str:
     return f"{minutes}:{secs:02d}"
 
 
-def _read_transcript(path: str | None) -> tuple[Path, dict, str]:
-    if not path:
-        raise cli.AtomError("invalid_args", "Pass --transcript <path>.")
+def _read_transcript(path: str) -> tuple[Path, dict, str]:
     file = Path(path).expanduser().resolve()
     try:
         transcript = json.loads(file.read_text(encoding="utf-8"))
@@ -93,7 +91,7 @@ def _claude(text: str, remaining: float) -> tuple[dict, float]:
     return reply["structured_output"], cost
 
 
-def make(transcript: str | None) -> dict:
+def make(transcript: str) -> dict:
     file, parsed, text = _read_transcript(transcript)
     key = f"{hashlib.sha256(text.encode()).hexdigest()}-{MODEL}-{PROMPT_HASH}"
     here = {"source": parsed.get("source") or str(file), "transcriptPath": str(file)}
