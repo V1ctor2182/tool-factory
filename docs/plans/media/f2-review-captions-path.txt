@@ -9,3 +9,5 @@ youtube: digest make --transcript /private/tmp/f2proto/fin-l2-fAhH/youtube/trans
 --- runs.jsonl ---
 {"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:06Z","ms":1233,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
 {"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T21:37:07Z","ms":5147,"ok":true,"cacheHit":false,"costUsd":0.0051472,"caller":"youtube"}
+--- transcript method: $ jq -r .method /private/tmp/f2proto/fin-l2-fAhH/youtube/transcripts/82087ee0d9470d2d57f04e5e51443889.json ---
+captions

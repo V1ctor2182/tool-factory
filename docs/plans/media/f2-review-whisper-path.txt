@@ -16,3 +16,5 @@ youtube: digest make --transcript /private/tmp/f2proto/fin-l3-BiGx/youtube/trans
 {"type":"atom","name":"download","verb":"get","kind":"transform","startedAt":"2026-10-25T21:37:16Z","ms":7601,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
 {"type":"atom","name":"transcribe","verb":"file","kind":"transform","startedAt":"2026-10-25T21:37:24Z","ms":9249,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
 {"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T21:37:33Z","ms":4648,"ok":true,"cacheHit":false,"costUsd":0.007801799999999999,"caller":"youtube"}
+--- transcript method: $ jq -r .method /private/tmp/f2proto/fin-l3-BiGx/youtube/transcripts/8472cafa48feda27c6471cd3ccfd4eee.json ---
+whisper
