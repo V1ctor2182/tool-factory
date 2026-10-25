@@ -12,9 +12,10 @@ from . import runs
 
 
 class AtomError(Exception):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, cost_usd: float = 0.0):
         super().__init__(message)
         self.code = code
+        self.cost_usd = cost_usd
 
 
 class Verb(NamedTuple):
@@ -60,15 +61,18 @@ def main(atom_root: Path, verbs: dict[str, Verb]) -> None:
     clock = time.monotonic()
     verb_name = None
     result = None
+    cost_usd = 0.0
     try:
         args = vars(_parser(manifest).parse_args())
         verb_name = args.pop("verb")
         args.pop("json")
         result = verbs[verb_name].run(**args)
         result.setdefault("cacheHit", False)
+        cost_usd = result.get("costUsd", 0.0)
         error = None
     except AtomError as e:
         error = {"code": e.code, "message": str(e)}
+        cost_usd = e.cost_usd
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
         error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
@@ -82,6 +86,7 @@ def main(atom_root: Path, verbs: dict[str, Verb]) -> None:
         "ms": round((time.monotonic() - clock) * 1000),
         "ok": error is None,
         "cacheHit": bool(result and result["cacheHit"]),
+        "costUsd": cost_usd,
     }
     if error:
         record["error"] = error["code"]
