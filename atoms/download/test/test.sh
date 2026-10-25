@@ -29,12 +29,16 @@ url="http://127.0.0.1:$port/clip.aiff"
 uvx -q check-jsonschema --schemafile "$repo/contracts/media.schema.json" "$out/first.json" > /dev/null \
 	|| fail "output does not match media.schema.json"
 [ "$(jq .cacheHit "$out/first.json")" = false ] || fail "first call reported a cache hit"
+record=$(jq -c '{extractor, id, kind, title, durationSec}' "$out/first.json")
+[ "$record" = '{"extractor":"Generic","id":"clip","kind":"audio","title":"clip","durationSec":null}' ] \
+	|| fail "media record is $record"
 path=$(jq -r .path "$out/first.json")
+[ "$path" = "$TOOL_FACTORY_HOME/download/files/Generic-clip-audio.aiff" ] || fail "path is $path"
 cmp "$path" "$site/clip.aiff" || fail "downloaded file differs from the served file"
-case "$path" in "$TOOL_FACTORY_HOME"/download/*) ;; *) fail "file $path is outside the data home" ;; esac
 
 "$bin" get "$url" --audio --json > "$out/second.json"
 [ "$(jq .cacheHit "$out/second.json")" = true ] || fail "second call missed the cache"
 [ "$(jq -r .path "$out/second.json")" = "$path" ] || fail "second call returned a different path"
+
 
 echo "PASS download"
