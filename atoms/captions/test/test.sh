@@ -5,9 +5,11 @@ repo=$(cd "$test_dir/../../.." && pwd)
 bin="$test_dir/../bin/captions"
 TOOL_FACTORY_HOME=$(mktemp -d)
 export TOOL_FACTORY_HOME
-trap 'rm -rf "$TOOL_FACTORY_HOME"' EXIT
 out="$TOOL_FACTORY_HOME/out"
-mkdir "$out"
+site="$TOOL_FACTORY_HOME/site"
+mkdir "$out" "$site"
+server=
+trap 'if [ -n "$server" ]; then kill "$server"; wait "$server" 2> /dev/null || true; fi; rm -rf "$TOOL_FACTORY_HOME"' EXIT
 
 fail() { echo "FAIL captions: $1" >&2; exit 1; }
 
@@ -28,6 +30,19 @@ jq -S 'del(.source, .cacheHit)' "$out/again.json" | diff "$out/expected.json" - 
 
 if "$bin" get not-a-url --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "not-a-url exited 0"; fi
 [ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "not-a-url did not report invalid_source"
+
+printf '<html><body>Not a video.</body></html>' > "$site/index.html"
+python3 -u -m http.server 0 --bind 127.0.0.1 --directory "$site" > "$out/server.log" 2>&1 &
+server=$!
+port=
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	port=$(sed -n 's/.* port \([0-9]*\).*/\1/p' "$out/server.log")
+	[ -n "$port" ] && break
+	sleep 0.2
+done
+[ -n "$port" ] || fail "local HTTP server did not start"
+if "$bin" get "http://127.0.0.1:$port" --json > "$out/page.json" 2> "$out/page.err"; then fail "a page with no video exited 0"; fi
+[ "$(jq -r .error.code "$out/page.json")" = invalid_source ] || fail "a page with no video reported $(jq -c .error "$out/page.json")"
 
 printf '[]' > "$out/list.json3"
 printf '{"events": [{"segs": [{"utf8": "hi"}]}]}' > "$out/no-start.json3"
