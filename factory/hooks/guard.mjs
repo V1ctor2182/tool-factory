@@ -32,6 +32,7 @@ const GUARDS = {
 function guard() {
   const payload = JSON.parse(readFileSync(0, 'utf8') || '{}');
   const command = payload.tool_name === 'Bash' ? payload.tool_input?.command ?? '' : '';
+  if (!command) return;
   const calls = (entry) =>
     new RegExp(`(?:^|[\\s;&|(\`/"'])${escape(entry.name)}["']?\\s+(?:${entry.manifest.verbs.map((v) => escape(v.name)).join('|')})\\b`).test(command);
   const reasons = [...load().entries.values()]
