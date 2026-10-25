@@ -57,19 +57,19 @@ def _spent_today() -> float:
     return sum(r.get("costUsd") or 0.0 for r in records if r.get("startedAt", "").startswith(today))
 
 
-def _budget() -> float:
-    raw = os.environ.get("TOOL_FACTORY_BUDGET_USD", "3")
+def _dollars(name: str, default: str) -> float:
+    raw = os.environ.get(name, default)
     try:
-        budget = float(raw)
+        dollars = float(raw)
     except ValueError:
-        budget = math.nan
-    if not 0 <= budget < math.inf:
-        raise cli.AtomError("invalid_args", f"TOOL_FACTORY_BUDGET_USD is not a finite number of dollars, 0 or more: {raw}")
-    return budget
+        dollars = math.nan
+    if not 0 <= dollars < math.inf:
+        raise cli.AtomError("invalid_args", f"{name} is not a finite number of dollars, 0 or more: {raw}")
+    return dollars
 
 
-def _claude(text: str, remaining: float) -> tuple[dict, float]:
-    cap = round(remaining, 6)
+def _claude(text: str, cap: float) -> tuple[dict, float]:
+    cap = round(cap, 6)
     command = [
         "claude", "-p", "--safe-mode", "--model", MODEL,
         "--output-format", "json", "--json-schema", json.dumps(OUTPUT_SCHEMA),
@@ -96,7 +96,7 @@ def _claude(text: str, remaining: float) -> tuple[dict, float]:
     if not isinstance(cost, (int, float)) or not math.isfinite(cost):
         cost = cap
     if reply.get("subtype") == "error_max_budget_usd":
-        raise cli.AtomError("budget_exceeded", "The call reached the rest of today's model budget.", cost)
+        raise cli.AtomError("budget_exceeded", f"The call reached its ${cap:.4f} cap, the per-call ceiling or the rest of today's budget.", cost)
     if reply.get("is_error") or not isinstance(reply.get("structured_output"), dict):
         raise cli.AtomError("model_error", f"claude returned no digest: {reply.get('errors') or reply.get('result')}", cost)
     return reply["structured_output"], cost
@@ -109,12 +109,14 @@ def make(transcript: str) -> dict:
     cache = Cache("digest")
     if cached := cache.get(key):
         return {**cached, **here, "costUsd": 0.0}
-    budget, spent = _budget(), _spent_today()
+    budget = _dollars("TOOL_FACTORY_BUDGET_USD", "3")
+    ceiling = _dollars("TOOL_FACTORY_CALL_BUDGET_USD", "0.25")
+    spent = _spent_today()
     if spent >= budget:
         raise cli.AtomError(
             "budget_exceeded", f"Model spend today is ${spent:.4f} of the ${budget:.4f} budget. Set TOOL_FACTORY_BUDGET_USD to raise it."
         )
-    fields, cost = _claude(text, budget - spent)
+    fields, cost = _claude(text, min(budget - spent, ceiling))
     digest = {**here, "model": MODEL, **fields, "costUsd": cost}
     cache.put(key, digest)
     return digest
