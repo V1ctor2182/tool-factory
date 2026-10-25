@@ -70,6 +70,17 @@ test('a tool that calls an atom outside its uses fails tools-call-only-uses', ()
   assert.match(result.lines.join('\n'), /FAIL rule tools-call-only-uses: tools\/youtube\/run:\d+: tool youtube calls atom frames, which its uses does not list\./);
 });
 
+test('a pipeline tool that uses an act atom fails act-atoms-skill-only', () => {
+  const root = copy();
+  manifest(root, 'atoms/find-url', (m) => (m.kind = 'act'));
+  assert.deepEqual(rules(root), {
+    code: 1,
+    lines: [
+      'FAIL rule act-atoms-skill-only: tools/youtube/manifest.json: tool youtube is a pipeline tool, but it uses find-url, an act atom. Only the agent decides what an act atom does, so a tool that acts is a skill tool.',
+    ],
+  });
+});
+
 test('an atom that runs a sibling CLI by path fails atoms-import-only-kit', () => {
   const root = copy();
   edit(join(root, 'atoms/frames/src/frames.py'), (text) => `${text}\nSIBLING = Path(__file__).resolve().parents[2] / "captions" / "bin" / "captions"\n`);

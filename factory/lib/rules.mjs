@@ -172,6 +172,18 @@ export const RULES = [
     },
   },
   {
+    id: 'act-atoms-skill-only',
+    check: (tool, f, { entries }) =>
+      tool.type !== 'tool' || tool.kind !== 'pipeline'
+        ? []
+        : (tool.manifest.uses ?? [])
+            .filter((name) => entries.get(name)?.kind === 'act')
+            .map(
+              (name) =>
+                `${tool.rel}/manifest.json: tool ${tool.name} is a pipeline tool, but it uses ${name}, an act atom. Only the agent decides what an act atom does, so a tool that acts is a skill tool.`,
+            ),
+  },
+  {
     id: 'tool-kind-shape',
     check(tool, f, { root }) {
       if (tool.type !== 'tool') return [];
