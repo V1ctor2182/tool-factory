@@ -1,0 +1,11 @@
+{
+  "name": "writing-style",
+  "type": "tool",
+  "kind": "skill",
+  "description": "Victor's house style for replies, docs, commit messages, PR descriptions, and skills. A skill with no code.",
+  "status": "alpha",
+  "contract": "digest",
+  "uses": [],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["skill"]
+}
