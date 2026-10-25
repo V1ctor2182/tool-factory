@@ -97,6 +97,8 @@ def get(url: str, lang: str) -> dict:
     try:
         with yt_dlp.YoutubeDL(settings) as ydl:
             info = ydl.extract_info(url, download=False, process=False)
+            while info.get("_type") in ("url", "url_transparent"):
+                info = ydl.extract_info(info["url"], ie_key=info.get("ie_key"), download=False, process=False)
             if info.get("_type") == "playlist":
                 raise cli.AtomError("invalid_source", f"A playlist, not one video: {url}")
             key = f"{info['extractor_key']}-{info['id']}"
