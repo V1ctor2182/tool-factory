@@ -26,4 +26,4 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site refused the video, for example a private or removed one | Report the message |
 
-A second call for the same video and language reads the cache and sets `cacheHit` to true.
+A second `get` for the same video and language, or a second `parse` of a file with the same content and language, reads the cache and sets `cacheHit` to true.

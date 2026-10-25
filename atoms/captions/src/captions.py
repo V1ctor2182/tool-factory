@@ -14,6 +14,7 @@ from yt_dlp.networking.exceptions import TransportError
 
 from factory_kit import cli, paths
 from factory_kit.cache import Cache
+from factory_kit.hash import file_sha256
 
 
 def _offline_key(url: str) -> str | None:
@@ -113,11 +114,19 @@ def get(url: str, lang: str) -> dict:
 
 def parse(path: str, lang: str) -> dict:
     file = Path(path).expanduser().resolve()
+    if not file.is_file():
+        raise cli.AtomError("invalid_source", f"No such file: {path}")
+    key = f"json3-{file_sha256(file)}-{lang}"
+    cache = Cache("captions")
+    if cached := cache.get(key):
+        return {**cached, "source": str(file)}
     try:
         json3 = json.loads(file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise cli.AtomError("invalid_source", f"Not a readable json3 file: {path}: {e}")
-    return _transcript(str(file), lang, json3)
+    transcript = _transcript(str(file), lang, json3)
+    cache.put(key, transcript)
+    return transcript
 
 
 if __name__ == "__main__":

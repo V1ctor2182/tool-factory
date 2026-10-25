@@ -23,7 +23,7 @@
     },
     {
       "name": "parse",
-      "description": "Transcript from a json3 caption file already on disk. Not cached.",
+      "description": "Transcript from a json3 caption file already on disk. Cached by file hash and language.",
       "input": {
         "type": "object",
         "properties": {
