@@ -1,3 +1,10 @@
 ts	phase	decision	why	evidence	result
 2026-10-25T19:48:27Z	start	F1 owner run started in worktree .claude/worktrees/f1 on branch factory/f1-transcript-atoms	first run on this log, no earlier rows	agent: F1 owner subagent	open
 2026-10-25T19:48:27Z	f1	use gh as the forge	command -v origin finds nothing on this Mac, per plan PR mechanics	origin: not found	gh
+2026-10-25T19:56:59Z	f1	skipped the how explainer subagent	the touched paths atoms/, kit/, contracts/ are empty on main, so there is no existing code to explain. Read ARCHITECTURE.md, CLAUDE.md, and the plan in full instead	git ls-tree origin/main	done
+2026-10-25T19:56:59Z	f1	the kit cli builds each verb's arguments from the manifest's input schema	CLAUDE.md says the manifest is the one copy of a verb's schema. Required properties become positionals, others become --flags, so F4's MCP adapter can map the same schema the same way	kit/py/src/factory_kit/cli.py	done
+2026-10-25T19:56:59Z	f1	cache temp files go in <atom>/tmp, entries in <atom>/cache	a killed write must never look like an entry, and rename stays atomic on one filesystem	kit/py/test/test_cache.py, 4 passed	tests green
+2026-10-25T19:56:59Z	f1	transcribe srt prints SubRip text, and its --json output is the same transcript as file	one contract per atom. SRT is a rendering of the transcript, not a second shape	atoms/transcribe/manifest.json	done
+2026-10-25T19:56:59Z	f1	opened PR 2 early against main	so CI and bots run alongside the work	https://github.com/V1ctor2182/victor-tool-factory/pull/2	open
+2026-10-25T19:56:59Z	f1	chose 7VE8U3Z_av8 as the public video with no captions	a yt-dlp search found it with zero manual and zero automatic caption tracks, and it has speech, so F2's whisper fallback gets real words. The rain video 4BMEviARzd0 also has none but holds no speech	probe2.py output in /private/tmp/f1-scratch	picked
+2026-10-25T19:56:59Z	f1	download passes js_runtimes node to yt-dlp and declares node in needs.bin	without a JS runtime yt-dlp could not find a video format for jNQXAC9IVRw. With node it downloaded format 18	probe4.py runs in /private/tmp/f1-scratch	done

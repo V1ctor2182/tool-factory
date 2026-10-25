@@ -1,0 +1,28 @@
+{
+  "name": "download",
+  "type": "atom",
+  "kind": "transform",
+  "description": "Local audio or video file of one video URL, through yt-dlp.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/download",
+  "contract": "media",
+  "verbs": [
+    {
+      "name": "get",
+      "description": "Download one video URL as audio, the default, or as video with --video. Prints the file path, or the media record with --json. Cached by site, video id, and kind.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Video page URL on any site yt-dlp supports." },
+          "audio": { "type": "boolean", "description": "Download the best audio-only format. This is the default." },
+          "video": { "type": "boolean", "description": "Download one file with both video and audio." }
+        },
+        "required": ["url"]
+      },
+      "output": "media"
+    }
+  ],
+  "needs": { "bin": ["node"], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
