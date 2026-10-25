@@ -118,11 +118,14 @@ def main() -> int:
         print(json.dumps(atom("digest", "make", "--transcript", str(path)), ensure_ascii=False))
         return 0
     except AtomFailed as e:
-        if as_json:
-            print(json.dumps({"error": e.error}, ensure_ascii=False))
-        else:
-            print(f"youtube: {e.error['code']}: {e.error['message']}", file=sys.stderr)
-        return 1
+        error = e.error
+    except Exception as e:
+        error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+    if as_json:
+        print(json.dumps({"error": error}, ensure_ascii=False))
+    else:
+        print(f"youtube: {error['code']}: {error['message']}", file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":
