@@ -99,7 +99,11 @@ const COMMANDS = {
     const failures = check(registry);
     for (const f of failures) console.log(`FAIL rule ${f.rule}: ${f.message}`);
     if (!failures.length) console.log('PASS rules');
-    if (args.includes('--rules')) return failures.length ? 1 : 0;
+    if (failures.length) {
+      if (!args.includes('--rules')) console.log('SKIP test scripts, since a rule failed');
+      return 1;
+    }
+    if (args.includes('--rules')) return 0;
     const names = args.filter((a) => !a.startsWith('--'));
     const entries = (names.length ? pick(registry, names) : ordered(registry)).filter((e) => existsSync(join(e.dir, 'test', 'test.sh')));
     const results = await pool(entries, Math.max(2, Math.floor(availableParallelism() / 2)), async (entry) => {
