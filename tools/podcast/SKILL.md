@@ -22,10 +22,10 @@ Then answer from the transcript.
 - Chapters with their `m:ss` start times, taken from the transcript lines.
 - The key points, if the person asked for detail.
 
-To find an episode from words, list the matches with the `find-url` atom, two folders up from this skill's folder, then run `transcript` on the one the person wants. It prints one URL per line and makes no model call.
+To find an episode from words, run the `find-url` atom, two folders up from this skill's folder, with `--json`, then run `transcript` on the one the person wants. It prints each match's title, URL, and duration, as `contracts/url-list.schema.json` defines them, and makes no model call. Without `--json` it prints only the URLs.
 
 ```sh
-<this skill's folder>/../../atoms/find-url/bin/find-url search "word of the day puissant" --limit 3
+<this skill's folder>/../../atoms/find-url/bin/find-url search "word of the day puissant" --limit 3 --json
 ```
 
 The `get` verb, which `run <episode url>` also means, calls the `digest` atom instead, a paid model call. The `search` verb, which `run <words>` also means, digests each episode the words find, one paid model call each. `--limit` sets how many results to take, 1 by default, and `--site` sets the yt-dlp search prefix, `ytsearch` by default or `scsearch` for SoundCloud. With `--json` it prints one digest list, as `contracts/digest-list.schema.json` defines it, with `failed` listing each episode that failed. Victor uses `get` and `search` in a terminal. An agent does not need them.
