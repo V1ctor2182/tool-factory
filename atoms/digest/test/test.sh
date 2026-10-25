@@ -57,19 +57,31 @@ chmod +x "$stub/claude"
 STUB_ARGS="$out/stub.args"
 export STUB_ARGS
 
-stubbed() {
-	rm -rf "$STUB_ARGS" "$out/stub-home"
+stub_call() {
+	rm -f "$STUB_ARGS"
 	jq --arg t "$2" '.segments[0].text = $t' "$fixture" > "$out/stubbed.json"
-	if STUB_REPLY=$1 PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" TOOL_FACTORY_BUDGET_USD=${3:-0.5} \
-		"$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out"; then fail "$1 reply exited 0"; fi
+	if env STUB_REPLY="$1" PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" TOOL_FACTORY_BUDGET_USD="${3:-3}" \
+		${4:+TOOL_FACTORY_CALL_BUDGET_USD=$4} "$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out"; then
+		fail "$1 reply exited 0"
+	fi
 }
+stubbed() { rm -rf "$out/stub-home"; stub_call "$@"; }
 stub_cost() { tail -n 1 "$out/stub-home/runs.jsonl" | jq .costUsd; }
+stub_cap() { grep -A 1 -x -- --max-budget-usd "$STUB_ARGS" | tail -n 1; }
 
 stubbed text "Unreadable reply."
 [ "$(jq -r .error.code "$out/stubbed.out")" = model_error ] || fail "a reply that is not JSON did not report model_error"
-[ "$(stub_cost)" = 0.5 ] || fail "a reply that is not JSON logged $(stub_cost), not the 0.5 cap of the call"
-stubbed no-cost "Reply without a cost."
-[ "$(stub_cost)" = 0.5 ] || fail "a JSON reply without a cost logged $(stub_cost), not the 0.5 cap of the call"
+[ "$(stub_cap)" = 0.250000 ] || fail "a call with \$3 left passed --max-budget-usd $(stub_cap), not the 0.25 per-call ceiling"
+[ "$(stub_cost)" = 0.25 ] || fail "a reply that is not JSON logged $(stub_cost), not the 0.25 per-call ceiling"
+stub_call no-cost "A second call the same day."
+[ "$(jq -r .error.code "$out/stubbed.out")" = model_error ] || fail "a second call after an unknown-cost failure reported $(jq -r .error.code "$out/stubbed.out")"
+[ -e "$STUB_ARGS" ] || fail "a second call after an unknown-cost failure did not reach claude"
+[ "$(stub_cost)" = 0.25 ] || fail "a JSON reply without a cost logged $(stub_cost), not the 0.25 per-call ceiling"
+stubbed no-cost "Less budget left than the ceiling." 0.1
+[ "$(stub_cap)" = 0.100000 ] || fail "a call with \$0.1 left passed --max-budget-usd $(stub_cap), not 0.1"
+[ "$(stub_cost)" = 0.1 ] || fail "a call with \$0.1 left logged $(stub_cost), not 0.1"
+stubbed text "A smaller ceiling." 3 0.05
+[ "$(stub_cost)" = 0.05 ] || fail "TOOL_FACTORY_CALL_BUDGET_USD=0.05 logged $(stub_cost), not 0.05"
 stubbed cost "Reply with a cost."
 [ "$(stub_cost)" = 0.02 ] || fail "a failed reply with a cost logged $(stub_cost), not its 0.02"
 
@@ -77,6 +89,9 @@ for budget in nan inf -inf -1; do
 	stubbed cost "Budget $budget." "$budget"
 	[ "$(jq -r .error.code "$out/stubbed.out")" = invalid_args ] || fail "budget $budget did not report invalid_args"
 	[ ! -e "$STUB_ARGS" ] || fail "budget $budget reached claude"
+	stubbed cost "Ceiling $budget." 3 "$budget"
+	[ "$(jq -r .error.code "$out/stubbed.out")" = invalid_args ] || fail "ceiling $budget did not report invalid_args"
+	[ ! -e "$STUB_ARGS" ] || fail "ceiling $budget reached claude"
 done
 TOOL_FACTORY_BUDGET_USD=nan "$bin" make --transcript "$fixture" --json > "$out/cached-nan.json" \
 	|| fail "a cache hit read the budget"
