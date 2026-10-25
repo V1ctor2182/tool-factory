@@ -18,7 +18,7 @@ It sends every image in one call to headless Claude Code on `haiku` through the 
 
 Each image is cached by its bytes, the model, and the prompt. The call sends only the images the cache does not hold. When the cache holds every image, `cacheHit` is true, `costUsd` is 0, and the call works even over the budget.
 
-The daily budget is $3 by default and is shared with every model atom. Set `TOOL_FACTORY_BUDGET_USD` to change it. The kit sums today's `costUsd` from `runs.jsonl` in the data home, in UTC days, and refuses once the sum reaches the budget. Each call also has a ceiling of $0.25 by default, set by `TOOL_FACTORY_CALL_BUDGET_USD`. The kit passes the ceiling or the rest of the budget, whichever is lower, to `claude --max-budget-usd`, and charges that cap when a failed call shows no cost.
+The daily budget is $3 by default and is shared with every model atom. Set `TOOL_FACTORY_BUDGET_USD` to change it. The kit sums today's `costUsd` from `runs.jsonl` in the data home, in UTC days, and refuses once the sum reaches the budget. Each call also has a ceiling of $0.25 by default, set by `TOOL_FACTORY_CALL_BUDGET_USD`. The kit passes the ceiling or the rest of the budget, whichever is lower, to `claude --max-budget-usd`, and charges that cap when a failed call shows no cost. The cap is soft. claude checks it only after a turn ends, so one call can spend past its cap by one turn. One run saw a call with a $0.0002 cap spend $0.0055. A call starts only while the day is under its budget, so a day passes its budget by at most one call, which spends about its ceiling plus one turn.
 
 On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 
