@@ -29,4 +29,11 @@ jq -S 'del(.source, .cacheHit)' "$out/again.json" | diff "$out/expected.json" - 
 if "$bin" get not-a-url --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "not-a-url exited 0"; fi
 [ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "not-a-url did not report invalid_source"
 
+printf '[]' > "$out/list.json3"
+printf '{"events": [{"segs": [{"utf8": "hi"}]}]}' > "$out/no-start.json3"
+for shape in list no-start; do
+	if "$bin" parse "$out/$shape.json3" --json > "$out/$shape.json" 2> "$out/$shape.err"; then fail "$shape.json3 exited 0"; fi
+	[ "$(jq -r .error.code "$out/$shape.json")" = invalid_source ] || fail "$shape.json3 did not report invalid_source"
+done
+
 echo "PASS captions"
