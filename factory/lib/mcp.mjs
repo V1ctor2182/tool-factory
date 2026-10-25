@@ -20,7 +20,9 @@ async function call(tool, input) {
 }
 
 export function serve(entries, { input = process.stdin, output = process.stdout } = {}) {
-  const byName = new Map(tools(entries).map((tool) => [tool.name, tool]));
+  const [guarded, served] = [entries.filter((e) => e.info.guard === 'confirm'), entries.filter((e) => e.info.guard !== 'confirm')];
+  const byName = new Map(tools(served).map((tool) => [tool.name, tool]));
+  const refused = new Map(tools(guarded).map((tool) => [tool.name, tool.entry]));
   const send = (message) => output.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
   const methods = {
     initialize: (params) => ({
@@ -34,6 +36,8 @@ export function serve(entries, { input = process.stdin, output = process.stdout 
     }),
     'tools/call': (params) => {
       const tool = byName.get(params?.name);
+      const act = refused.get(params?.name);
+      if (act) throw Object.assign(new Error(`${act.name} is an act atom, which needs your confirmation on every run, so factory mcp does not serve it.`), { code: -32602 });
       if (!tool) throw Object.assign(new Error(`Unknown tool: ${params?.name}`), { code: -32602 });
       return call(tool, params.arguments ?? {});
     },

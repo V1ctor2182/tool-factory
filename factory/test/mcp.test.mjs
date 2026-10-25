@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { after, before, test } from 'node:test';
+import { copyRepo, manifest } from './repo.mjs';
 
 const REPO = resolve(import.meta.dirname, '..', '..');
 const MANIFESTS = ['tools', 'atoms'].flatMap((folder) =>
@@ -12,6 +13,7 @@ const MANIFESTS = ['tools', 'atoms'].flatMap((folder) =>
 );
 const SERVED = MANIFESTS.filter((m) => m.adapters.includes('mcp') && m.entry);
 const home = mkdtempSync(join(tmpdir(), 'factory-mcp-'));
+const copies = [home];
 let server;
 let replies;
 let nextId = 1;
@@ -37,7 +39,7 @@ before(() => {
 
 after(() => {
   server.stdin.end();
-  rmSync(home, { recursive: true, force: true });
+  copies.forEach((dir) => rmSync(dir, { recursive: true, force: true }));
 });
 
 test('initialize answers with the tools capability', async () => {
@@ -83,4 +85,29 @@ test('tools/call with arguments outside the schema fails without running the CLI
 test('an unknown tool is a JSON-RPC error', async () => {
   const reply = await request('tools/call', { name: 'nope_get', arguments: {} });
   assert.equal(reply.error.code, -32602);
+});
+
+function exchange(root, names, messages) {
+  const done = spawnSync('node', [join(root, 'factory', 'bin', 'factory.mjs'), 'mcp', ...names], {
+    input: messages.map((m, i) => `${JSON.stringify({ jsonrpc: '2.0', id: i + 1, ...m })}\n`).join(''),
+    encoding: 'utf8',
+    env: { ...process.env, TOOL_FACTORY_HOME: join(root, 'home') },
+  });
+  return done.stdout.trim().split('\n').map((line) => JSON.parse(line)).sort((a, b) => a.id - b.id);
+}
+
+test('an act atom is left out of tools/list and tools/call refuses it', () => {
+  const root = copyRepo(mkdtempSync(join(tmpdir(), 'factory-mcp-act-')));
+  copies.push(root);
+  manifest(root, 'atoms/find-url', (m) => (m.kind = 'act'));
+  const [list, call] = exchange(root, ['find-url', 'captions'], [
+    { method: 'tools/list', params: {} },
+    { method: 'tools/call', params: { name: 'find-url_search', arguments: { query: 'cats' } } },
+  ]);
+  assert.deepEqual(list.result.tools.map((t) => t.name), ['captions_get', 'captions_parse']);
+  assert.deepEqual(call.error, {
+    code: -32602,
+    message: 'find-url is an act atom, which needs your confirmation on every run, so factory mcp does not serve it.',
+  });
+  assert.equal(existsSync(join(root, 'home', 'runs.jsonl')), false);
 });
