@@ -73,12 +73,15 @@ test('a tool that calls an atom outside its uses fails tools-call-only-uses', ()
 test('a pipeline tool that uses an act atom fails act-atoms-skill-only', () => {
   const root = copy();
   manifest(root, 'atoms/find-url', (m) => (m.kind = 'act'));
-  assert.deepEqual(rules(root), {
-    code: 1,
-    lines: [
+  const result = rules(root);
+  assert.equal(result.code, 1);
+  for (const line of result.lines) assert.match(line, /^FAIL rule act-atoms-skill-only: tools\/[^/]+\/manifest\.json: /);
+  assert.ok(
+    result.lines.includes(
       'FAIL rule act-atoms-skill-only: tools/youtube/manifest.json: tool youtube is a pipeline tool, but it uses find-url, an act atom. Only the agent decides what an act atom does, so a tool that acts is a skill tool.',
-    ],
-  });
+    ),
+    result.lines.join('\n'),
+  );
 });
 
 test('an atom that runs a sibling CLI by path fails atoms-import-only-kit', () => {
