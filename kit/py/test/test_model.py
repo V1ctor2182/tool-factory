@@ -106,9 +106,10 @@ def test_charges_the_call_cap_when_the_cost_is_unknown(atom, reply):
     assert (failed.value.code, failed.value.cost_usd) == ("model_error", 0.25)
 
 
-def test_charges_the_call_cap_for_a_negative_cost(atom):
+@pytest.mark.parametrize("cost", [-5, True])
+def test_charges_the_call_cap_for_a_cost_that_is_not_dollars(atom, cost):
     spec, _, _, backend = atom
-    backend({"type": "result", "subtype": "success", "total_cost_usd": -5, "structured_output": {"answer": "yes"}})
+    backend({"type": "result", "subtype": "success", "total_cost_usd": cost, "structured_output": {"answer": "yes"}})
     assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.25)
 
 
