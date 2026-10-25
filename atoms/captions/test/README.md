@@ -1,6 +1,6 @@
 # captions tests
 
-`test.sh` runs offline. It parses `fixtures/jNQXAC9IVRw.en.json3`, the English captions of "Me at the zoo" recorded with yt-dlp on 2026-10-25, and checks the transcript schema, the first segment, and the whole output against `expected/jNQXAC9IVRw.en.json`.
+`test.sh` runs offline. It parses `fixtures/jNQXAC9IVRw.en.json3`, the English captions of "Me at the zoo" recorded with yt-dlp on 2026-10-25, and checks the transcript schema, the first segment, and the whole output against `expected/jNQXAC9IVRw.en.json`. It also serves a page with no video on 127.0.0.1 and checks that `get` on its path-less URL reports `invalid_source`.
 
 Live checks use two public YouTube videos.
 
