@@ -50,10 +50,15 @@
   "allOf": [
     {
       "if": { "properties": { "kind": { "const": "skill" } } },
-      "then": { "not": { "required": ["runtime"] } },
+      "then": {
+        "description": "A skill tool is SKILL.md and this manifest, with no CLI.",
+        "properties": { "uses": { "maxItems": 0 } },
+        "allOf": [{ "not": { "required": ["runtime"] } }, { "not": { "required": ["entry"] } }, { "not": { "required": ["verbs"] } }]
+      },
       "else": { "required": ["runtime", "entry", "verbs"] }
     },
-    { "if": { "properties": { "type": { "const": "tool" } } }, "then": { "required": ["uses"] }, "else": { "not": { "required": ["uses"] } } },
+    { "if": { "properties": { "kind": { "const": "pipeline" } } }, "then": { "required": ["uses"], "properties": { "uses": { "minItems": 1 } } } },
+    { "if": { "properties": { "type": { "const": "atom" } } }, "then": { "not": { "required": ["uses"] } } },
     { "if": { "properties": { "kind": { "const": "model" } } }, "then": { "required": ["model"] }, "else": { "not": { "required": ["model"] } } }
   ],
   "$defs": {

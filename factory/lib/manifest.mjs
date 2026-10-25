@@ -29,6 +29,7 @@ export function validate(schema, value, root = schema, at = '') {
   }
   if (Array.isArray(value)) {
     if (schema.minItems !== undefined && value.length < schema.minItems) errors.push(`${where} has fewer than ${schema.minItems} items`);
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) errors.push(`${where} has more than ${schema.maxItems} items`);
     if (schema.uniqueItems && new Set(value.map((v) => JSON.stringify(v))).size !== value.length) errors.push(`${where} has duplicate items`);
     if (schema.items) value.forEach((v, i) => errors.push(...validate(schema.items, v, root, `${at}/${i}`)));
   }

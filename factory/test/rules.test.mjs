@@ -188,3 +188,51 @@ test('an invalid atom manifest reports only the schema error', () => {
   manifest(root, 'atoms/frames', (m) => delete m.contract);
   assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: atoms/frames/manifest.json: / lacks contract'] });
 });
+
+function skillTool(root, files = { 'SKILL.md': '---\nname: style\ndescription: House style.\n---\n' }) {
+  const dir = join(root, 'tools/style');
+  mkdirSync(dir, { recursive: true });
+  const m = { name: 'style', type: 'tool', kind: 'skill', description: 'House style.', status: 'alpha', contract: 'digest', needs: { bin: [], secrets: [], paid: [] }, adapters: ['skill'] };
+  writeFileSync(join(dir, 'manifest.json'), JSON.stringify(m, null, 2));
+  for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text, { mode: name === 'run' ? 0o755 : 0o644 });
+}
+
+test('a skill tool with SKILL.md and a manifest only passes', () => {
+  const root = copy();
+  skillTool(root);
+  assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
+});
+
+test('a skill tool with a CLI fails manifest-matches-schema', () => {
+  const root = copy();
+  manifest(root, 'tools/youtube', (m) => {
+    m.kind = 'skill';
+    delete m.runtime;
+  });
+  assert.deepEqual(rules(root), {
+    code: 1,
+    lines: [
+      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /uses has more than 0 items',
+      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have entry',
+      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have verbs',
+    ],
+  });
+});
+
+test('a skill tool that holds a script fails tool-kind-shape', () => {
+  const root = copy();
+  skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', run: '#!/bin/sh\necho hi\n' });
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/style/run: style is a skill tool, which holds SKILL.md and no script.'] });
+});
+
+test('a tool without SKILL.md fails tool-kind-shape', () => {
+  const root = copy();
+  rmSync(join(root, 'tools/youtube/SKILL.md'));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/youtube: youtube is a pipeline tool, but it has no SKILL.md.'] });
+});
+
+test('a pipeline tool with no uses fails manifest-matches-schema', () => {
+  const root = copy();
+  manifest(root, 'tools/youtube', (m) => (m.uses = []));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /uses has fewer than 1 items'] });
+});

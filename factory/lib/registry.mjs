@@ -6,12 +6,12 @@ import { loadSchema, readJson, validate } from './manifest.mjs';
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export const KINDS = {
-  pipeline: { type: 'tool', cache: null, cost: 'its atoms', guard: null },
-  skill: { type: 'tool', cache: null, cost: 'free', guard: null },
-  transform: { type: 'atom', cache: 'by content', cost: 'free', guard: null },
-  model: { type: 'atom', cache: 'by input, model, and prompt', cost: 'logged', guard: 'budget' },
-  observe: { type: 'atom', cache: null, cost: 'free', guard: null },
-  act: { type: 'atom', cache: null, cost: 'varies', guard: 'confirm' },
+  pipeline: { type: 'tool', cache: null, tests: 'the run script end to end', cost: 'its atoms', guard: null },
+  skill: { type: 'tool', cache: null, tests: null, cost: 'free', guard: null },
+  transform: { type: 'atom', cache: 'by content', tests: 'a literal expected output', cost: 'free', guard: null },
+  model: { type: 'atom', cache: 'by input, model, and prompt', tests: 'schema plus required facts', cost: 'logged', guard: 'budget' },
+  observe: { type: 'atom', cache: null, tests: 'schema only, on a recorded fixture', cost: 'free', guard: null },
+  act: { type: 'atom', cache: null, tests: 'a dry run returns the planned action', cost: 'varies', guard: 'confirm' },
 };
 
 const FOLDERS = { tool: 'tools', atom: 'atoms' };

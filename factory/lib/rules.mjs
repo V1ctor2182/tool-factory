@@ -127,8 +127,8 @@ function facts(entry, root, entries) {
   };
 }
 
-function describe(atom) {
-  return `${atom.name} is ${/^[aeiou]/.test(atom.kind) ? 'an' : 'a'} ${atom.kind} atom`;
+function describe(entry) {
+  return `${entry.name} is ${/^[aeiou]/.test(entry.kind) ? 'an' : 'a'} ${entry.kind} ${entry.type}`;
 }
 
 const binName = (spec) => spec.split('>=')[0];
@@ -159,6 +159,16 @@ export const RULES = [
           ),
         ...f.kitImports.map(({ at }) => `${at}: tool ${tool.name} imports the kit. Tools call atom CLIs.`),
       ];
+    },
+  },
+  {
+    id: 'tool-kind-shape',
+    check(tool, f, { root }) {
+      if (tool.type !== 'tool') return [];
+      const skillMd = existsSync(join(tool.dir, 'SKILL.md')) ? [] : [`${tool.rel}: ${describe(tool)}, but it has no SKILL.md.`];
+      if (tool.kind !== 'skill') return skillMd;
+      const scripts = files(tool.dir, root).filter(({ rel }) => executable(join(root, rel)));
+      return [...skillMd, ...scripts.map(({ rel }) => `${rel}: ${describe(tool)}, which holds SKILL.md and no script.`)];
     },
   },
   {
@@ -222,7 +232,7 @@ export const RULES = [
           if (prop.type === 'array' && !required.includes(name)) problems.push(`${rel}/manifest.json: verb ${verb.name} has an optional array ${name}, which the CLI cannot take.`);
         }
       }
-      if (entry.kind !== 'skill' && !existsSync(join(entry.dir, 'test', 'test.sh'))) problems.push(`${rel}: ${entry.name} has no test/test.sh.`);
+      if (entry.info.tests && !existsSync(join(entry.dir, 'test', 'test.sh'))) problems.push(`${rel}: ${entry.name} has no test/test.sh.`);
       return problems;
     },
   },
