@@ -1,22 +1,20 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { after, before, test } from 'node:test';
 
 const REPO = resolve(import.meta.dirname, '..', '..');
-const NAMES = ['youtube', 'transcribe', 'captions'];
+const MANIFESTS = ['tools', 'atoms'].flatMap((folder) =>
+  readdirSync(join(REPO, folder)).sort().map((name) => JSON.parse(readFileSync(join(REPO, folder, name, 'manifest.json'), 'utf8'))),
+);
+const SERVED = MANIFESTS.filter((m) => m.adapters.includes('mcp') && m.entry);
 const home = mkdtempSync(join(tmpdir(), 'factory-mcp-'));
 let server;
 let replies;
 let nextId = 1;
-
-function manifest(name) {
-  const folder = name === 'youtube' ? 'tools' : 'atoms';
-  return JSON.parse(readFileSync(join(REPO, folder, name, 'manifest.json'), 'utf8'));
-}
 
 function request(method, params) {
   const id = nextId++;
@@ -25,7 +23,7 @@ function request(method, params) {
 }
 
 before(() => {
-  server = spawn('node', [join(REPO, 'factory', 'bin', 'factory.mjs'), 'mcp', ...NAMES], {
+  server = spawn('node', [join(REPO, 'factory', 'bin', 'factory.mjs'), 'mcp', ...SERVED.map((m) => m.name)], {
     env: { ...process.env, TOOL_FACTORY_HOME: home },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
@@ -49,12 +47,18 @@ test('initialize answers with the tools capability', async () => {
   server.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
 });
 
-test('tools/list has one tool per verb, with the input schema from the manifest', async () => {
+test('initialize answers an unknown protocol version with the newest one the server speaks', async () => {
+  for (const [asked, answered] of [['2025-03-26', '2025-03-26'], ['2024-11-05', '2024-11-05'], ['1999-01-01', '2025-06-18'], [undefined, '2025-06-18']]) {
+    const reply = await request('initialize', { protocolVersion: asked, capabilities: {}, clientInfo: { name: 'test', version: '1' } });
+    assert.equal(reply.result.protocolVersion, answered);
+  }
+});
+
+test('tools/list has one tool per verb of every mcp manifest, with the input schema from the manifest', async () => {
   const reply = await request('tools/list', {});
-  const expected = NAMES.flatMap((name) =>
-    manifest(name).verbs.map((verb) => ({ name: `${name}_${verb.name}`, description: verb.description, inputSchema: verb.input })),
-  );
+  const expected = SERVED.flatMap((m) => m.verbs.map((verb) => ({ name: `${m.name}_${verb.name}`, description: verb.description, inputSchema: verb.input })));
   assert.deepEqual(reply.result.tools, expected);
+  assert.ok(SERVED.length >= 8, `served ${SERVED.map((m) => m.name).join(' ')}`);
 });
 
 test('tools/call runs the CLI and the run log names mcp as the caller', async () => {

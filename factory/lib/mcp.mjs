@@ -3,7 +3,7 @@ import { validate } from './manifest.mjs';
 import { argv } from './registry.mjs';
 import { invoke } from './runs.mjs';
 
-const PROTOCOL = '2025-06-18';
+const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 function tools(entries) {
   return entries.flatMap((entry) =>
@@ -24,7 +24,7 @@ export function serve(entries, { input = process.stdin, output = process.stdout 
   const send = (message) => output.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
   const methods = {
     initialize: (params) => ({
-      protocolVersion: params?.protocolVersion ?? PROTOCOL,
+      protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[0],
       capabilities: { tools: {} },
       serverInfo: { name: `factory ${entries.map((e) => e.name).join(' ')}`, version: '1' },
     }),
