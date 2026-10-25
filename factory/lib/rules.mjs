@@ -1,6 +1,5 @@
 import { accessSync, constants, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { RUNTIMES } from './registry.mjs';
 
 const SKIP = new Set(['test', 'prompts', 'manifest.json', 'SKILL.md', 'README.md', '__pycache__', 'node_modules']);
 const KIT = 'kit/py/src/factory_kit';
@@ -11,7 +10,7 @@ const LITERAL_RUNS = [new RegExp(String.raw`shutil\.which\(\s*${BIN}`), new RegE
 const COMMAND_LIST = new RegExp(String.raw`^[ \t]*(\w+)[ \t]*(?::[^=\n]+)?=\s*\[\s*${BIN}`);
 const FROM_IMPORT = /^[ \t]*from[ \t]+(\.?[\w.]*)[ \t]+import[ \t]+(\([^)]*\)|[^\n#]+)/;
 const IMPORT = /^[ \t]*import[ \t]+([\w., \t]+)/;
-const BUILDS_CACHE = /\bCache\(/;
+const CACHE_ALIAS = /\bCache[ \t]+as[ \t]+(\w+)/;
 
 function files(dir, root) {
   return readdirSync(dir).flatMap((name) => {
@@ -70,7 +69,7 @@ function references(sources, found, entries) {
     return [
       ...found.filter((i) => i.module.split('.')[0] === module).map(({ at }) => ({ at, other, how: 'imports' })),
       ...scan(sources, new RegExp(`(?:^|[^\\w-])(?:${folder}/|(?:\\.\\./)+)${other.name}/src`)).map(({ at }) => ({ at, other, how: 'imports' })),
-      ...scan(sources, new RegExp(`["']${other.name}["']|(?:^|[^\\w-])${folder}/${other.name}/`)).map(({ at }) => ({ at, other, how: 'calls' })),
+      ...scan(sources, new RegExp(`(?:\\w\\(\\s*|/\\s*)["']${other.name}["']|["']${other.name}["']\\s*/|(?:^|[^\\w-])${folder}/${other.name}/`)).map(({ at }) => ({ at, other, how: 'calls' })),
     ];
   });
 }
@@ -84,17 +83,13 @@ function facts(entry, root, entries) {
     usesModel: kit.has('model'),
     binaries: binariesRun(sources),
     kitBinaries: binariesRun([...kit.values()]),
-    caches: scan(sources, BUILDS_CACHE),
+    caches: scan(sources, new RegExp(`\\b(?:${['Cache', ...scan(sources, CACHE_ALIAS).map(({ match }) => match[1])].join('|')})\\(`)),
     references: references(sources, found, entries).filter((r) => r.other !== entry),
   };
 }
 
-function article(word) {
-  return /^[aeiou]/.test(word) ? 'an' : 'a';
-}
-
-function a(entry) {
-  return `${entry.name} is ${article(entry.kind)} ${entry.kind} atom`;
+function describe(atom) {
+  return `${atom.name} is ${/^[aeiou]/.test(atom.kind) ? 'an' : 'a'} ${atom.kind} atom`;
 }
 
 export const RULES = [
@@ -129,7 +124,7 @@ export const RULES = [
     id: 'declare-binaries',
     check(entry, f) {
       const { needs, runtime } = entry.manifest;
-      const declared = new Set([...needs.bin.map((spec) => spec.split('>=')[0]), RUNTIMES[runtime]]);
+      const declared = new Set([...needs.bin.map((spec) => spec.split('>=')[0]), runtime]);
       return [
         ...[...f.binaries, ...f.kitBinaries]
           .filter(({ bin }) => !declared.has(bin))
@@ -144,8 +139,8 @@ export const RULES = [
     id: 'kind-decides-caching',
     check(atom, f) {
       if (atom.type !== 'atom') return [];
-      if (atom.info.cache === null) return f.caches.map(({ at }) => `${at}: ${a(atom)}, which is never cached, but it builds a Cache.`);
-      return f.caches.length ? [] : [`${atom.rel}: ${a(atom)}, cached ${atom.info.cache}, but no source builds a Cache.`];
+      if (atom.info.cache === null) return f.caches.map(({ at }) => `${at}: ${describe(atom)}, which is never cached, but it builds a Cache.`);
+      return f.caches.length ? [] : [`${atom.rel}: ${describe(atom)}, cached ${atom.info.cache}, but no source builds a Cache.`];
     },
   },
   {
@@ -155,14 +150,14 @@ export const RULES = [
       const paid = atom.manifest.needs.paid;
       if (atom.info.cost === 'logged') {
         return [
-          ...(f.usesModel ? [] : [`${atom.rel}: ${a(atom)}, but no source imports the kit's model adapter.`]),
-          ...(paid.length ? [] : [`${atom.rel}/manifest.json: ${a(atom)}, but needs.paid is empty.`]),
+          ...(f.usesModel ? [] : [`${atom.rel}: ${describe(atom)}, but no source imports the kit's model adapter.`]),
+          ...(paid.length ? [] : [`${atom.rel}/manifest.json: ${describe(atom)}, but needs.paid is empty.`]),
         ];
       }
       if (atom.info.cost !== 'free') return [];
       return [
-        ...(f.usesModel ? [`${atom.rel}: ${a(atom)}, which is free, but it imports the kit's model adapter.`] : []),
-        ...(paid.length ? [`${atom.rel}/manifest.json: ${a(atom)}, which is free, but needs.paid lists ${paid.join(', ')}.`] : []),
+        ...(f.usesModel ? [`${atom.rel}: ${describe(atom)}, which is free, but it imports the kit's model adapter.`] : []),
+        ...(paid.length ? [`${atom.rel}/manifest.json: ${describe(atom)}, which is free, but needs.paid lists ${paid.join(', ')}.`] : []),
       ];
     },
   },
@@ -193,7 +188,7 @@ export const RULES = [
 function executable(path) {
   try {
     accessSync(path, constants.X_OK);
-    return true;
+    return statSync(path).isFile();
   } catch {
     return false;
   }

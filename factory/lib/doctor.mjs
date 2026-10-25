@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { RUNTIMES } from './registry.mjs';
 import { budget, spentToday } from './runs.mjs';
 
 function which(bin) {
@@ -30,7 +29,14 @@ function atLeast(found, wanted) {
   return true;
 }
 
+const probed = new Map();
+
 function binProblem(spec) {
+  if (!probed.has(spec)) probed.set(spec, probe(spec));
+  return probed.get(spec);
+}
+
+function probe(spec) {
   const [bin, wanted] = spec.split('>=');
   const path = which(bin);
   if (!path) return `${bin} is not on PATH`;
@@ -53,7 +59,7 @@ function secretProblem(name) {
 function ownProblems(entry) {
   const { needs, runtime } = entry.manifest;
   return [
-    ...(runtime ? [binProblem(RUNTIMES[runtime])] : []),
+    ...(runtime ? [binProblem(runtime)] : []),
     ...needs.bin.map(binProblem),
     ...needs.secrets.map(secretProblem),
   ].filter(Boolean);

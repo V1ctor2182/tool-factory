@@ -5,7 +5,7 @@ import { invoke } from './runs.mjs';
 
 const PROTOCOL = '2025-06-18';
 
-export function tools(entries) {
+function tools(entries) {
   return entries.flatMap((entry) =>
     entry.manifest.verbs.map((verb) => ({ name: `${entry.name}_${verb.name}`, entry, verb })),
   );
@@ -46,6 +46,9 @@ export function serve(entries, { input = process.stdin, output = process.stdout 
       message = JSON.parse(line);
     } catch {
       return send({ id: null, error: { code: -32700, message: 'Parse error' } });
+    }
+    if (message === null || typeof message !== 'object' || Array.isArray(message)) {
+      return send({ id: null, error: { code: -32600, message: 'Invalid Request' } });
     }
     if (message.id === undefined) return;
     const method = methods[message.method];

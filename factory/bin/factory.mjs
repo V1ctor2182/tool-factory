@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
+import { parseArgs } from 'node:util';
 import { doctor } from '../lib/doctor.mjs';
 import { ledger, link, SOCKETS, unlink } from '../lib/links.mjs';
 import { serve } from '../lib/mcp.mjs';
 import { load } from '../lib/registry.mjs';
 import { check } from '../lib/rules.mjs';
-import { invoke, read, today } from '../lib/runs.mjs';
-import { existsSync } from 'node:fs';
+import { invoke, spend, today } from '../lib/runs.mjs';
 
 class UsageError extends Error {}
 
@@ -36,24 +37,29 @@ function reportProblems(registry) {
   return registry.problems.length ? 1 : 0;
 }
 
-function socketOf(args) {
-  const found = Object.keys(SOCKETS).filter((s) => args.includes(`--${s}`));
-  if (found.length > 1) throw new UsageError(`Pick one of --into, --global, or --bin, not ${found.join(' and ')}.`);
-  const socket = found[0];
-  const project = socket === 'into' ? args[args.indexOf('--into') + 1] : undefined;
-  if (socket === 'into' && (!project || project.startsWith('--'))) throw new UsageError('--into needs a project folder.');
-  const names = args.filter((a, i) => !a.startsWith('--') && !(socket === 'into' && args[i - 1] === '--into'));
-  return { socket, project, names };
+function options(args, extra = {}) {
+  try {
+    return parseArgs({ args, allowPositionals: true, options: extra });
+  } catch (e) {
+    throw new UsageError(e.message);
+  }
 }
 
-function runScript(entry) {
+function socketOf(args) {
+  const { values, positionals } = options(args, { into: { type: 'string' }, global: { type: 'boolean' }, bin: { type: 'boolean' } });
+  const found = Object.keys(SOCKETS).filter((s) => values[s] !== undefined);
+  if (found.length > 1) throw new UsageError(`Pick one of --into, --global, or --bin, not ${found.join(' and ')}.`);
+  return { socket: found[0], project: values.into, names: positionals };
+}
+
+function runCheck({ label, argv }) {
   const started = performance.now();
   return new Promise((done) => {
-    const child = spawn('sh', [join(entry.dir, 'test', 'test.sh')], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     child.stdout.on('data', (c) => (output += c));
     child.stderr.on('data', (c) => (output += c));
-    child.on('close', (code) => done({ entry, ok: code === 0, output, sec: (performance.now() - started) / 1000 }));
+    child.on('close', (code) => done({ label, ok: code === 0, output, sec: (performance.now() - started) / 1000 }));
   });
 }
 
@@ -78,12 +84,11 @@ const COMMANDS = {
   },
 
   status(registry) {
-    const runs = read().filter((r) => r.startedAt?.startsWith(today()));
+    const runs = today();
     const links = ledger();
     const rows = ordered(registry).map((e) => {
       const mine = runs.filter((r) => r.name === e.name);
-      const spent = mine.reduce((sum, r) => sum + (r.costUsd || 0), 0);
-      return [e.name, mine.length, mine.filter((r) => !r.ok).length, `$${spent.toFixed(4)}`, mine.at(-1)?.startedAt ?? '', links.filter((l) => l.name === e.name).map((l) => l.socket).join(' ')];
+      return [e.name, mine.length, mine.filter((r) => !r.ok).length, `$${spend(mine).toFixed(4)}`, mine.at(-1)?.startedAt ?? '', links.filter((l) => l.name === e.name).map((l) => l.socket).join(' ')];
     });
     console.log(table([['name', 'runs today', 'failed', 'spent', 'last run', 'links'], ...rows]));
     return reportProblems(registry);
@@ -96,23 +101,26 @@ const COMMANDS = {
   },
 
   async test(registry, args) {
+    const { values, positionals } = options(args, { rules: { type: 'boolean' } });
     const failures = check(registry);
     for (const f of failures) console.log(`FAIL rule ${f.rule}: ${f.message}`);
-    if (!failures.length) console.log('PASS rules');
     if (failures.length) {
-      if (!args.includes('--rules')) console.log('SKIP test scripts, since a rule failed');
+      if (!values.rules) console.log('SKIP test scripts, since a rule failed');
       return 1;
     }
-    if (args.includes('--rules')) return 0;
-    const names = args.filter((a) => !a.startsWith('--'));
-    const entries = (names.length ? pick(registry, names) : ordered(registry)).filter((e) => existsSync(join(e.dir, 'test', 'test.sh')));
-    const results = await pool(entries, Math.max(2, Math.floor(availableParallelism() / 2)), async (entry) => {
-      const result = await runScript(entry);
-      console.log(`${result.ok ? 'PASS' : 'FAIL'} ${entry.rel}/test/test.sh in ${result.sec.toFixed(1)} s`);
+    console.log('PASS rules');
+    if (values.rules) return 0;
+    const checks = (positionals.length ? pick(registry, positionals) : ordered(registry))
+      .filter((e) => existsSync(join(e.dir, 'test', 'test.sh')))
+      .map((e) => ({ label: `${e.rel}/test/test.sh`, argv: ['sh', join(e.dir, 'test', 'test.sh')] }));
+    if (!positionals.length) checks.unshift({ label: 'factory/test', argv: [process.execPath, '--test', join(registry.root, 'factory', 'test')] });
+    const results = await pool(checks, Math.max(2, Math.floor(availableParallelism() / 2)), async (item) => {
+      const result = await runCheck(item);
+      console.log(`${result.ok ? 'PASS' : 'FAIL'} ${result.label} in ${result.sec.toFixed(1)} s`);
       if (!result.ok) console.log(result.output.trimEnd().split('\n').slice(-15).map((l) => `  ${l}`).join('\n'));
       return result;
     });
-    return failures.length || results.some((r) => !r.ok) ? 1 : 0;
+    return results.some((r) => !r.ok) ? 1 : 0;
   },
 
   async run(registry, args) {
@@ -159,7 +167,7 @@ const USAGE = `usage: factory <command>
   list                      every tool and atom with its type and kind
   status                    runs, failures, spend, and links today
   doctor                    binaries, secrets, and budget
-  test [names...] [--rules] the rules, then every test/test.sh
+  test [names...] [--rules] the rules, then factory/test and every test/test.sh
   run <name> [args...]      run a CLI and log the call
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]

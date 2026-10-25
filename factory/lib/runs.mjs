@@ -21,6 +21,10 @@ export function read() {
     if (e.code === 'ENOENT') return [];
     throw e;
   }
+  return parseLines(text);
+}
+
+function parseLines(text) {
   return text.split('\n').flatMap((line) => {
     try {
       return line.trim() ? [JSON.parse(line)] : [];
@@ -30,12 +34,17 @@ export function read() {
   });
 }
 
-export function today() {
-  return new Date().toISOString().slice(0, 10);
+export function today(records = read()) {
+  const day = new Date().toISOString().slice(0, 10);
+  return records.filter((r) => r.startedAt?.startsWith(day));
 }
 
-export function spentToday(records = read()) {
-  return records.filter((r) => r.startedAt?.startsWith(today())).reduce((sum, r) => sum + (r.costUsd || 0), 0);
+export function spend(records) {
+  return records.reduce((sum, r) => sum + (r.costUsd || 0), 0);
+}
+
+export function spentToday() {
+  return spend(today());
 }
 
 export function budget() {
@@ -52,13 +61,7 @@ function stamp(date) {
 }
 
 function outcome(code, stdout) {
-  const objects = stdout.split('\n').flatMap((line) => {
-    try {
-      return [JSON.parse(line)];
-    } catch {
-      return [];
-    }
-  });
+  const objects = parseLines(stdout);
   const failed = objects.find((o) => o?.error);
   return {
     ok: code === 0 && !failed,
@@ -77,6 +80,8 @@ export function invoke(entry, verb, args, caller, { interactive = false } = {}) 
     });
     let stdout = '';
     let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
     child.stdout.on('data', (chunk) => {
       stdout += chunk;
       if (interactive) process.stdout.write(chunk);
@@ -92,13 +97,12 @@ export function invoke(entry, verb, args, caller, { interactive = false } = {}) 
           startedAt: stamp(started),
           ms: Math.round(performance.now() - clock),
           ...outcome(code, stdout),
-          costUsd: null,
           caller,
         });
       }
       done({ code, stdout, stderr });
     };
     child.on('error', (e) => (stderr += `${entry.entry}: ${e.message}\n`));
-    child.on('close', (code) => finish(code > 0 ? code : code === 0 ? 0 : 1));
+    child.on('close', (code) => finish(Number.isInteger(code) && code >= 0 ? code : 1));
   });
 }

@@ -1,2 +1,2 @@
-import('./rules.test.mjs');
-import('./mcp.test.mjs');
+require('./rules.test.mjs');
+require('./mcp.test.mjs');
