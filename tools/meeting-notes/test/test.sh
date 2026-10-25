@@ -57,8 +57,7 @@ rm "$TOOL_FACTORY_HOME/meeting-notes"
 fake="$TOOL_FACTORY_HOME/repo"
 mkdir -p "$fake/tools/meeting-notes"
 cp "$run" "$manifest" "$fake/tools/meeting-notes/"
-echo '{"source":"/x.wav","language":"en","text":"stub","segments":[{"start":0,"end":1,"text":"stub"}],"cacheHit":false}' > "$out/stub-transcript.json"
-STUB_TRANSCRIPT="$out/stub-transcript.json"
+STUB_TRANSCRIPT="$out/transcript.json"
 export STUB_TRANSCRIPT
 cat > "$out/atom" <<'STUB'
 #!/bin/sh

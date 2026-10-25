@@ -71,7 +71,7 @@ def digest_of(url: str, as_json: bool) -> dict | int:
     log(f"digest {' '.join(command)}")
     if as_json:
         return atom("digest", *command)
-    return 1 if subprocess.run([bin_of("digest"), *command], env=ENV).returncode else 0
+    return subprocess.run([bin_of("digest"), *command], env=ENV).returncode
 
 
 def timed_lines(transcript: dict) -> str:
@@ -164,7 +164,7 @@ def main() -> int:
     as_json = "--json" in sys.argv[1:]
     try:
         args = parser().parse_args(verb_args(sys.argv[1:]))
-        return RUN[args.verb](args, as_json)
+        return 1 if RUN[args.verb](args, as_json) else 0
     except AtomFailed as e:
         error = e.error
     except Exception as e:
