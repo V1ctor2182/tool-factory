@@ -1,0 +1,53 @@
+{
+  "name": "find-url",
+  "type": "atom",
+  "kind": "observe",
+  "description": "Video URLs from a site search, a playlist, or a channel, through yt-dlp. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/find-url",
+  "contract": "url-list",
+  "verbs": [
+    {
+      "name": "search",
+      "description": "Top video results for search words, in the site's order. Prints one URL per line, or the URL list with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "words": { "type": "string", "description": "Search words, quoted as one argument." },
+          "limit": { "type": "integer", "default": 5, "description": "Number of results, 1 or more." },
+          "site": { "type": "string", "default": "ytsearch", "description": "yt-dlp search prefix, such as ytsearch for YouTube or scsearch for SoundCloud." }
+        },
+        "required": ["words"]
+      },
+      "output": "url-list"
+    },
+    {
+      "name": "list",
+      "description": "Every video of a playlist or channel URL, in the site's order. Prints one URL per line, or the URL list with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Playlist or channel page URL on any site yt-dlp supports." },
+          "limit": { "type": "integer", "description": "Stop after this many videos." }
+        },
+        "required": ["url"]
+      },
+      "output": "url-list"
+    },
+    {
+      "name": "parse",
+      "description": "URL list from a yt-dlp info JSON file already on disk, as yt-dlp -J --flat-playlist writes it.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "A yt-dlp flat playlist info JSON file." }
+        },
+        "required": ["path"]
+      },
+      "output": "url-list"
+    }
+  ],
+  "needs": { "bin": ["node>=22"], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
