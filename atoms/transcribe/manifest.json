@@ -16,7 +16,7 @@
         "properties": {
           "path": { "type": "string", "description": "Audio or video file to transcribe." },
           "model": { "type": "string", "default": "large-v3-turbo-q5_0", "description": "whisper.cpp model name from huggingface.co/ggerganov/whisper.cpp, such as small or large-v3-turbo-q5_0." },
-          "language": { "type": "string", "description": "Language code such as en. Detected when omitted." }
+          "language": { "type": "string", "description": "Language code such as en. Detected when omitted or auto." }
         },
         "required": ["path"]
       },
@@ -30,7 +30,7 @@
         "properties": {
           "path": { "type": "string", "description": "Audio or video file to transcribe." },
           "model": { "type": "string", "default": "large-v3-turbo-q5_0", "description": "whisper.cpp model name from huggingface.co/ggerganov/whisper.cpp, such as small or large-v3-turbo-q5_0." },
-          "language": { "type": "string", "description": "Language code such as en. Detected when omitted." }
+          "language": { "type": "string", "description": "Language code such as en. Detected when omitted or auto." }
         },
         "required": ["path"]
       },

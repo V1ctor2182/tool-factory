@@ -74,6 +74,8 @@ def transcribe(path: str, model: str, language: str | None) -> dict:
     file = Path(path).expanduser().resolve()
     if not file.is_file():
         raise cli.AtomError("invalid_source", f"No such file: {path}")
+    if language == "auto":
+        language = None
     cache = Cache("transcribe")
     key = f"{file_sha256(file)}-whispercpp-{model}-{language or 'auto'}"
     if cached := cache.get(key):
