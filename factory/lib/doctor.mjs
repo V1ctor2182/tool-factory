@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { accessSync, constants } from 'node:fs';
+import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { budget, spentToday } from './runs.mjs';
 
@@ -56,6 +57,18 @@ function secretProblem(name) {
   }
 }
 
+function hubCache() {
+  const env = process.env;
+  return env.HF_HUB_CACHE || env.HUGGINGFACE_HUB_CACHE || join(env.HF_HOME || join(env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'huggingface'), 'hub');
+}
+
+function cached(spec) {
+  const [, repo, file] = spec.match(/^huggingface\.co\/([\w.-]+\/[\w.-]+) ([\w.-]+)$/) ?? [];
+  if (!repo) return null;
+  const snapshots = join(hubCache(), `models--${repo.replace('/', '--')}`, 'snapshots');
+  return existsSync(snapshots) && readdirSync(snapshots).some((rev) => existsSync(join(snapshots, rev, file)));
+}
+
 function ownProblems(entry) {
   const { needs, runtime } = entry.manifest;
   return [
@@ -70,10 +83,16 @@ export function doctor(entries) {
   const rows = [...entries.values()].map((entry) => {
     const problems = own.get(entry.name);
     const red = (entry.manifest.uses ?? []).filter((name) => own.get(name)?.length);
-    const notes = [...problems, ...red.map((name) => `uses ${name}, which is red`)];
-    if (entry.manifest.needs.models?.length) notes.push(`downloads on first use: ${entry.manifest.needs.models.join('; ')}`);
+    const models = (entry.manifest.needs.models ?? []).map((spec) => ({ spec, cached: cached(spec) }));
+    const missing = models.filter((m) => m.cached === false);
+    const notes = [
+      ...problems,
+      ...red.map((name) => `uses ${name}, which is red`),
+      ...missing.map((m) => `${m.spec} is not in the Hugging Face cache, so it downloads on first use`),
+      ...models.filter((m) => m.cached === null).map((m) => `downloads on first use: ${m.spec}`),
+    ];
     if (entry.manifest.needs.paid.length) notes.push(`paid: ${entry.manifest.needs.paid.join(', ')}`);
-    return { name: entry.name, status: problems.length ? 'red' : red.length ? 'warn' : 'ok', notes };
+    return { name: entry.name, status: problems.length ? 'red' : red.length || missing.length ? 'warn' : 'ok', notes };
   });
   let spend;
   try {
