@@ -1,0 +1,26 @@
+{
+  "name": "digest",
+  "type": "atom",
+  "kind": "model",
+  "description": "Summary, chapters with timestamps, and key points from a transcript.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/digest",
+  "contract": "digest",
+  "model": { "backend": "claude-cli", "default": "sonnet", "prompt": "prompts/digest.md" },
+  "verbs": [
+    {
+      "name": "make",
+      "description": "Digest one transcript file. Prints the summary, or the digest with --json. Cached by transcript hash, model, and prompt hash. Refuses with budget_exceeded once today's model spend reaches the daily budget.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "transcript": { "type": "string", "description": "Path of a transcript JSON file, as captions or transcribe print it with --json." }
+        }
+      },
+      "output": "digest"
+    }
+  ],
+  "needs": { "bin": ["claude"], "secrets": [], "paid": ["claude"] },
+  "adapters": ["cli", "skill", "mcp"]
+}
