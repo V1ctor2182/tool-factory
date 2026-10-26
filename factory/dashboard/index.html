@@ -183,6 +183,7 @@ function notes(row, cls) {
 }
 
 function links(row) {
+  if (!row.links) return h('div', { class: 'links muted' }, 'Links unknown, since links.json is unreadable.');
   if (!row.links.length) return h('div', { class: 'links muted' }, 'Not linked anywhere.');
   return h('div', { class: 'links' }, h('span', { class: 'muted' }, 'Linked'),
     h('ul', null, row.links.map((l) => h('li', null, `${SOCKET[l.socket]} `, h('span', { class: 'mono' }, l.where)))));
@@ -203,7 +204,7 @@ function atomRow(atom) {
         h('dt', null, 'Median'), h('dd', null, seconds(atom.medianMs)),
         h('dt', null, 'Spent, 7 days'), h('dd', null, usd(atom.spentUsd)),
         h('dt', null, 'Last run'), h('dd', null, ago(atom.lastRunAt)),
-        h('dt', null, 'Linked'), h('dd', null, atom.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere'))));
+        h('dt', null, 'Linked'), h('dd', null, atom.links ? atom.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere' : 'unknown'))));
 }
 
 function toolCard(tool, atoms) {

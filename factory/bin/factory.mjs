@@ -105,7 +105,7 @@ const COMMANDS = {
       r.medianMs === null ? '' : seconds(r.medianMs),
       `$${r.spentUsd.toFixed(4)}`,
       (r.uses ?? r.usedBy).join(' '),
-      r.links.map((l) => `${l.socket}:${l.where}`).join(' '),
+      r.links?.map((l) => `${l.socket}:${l.where}`).join(' ') ?? 'unknown',
     ]);
     console.log(table([['name', 'type', 'kind', 'health', 'runs 7d', 'failed', 'median', 'spent 7d', 'uses or used by', 'links'], ...rows]));
     const { capUsd, spentTodayUsd } = model.budget;

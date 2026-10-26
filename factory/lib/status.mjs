@@ -55,7 +55,7 @@ export function statusModel(registry) {
     problems.push({ path: logPath, message: `has ${log.bad.length} unreadable line${log.bad.length === 1 ? '' : 's'}, the first at line ${first.line}, which ${first.problem}. The history skips them, and today's spend is unknown.` });
   }
   const records = log?.records ?? null;
-  const links = attempt(problems, ledgerPath(), ledger, []);
+  const links = attempt(problems, ledgerPath(), ledger, null);
   const checked = new Map(health(registry.entries).map((r) => [r.name, r]));
   const capUsd = attempt(problems, 'TOOL_FACTORY_BUDGET_USD', budget, null);
 
@@ -83,7 +83,7 @@ export function statusModel(registry) {
       failed: failures(mine),
       medianMs: median(mine.filter((r) => r.ok && Number.isFinite(r.ms)).map((r) => r.ms)),
       lastRunAt: latest(mine),
-      links: links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
+      links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
     };
     if (entry.type === 'atom') {
       return { ...shared, spentUsd: dollars(spend(mine)), usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) };
