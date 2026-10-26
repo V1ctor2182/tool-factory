@@ -30,13 +30,6 @@ function atLeast(found, wanted) {
   return true;
 }
 
-const probed = new Map();
-
-function binProblem(spec) {
-  if (!probed.has(spec)) probed.set(spec, probe(spec));
-  return probed.get(spec);
-}
-
 function probe(spec) {
   const [bin, wanted] = spec.split('>=');
   const path = which(bin);
@@ -69,8 +62,12 @@ function cached(spec) {
   return existsSync(snapshots) && readdirSync(snapshots).some((rev) => existsSync(join(snapshots, rev, file)));
 }
 
-function ownProblems(entry) {
+function ownProblems(entry, probed) {
   const { needs, runtime } = entry.manifest;
+  const binProblem = (spec) => {
+    if (!probed.has(spec)) probed.set(spec, probe(spec));
+    return probed.get(spec);
+  };
   return [
     ...(runtime ? [binProblem(runtime)] : []),
     ...needs.bin.map(binProblem),
@@ -78,9 +75,10 @@ function ownProblems(entry) {
   ].filter(Boolean);
 }
 
-export function doctor(entries) {
-  const own = new Map([...entries.values()].map((entry) => [entry.name, ownProblems(entry)]));
-  const rows = [...entries.values()].map((entry) => {
+export function health(entries) {
+  const probed = new Map();
+  const own = new Map([...entries.values()].map((entry) => [entry.name, ownProblems(entry, probed)]));
+  return [...entries.values()].map((entry) => {
     const problems = own.get(entry.name);
     const red = (entry.manifest.uses ?? []).filter((name) => own.get(name)?.length);
     const models = (entry.manifest.needs.models ?? []).map((spec) => ({ spec, cached: cached(spec) }));
@@ -94,6 +92,9 @@ export function doctor(entries) {
     if (entry.manifest.needs.paid.length) notes.push(`paid: ${entry.manifest.needs.paid.join(', ')}`);
     return { name: entry.name, status: problems.length ? 'red' : red.length || missing.length ? 'warn' : 'ok', notes };
   });
+}
+
+export function doctor(entries) {
   let spend;
   try {
     const cap = budget();
@@ -102,5 +103,5 @@ export function doctor(entries) {
   } catch (e) {
     spend = { name: 'budget', status: 'red', notes: [e.message] };
   }
-  return [...rows, spend];
+  return [...health(entries), spend];
 }

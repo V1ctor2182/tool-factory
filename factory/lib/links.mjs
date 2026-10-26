@@ -9,15 +9,24 @@ export const SOCKETS = {
   bin: (entry) => ({ path: join(process.env.FACTORY_BIN_DIR || join(homedir(), '.local', 'bin'), entry.name), target: entry.entry }),
 };
 
-const ledgerPath = () => join(home(), 'links.json');
+export const ledgerPath = () => join(home(), 'links.json');
+
+export function linkedTo(record) {
+  return record.socket === 'into' ? resolve(record.path, '..', '..', '..') : record.path;
+}
 
 export function ledger() {
+  let links;
   try {
-    return JSON.parse(readFileSync(ledgerPath(), 'utf8'));
+    links = JSON.parse(readFileSync(ledgerPath(), 'utf8'));
   } catch (e) {
     if (e.code === 'ENOENT') return [];
     throw e;
   }
+  if (!Array.isArray(links) || !links.every((l) => typeof l?.name === 'string' && typeof l.path === 'string')) {
+    throw new Error(`${ledgerPath()} is not a JSON array of links with a name and a path, so the links are unknown`);
+  }
+  return links;
 }
 
 function save(links) {
@@ -37,6 +46,7 @@ function current(path) {
 }
 
 export function link(entry, socket, project) {
+  const links = ledger();
   const { path, target } = SOCKETS[socket](entry, project);
   const found = current(path);
   if (found !== null && found !== target) throw new Error(`${path} already exists and is not a link to ${target}`);
@@ -45,7 +55,7 @@ export function link(entry, socket, project) {
     symlinkSync(target, path);
   }
   const record = { name: entry.name, socket, path, target, linkedAt: new Date().toISOString() };
-  save([...ledger().filter((l) => l.path !== path), record]);
+  save([...links.filter((l) => l.path !== path), record]);
   return record;
 }
 

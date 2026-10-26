@@ -1,0 +1,12 @@
+[
+  {
+    "name": "art-desk",
+    "description": "Private dataroom where a game director, a 2D artist, and Claude keep a game's art files and art documents. A hosted Node service on Railway with a thin MCP wrapper.",
+    "where": "~/victor/art-desk"
+  },
+  {
+    "name": "vh-personal",
+    "description": "Personal ticket hub. One zero-dependency Node file that is both the CLI and a local MCP server, so agents manage tickets.",
+    "where": "~/victor/vibehub-personal"
+  }
+]
