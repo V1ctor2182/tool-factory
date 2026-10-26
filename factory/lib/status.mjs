@@ -52,7 +52,7 @@ export function statusModel(registry) {
   const log = attempt(problems, logPath, readLog, null);
   if (log?.bad.length) {
     const [first] = log.bad;
-    problems.push({ path: logPath, message: `has ${log.bad.length} unreadable line${log.bad.length === 1 ? '' : 's'}, the first at line ${first.line}, which ${first.problem}. The history skips them, and today's spend is unknown.` });
+    problems.push({ path: logPath, message: `has ${log.bad.length} unreadable line${log.bad.length === 1 ? '' : 's'}, the first at line ${first.line}, which ${first.problem}. The history leaves out unreadable lines, and today's spend is unknown.` });
   }
   const records = log?.records ?? null;
   const links = attempt(problems, ledgerPath(), ledger, null);
