@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "service",
+  "title": "Service manifest",
+  "description": "The manifest.json of one tool or atom. The factory, MCP adapter, and dashboard read only this file.",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Same as the folder name." },
+    "type": { "enum": ["tool", "atom"] },
+    "kind": {
+      "enum": ["pipeline", "skill", "transform", "model", "observe", "act"],
+      "description": "The kinds table in ARCHITECTURE.md decides which kinds each type may take."
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["idea", "alpha", "stable", "deprecated"] },
+    "runtime": { "enum": ["uv", "node", "sh"] },
+    "entry": { "type": "string", "minLength": 1, "description": "The CLI, relative to the folder." },
+    "contract": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Names contracts/<contract>.schema.json." },
+    "uses": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "model": {
+      "type": "object",
+      "properties": {
+        "backend": { "enum": ["claude-cli", "anthropic-api"] },
+        "default": { "type": "string", "minLength": 1 },
+        "prompt": { "type": "string", "minLength": 1 }
+      },
+      "required": ["backend", "default", "prompt"],
+      "additionalProperties": false
+    },
+    "verbs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/verb" } },
+    "needs": {
+      "type": "object",
+      "properties": {
+        "bin": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+(>=[0-9]+(\\.[0-9]+)*)?$" },
+          "description": "A binary on PATH, with an optional minimum version such as node>=22."
+        },
+        "secrets": { "type": "array", "items": { "type": "string" } },
+        "paid": { "type": "array", "items": { "type": "string" } },
+        "models": { "type": "array", "items": { "type": "string" }, "description": "Model weights the atom downloads on first use." }
+      },
+      "required": ["bin", "secrets", "paid"],
+      "additionalProperties": false
+    },
+    "adapters": { "type": "array", "items": { "enum": ["cli", "skill", "mcp", "http"] }, "uniqueItems": true }
+  },
+  "required": ["name", "type", "kind", "description", "status", "needs", "adapters"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "skill" } } },
+      "then": {
+        "description": "A skill tool is SKILL.md and this manifest, with no CLI and no contract.",
+        "properties": { "uses": { "maxItems": 0 }, "adapters": { "items": { "const": "skill" } } },
+        "allOf": [
+          { "not": { "required": ["runtime"] } },
+          { "not": { "required": ["entry"] } },
+          { "not": { "required": ["verbs"] } },
+          { "not": { "required": ["contract"] } }
+        ]
+      },
+      "else": { "required": ["runtime", "entry", "verbs", "contract"] }
+    },
+    { "if": { "properties": { "kind": { "const": "pipeline" } } }, "then": { "required": ["uses"], "properties": { "uses": { "minItems": 1 } } } },
+    { "if": { "properties": { "type": { "const": "atom" } } }, "then": { "not": { "required": ["uses"] } } },
+    { "if": { "properties": { "kind": { "const": "model" } } }, "then": { "required": ["model"] }, "else": { "not": { "required": ["model"] } } }
+  ],
+  "$defs": {
+    "verb": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "description": { "type": "string", "minLength": 1 },
+        "input": { "$ref": "#/$defs/input" },
+        "output": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Names contracts/<output>.schema.json." }
+      },
+      "required": ["name", "description", "input", "output"],
+      "additionalProperties": false
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "object" },
+        "properties": { "type": "object", "additionalProperties": { "$ref": "#/$defs/property" } },
+        "required": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "required": ["type", "properties"],
+      "additionalProperties": false
+    },
+    "property": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["string", "integer", "number", "boolean", "array"] },
+        "items": { "type": "object" },
+        "enum": { "type": "array", "minItems": 1 },
+        "default": {},
+        "description": { "type": "string" },
+        "x-flag": { "const": true, "description": "A required input passed as --flag instead of as a positional argument." }
+      },
+      "additionalProperties": false
+    }
+  }
+}
