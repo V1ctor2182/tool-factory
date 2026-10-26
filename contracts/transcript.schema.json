@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "transcript",
+  "title": "Transcript",
+  "description": "Timed text of one recording, from captions or from speech recognition.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The URL or absolute file path the transcript came from." },
+    "method": { "enum": ["captions", "whisper"] },
+    "language": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"], "description": "The speech model, or null for captions." },
+    "text": { "type": "string" },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 },
+          "text": { "type": "string", "minLength": 1 }
+        },
+        "required": ["start", "end", "text"],
+        "additionalProperties": false
+      }
+    },
+    "srt": { "type": "string", "description": "SubRip subtitles of the segments. Only the srt verb sets it." },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["source", "method", "language", "model", "text", "segments", "cacheHit"],
+  "additionalProperties": false
+}

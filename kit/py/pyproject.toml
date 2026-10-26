@@ -1,0 +1,14 @@
+[project]
+name = "factory-kit"
+version = "0.0.0"
+description = "Plumbing every Python atom shares. No domain logic."
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.9,<1"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-p no:cacheprovider"

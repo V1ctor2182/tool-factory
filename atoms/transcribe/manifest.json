@@ -1,0 +1,50 @@
+{
+  "name": "transcribe",
+  "type": "atom",
+  "kind": "transform",
+  "description": "Timed transcript of a local audio or video file, from whisper.cpp on this Mac.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/transcribe",
+  "contract": "transcript",
+  "verbs": [
+    {
+      "name": "file",
+      "description": "Transcribe one file. Prints the text, or the transcript with --json. Cached by file hash, model, and language.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Audio or video file to transcribe." },
+          "model": { "type": "string", "default": "large-v3-turbo-q5_0", "description": "whisper.cpp model name from huggingface.co/ggerganov/whisper.cpp, such as small or large-v3-turbo-q5_0." },
+          "language": { "type": "string", "description": "Language code such as en. Detected when omitted or auto." }
+        },
+        "required": ["path"]
+      },
+      "output": "transcript"
+    },
+    {
+      "name": "srt",
+      "description": "Same as file, but prints SubRip subtitles. The --json output is the transcript with the same subtitles in its srt field.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Audio or video file to transcribe." },
+          "model": { "type": "string", "default": "large-v3-turbo-q5_0", "description": "whisper.cpp model name from huggingface.co/ggerganov/whisper.cpp, such as small or large-v3-turbo-q5_0." },
+          "language": { "type": "string", "description": "Language code such as en. Detected when omitted or auto." }
+        },
+        "required": ["path"]
+      },
+      "output": "transcript"
+    }
+  ],
+  "needs": {
+    "bin": [],
+    "secrets": [],
+    "paid": [],
+    "models": [
+      "huggingface.co/ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin",
+      "huggingface.co/ggerganov/whisper.cpp ggml-<model>.bin for each other --model <model>"
+    ]
+  },
+  "adapters": ["cli", "skill", "mcp"]
+}

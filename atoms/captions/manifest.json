@@ -1,0 +1,40 @@
+{
+  "name": "captions",
+  "type": "atom",
+  "kind": "transform",
+  "description": "Timed transcript from the captions a video site already publishes, through yt-dlp.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/captions",
+  "contract": "transcript",
+  "verbs": [
+    {
+      "name": "get",
+      "description": "Captions of one video URL. Prefers uploaded captions over automatic ones. Fails with no_captions when the language has neither. Cached by site, video id, and language.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Video page URL on any site yt-dlp supports." },
+          "lang": { "type": "string", "default": "en", "description": "Caption language code." }
+        },
+        "required": ["url"]
+      },
+      "output": "transcript"
+    },
+    {
+      "name": "parse",
+      "description": "Transcript from a json3 caption file already on disk. Cached by file hash and language.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "A json3 caption file, as yt-dlp writes it." },
+          "lang": { "type": "string", "default": "en", "description": "Language code to record in the transcript." }
+        },
+        "required": ["path"]
+      },
+      "output": "transcript"
+    }
+  ],
+  "needs": { "bin": ["node>=22"], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

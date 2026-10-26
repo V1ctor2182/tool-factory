@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "media",
+  "title": "Media",
+  "description": "One downloaded audio or video file in the data home.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The URL the file came from." },
+    "path": { "type": "string", "description": "Absolute path of the file." },
+    "kind": { "enum": ["audio", "video"] },
+    "extractor": { "type": "string" },
+    "id": { "type": "string" },
+    "title": { "type": ["string", "null"] },
+    "durationSec": { "type": ["number", "null"], "minimum": 0 },
+    "bytes": { "type": "integer", "minimum": 0, "description": "File size when downloaded. A cached file of another size is downloaded again." },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["source", "path", "kind", "extractor", "id", "title", "durationSec", "bytes", "cacheHit"],
+  "additionalProperties": false
+}
