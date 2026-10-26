@@ -25,19 +25,28 @@ const RUNS = [
   line('digest', 'atom', `${day(10)}T12:00:00Z`, { costUsd: 9, caller: 'youtube' }),
 ];
 
+function status(dir) {
+  const done = spawnSync('node', [join(root, 'factory', 'bin', 'factory.mjs'), 'status', '--json'], { encoding: 'utf8', env: { ...env, TOOL_FACTORY_HOME: dir } });
+  return { code: done.status, model: JSON.parse(done.stdout), stderr: done.stderr };
+}
+
+function seed(dir, runs, links) {
+  mkdirSync(dir);
+  writeFileSync(join(dir, 'runs.jsonl'), runs);
+  if (links !== undefined) writeFileSync(join(dir, 'links.json'), links);
+}
+
 let model;
 before(() => {
   copyRepo(root);
   cpSync(join(root, 'tools', 'meeting-notes'), join(root, 'tools', 'clipper'), { recursive: true });
   manifest(root, 'tools/clipper', (m) => Object.assign(m, { name: 'clipper', uses: ['frames', 'see'] }));
   writeFileSync(join(root, 'external.json'), JSON.stringify([{ name: 'art-desk', description: 'Art dataroom.', where: '~/victor/art-desk' }]));
-  mkdirSync(home);
-  writeFileSync(join(home, 'runs.jsonl'), RUNS.map((r) => JSON.stringify(r)).join('\n'));
   const path = join(project, '.claude', 'skills', 'youtube');
-  writeFileSync(join(home, 'links.json'), JSON.stringify([{ name: 'youtube', socket: 'into', path, target: join(root, 'tools', 'youtube'), linkedAt: `${day(0)}T00:00:00Z` }]));
-  const done = spawnSync('node', [join(root, 'factory', 'bin', 'factory.mjs'), 'status', '--json'], { encoding: 'utf8', env });
-  assert.equal(done.status, 0, done.stderr);
-  model = JSON.parse(done.stdout);
+  seed(home, RUNS.map((r) => JSON.stringify(r)).join('\n'), JSON.stringify([{ name: 'youtube', socket: 'into', path, target: join(root, 'tools', 'youtube'), linkedAt: `${day(0)}T00:00:00Z` }]));
+  const done = status(home);
+  assert.equal(done.code, 0, done.stderr);
+  model = done.model;
 });
 
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -81,6 +90,23 @@ test('linked projects and external tools appear', () => {
   assert.deepEqual(row('youtube').links, [{ socket: 'into', where: project }]);
   assert.deepEqual(model.external, [{ name: 'art-desk', description: 'Art dataroom.', where: '~/victor/art-desk' }]);
   assert.deepEqual(model.problems, []);
+});
+
+test('a corrupt run-log line is skipped and reported, and today\'s spend stays unknown', () => {
+  const dir = join(root, 'corrupt');
+  const lines = RUNS.map((r) => JSON.stringify(r));
+  lines.splice(2, 0, '{"type":"atom",');
+  seed(dir, lines.join('\n'));
+  const { code, model: broken } = status(dir);
+  assert.equal(code, 1);
+  assert.deepEqual(model.log, { lines: RUNS.length, unreadable: 0, firstUnreadable: null });
+  assert.deepEqual(broken.log, { lines: RUNS.length, unreadable: 1, firstUnreadable: 3 });
+  assert.equal(broken.budget.spentTodayUsd, null);
+  assert.deepEqual(broken.problems.map((p) => p.path), [join(dir, 'runs.jsonl')]);
+  assert.match(broken.problems[0].message, /\bline 3\b/);
+  const history = (m) => [...m.tools, ...m.atoms].map((r) => [r.name, r.runs, r.failed, r.medianMs, r.spentUsd]);
+  assert.deepEqual(history(broken), history(model));
+  assert.deepEqual(broken.calls, model.calls);
 });
 
 test('the dashboard serves the same model on 127.0.0.1 and refuses writes and other hosts', async () => {
