@@ -16,7 +16,7 @@ export function dashboard(root, port) {
   let hosts;
   const server = createServer((req, res) => {
     const reply = (code, type, body, headers = {}) => {
-      res.writeHead(code, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...headers });
+      res.writeHead(code, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "frame-ancestors 'none'", ...headers });
       res.end(req.method === 'HEAD' ? undefined : body);
     };
     if (!hosts.has(req.headers.host)) return reply(421, 'text/plain', 'This dashboard answers only on 127.0.0.1 or localhost.\n');
