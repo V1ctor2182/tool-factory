@@ -1,0 +1,134 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+ATOMS = ROOT.parent.parent / "atoms"
+MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+HOME = Path(os.environ.get("TOOL_FACTORY_HOME") or "~/.local/share/tool-factory").expanduser().absolute()
+
+
+class AtomFailed(Exception):
+    def __init__(self, error: dict):
+        super().__init__(error["message"])
+        self.error = error
+
+
+def log(message: str) -> None:
+    print(f"youtube: {message}", file=sys.stderr, flush=True)
+
+
+def bin_of(name: str) -> str:
+    return str(ATOMS / name / "bin" / name)
+
+
+ENV = {**os.environ, "TOOL_FACTORY_CALLER": "youtube"}
+
+
+def atom(name: str, *args: str) -> dict:
+    done = subprocess.run([bin_of(name), *args, "--json"], stdout=subprocess.PIPE, text=True, env=ENV)
+    try:
+        result = json.loads(done.stdout)
+    except ValueError:
+        result = {"error": {"code": "internal", "message": f"{name} exited {done.returncode} with no JSON on stdout"}}
+    if "error" in result:
+        raise AtomFailed(result["error"])
+    return result
+
+
+def transcript_of(url: str) -> dict:
+    log(f"captions get {url}")
+    try:
+        return atom("captions", "get", url)
+    except AtomFailed as e:
+        if e.error["code"] != "no_captions":
+            raise
+    log("no captions, so downloading the audio")
+    media = atom("download", "get", url, "--audio")
+    log(f"transcribe file {media['path']}")
+    return {**atom("transcribe", "file", media["path"]), "source": url}
+
+
+def save(transcript: dict) -> Path:
+    stable = json.dumps({k: v for k, v in transcript.items() if k != "cacheHit"}, sort_keys=True)
+    folder = HOME / "youtube" / "transcripts"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{hashlib.sha256(stable.encode()).hexdigest()[:32]}.json"
+    path.write_text(json.dumps(transcript, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def timed_lines(transcript: dict) -> str:
+    return "\n".join("[%d:%02d] %s" % (*divmod(int(s["start"]), 60), s["text"]) for s in transcript["segments"])
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise AtomFailed({"code": "invalid_args", "message": message})
+
+
+VERBS = {verb["name"]: verb for verb in MANIFEST["verbs"]}
+
+
+def parser() -> Parser:
+    p = Parser(
+        prog=MANIFEST["name"],
+        description=MANIFEST["description"],
+        epilog="Without a verb, run <input> means get, and run <input> --no-digest means transcript.",
+    )
+    verbs = p.add_subparsers(dest="verb", required=True, parser_class=Parser)
+    for verb in MANIFEST["verbs"]:
+        v = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
+        for name in verb["input"]["required"]:
+            v.add_argument(name, help=verb["input"]["properties"][name]["description"])
+        v.add_argument("--json", action="store_true", help="Print one JSON object.")
+    return p
+
+
+def verb_args(argv: list[str]) -> list[str]:
+    flags = [a for a in argv if a == "--json"]
+    words = [a for a in argv if a != "--json"]
+    if words and words[0] in (*VERBS, "-h", "--help"):
+        return [*words, *flags]
+    verb = "transcript" if "--no-digest" in words else "get"
+    return [verb, *(a for a in words if a != "--no-digest"), *flags]
+
+
+def main() -> int:
+    as_json = "--json" in sys.argv[1:]
+    try:
+        args = parser().parse_args(verb_args(sys.argv[1:]))
+        transcript = transcript_of(args.input)
+        if args.verb == "transcript":
+            print(json.dumps(transcript, ensure_ascii=False) if as_json else timed_lines(transcript))
+            return 0
+        path = save(transcript)
+        log(f"digest make --transcript {path}")
+        if not as_json:
+            return subprocess.run([bin_of("digest"), "make", "--transcript", str(path)], env=ENV).returncode
+        print(json.dumps(atom("digest", "make", "--transcript", str(path)), ensure_ascii=False))
+        return 0
+    except AtomFailed as e:
+        error = e.error
+    except Exception as e:
+        traceback.print_exc()
+        error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+    if as_json:
+        print(json.dumps({"error": error}, ensure_ascii=False))
+    else:
+        print(f"youtube: {error['code']}: {error['message']}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

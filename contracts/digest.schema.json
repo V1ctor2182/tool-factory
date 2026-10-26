@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "digest",
+  "title": "Digest",
+  "description": "Summary, chapters, and key points of one transcript.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The URL or file path the transcript came from." },
+    "transcriptPath": { "type": "string", "description": "Absolute path of the transcript file the digest was made from." },
+    "model": { "type": "string", "description": "The model that wrote the digest." },
+    "summary": { "type": "string", "minLength": 1, "description": "One paragraph on what the recording says." },
+    "chapters": {
+      "type": "array",
+      "description": "Sections of the recording in order.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "start": { "type": "number", "minimum": 0, "description": "Start time in seconds, taken from a transcript segment." },
+          "title": { "type": "string", "minLength": 1 }
+        },
+        "required": ["start", "title"],
+        "additionalProperties": false
+      }
+    },
+    "keyPoints": {
+      "type": "array",
+      "description": "The claims, facts, or steps worth remembering.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "costUsd": { "type": "number", "minimum": 0, "description": "Model spend of this call. Zero on a cache hit." },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["source", "transcriptPath", "model", "summary", "chapters", "keyPoints", "costUsd", "cacheHit"],
+  "additionalProperties": false
+}

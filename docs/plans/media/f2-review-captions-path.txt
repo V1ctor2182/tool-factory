@@ -1,0 +1,16 @@
+head: a9934e3a4fe8c9f1c8d38f5c20100fa729006434
+$ TOOL_FACTORY_HOME=/private/tmp/f2-review-home-4hjWPJ tools/youtube/run https://www.youtube.com/watch?v=jNQXAC9IVRw --json
+--- stdout ---
+{"source": "https://www.youtube.com/watch?v=jNQXAC9IVRw", "transcriptPath": "/private/tmp/f2-review-home-4hjWPJ/youtube/transcripts/82087ee0d9470d2d57f04e5e51443889.json", "model": "sonnet", "summary": "The speaker stands in front of the elephants and says the cool thing about them is their really, really long trunks. An elephant calls out in the background. The speaker then says that's pretty much all there is to say.", "chapters": [{"start": 1, "title": "In front of the elephants"}], "keyPoints": ["The speaker is in front of the elephants.", "The speaker thinks the cool thing about elephants is their really, really long trunks.", "An elephant call is heard in the background.", "The speaker has nothing more to add."], "costUsd": 0.0051132, "cacheHit": false}
+--- stderr ---
+youtube: captions get https://www.youtube.com/watch?v=jNQXAC9IVRw
+youtube: digest make --transcript /private/tmp/f2-review-home-4hjWPJ/youtube/transcripts/82087ee0d9470d2d57f04e5e51443889.json
+--- exit 0, wall 6 s ---
+--- digest schema: $ uvx -q check-jsonschema --schemafile contracts/digest.schema.json stdout ---
+ok -- validation done
+check-jsonschema exit 0
+--- transcript method: $ jq -r .method "$(jq -r .transcriptPath stdout)" ---
+captions
+--- runs.jsonl ---
+{"type":"atom","name":"captions","verb":"get","kind":"transform","startedAt":"2026-10-25T22:20:37Z","ms":1809,"ok":true,"cacheHit":false,"costUsd":0.0,"caller":"youtube"}
+{"type":"atom","name":"digest","verb":"make","kind":"model","startedAt":"2026-10-25T22:20:39Z","ms":3207,"ok":true,"cacheHit":false,"costUsd":0.0051132,"caller":"youtube"}
