@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
-import { budget, home, lastDays, readLog, spend, today } from './runs.mjs';
+import { budget, home, lastDays, logPath, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
 const dollars = (usd) => Math.round(usd * 1e6) / 1e6;
@@ -18,15 +18,14 @@ const failures = (lines) => lines.filter((r) => !r.ok).length;
 const latest = (lines) => lines.reduce((last, r) => (r.startedAt > last ? r.startedAt : last), '') || null;
 
 function outsideRuns(runs, calls) {
-  const at = (r) => Date.parse(r.startedAt);
-  const timeline = [...runs, ...calls].sort((a, b) => at(a) - at(b) || (b.type === 'tool') - (a.type === 'tool'));
+  const timeline = [...runs, ...calls].map((r) => [Date.parse(r.startedAt), r]).sort(([a, x], [b, y]) => a - b || (y.type === 'tool') - (x.type === 'tool'));
   let coveredUntil = -Infinity;
-  return timeline.filter((r) => {
-    if (r.type !== 'tool') return at(r) >= coveredUntil;
+  return timeline.filter(([at, r]) => {
+    if (r.type !== 'tool') return at >= coveredUntil;
     // startedAt drops milliseconds, so a run covers up to one second past its ms.
-    coveredUntil = Math.max(coveredUntil, at(r) + (r.ms ?? 0) + 1000);
+    coveredUntil = Math.max(coveredUntil, at + (r.ms ?? 0) + 1000);
     return false;
-  });
+  }).map(([, r]) => r);
 }
 
 function attempt(problems, path, work, fallback) {
@@ -48,11 +47,10 @@ function external(root, problems) {
 export function statusModel(registry) {
   const problems = [...registry.problems];
   const days = lastDays(WINDOW);
-  const logPath = join(home(), 'runs.jsonl');
-  const log = attempt(problems, logPath, readLog, null);
+  const log = attempt(problems, logPath(), readLog, null);
   if (log?.bad.length) {
     const [first] = log.bad;
-    problems.push({ path: logPath, message: `has ${log.bad.length} unreadable line${log.bad.length === 1 ? '' : 's'}, the first at line ${first.line}, which ${first.problem}. The history leaves out unreadable lines, and today's spend is unknown.` });
+    problems.push({ path: logPath(), message: `has ${log.bad.length} unreadable line${log.bad.length === 1 ? '' : 's'}, the first at line ${first.line}, which ${first.problem}. The history leaves out unreadable lines, and today's spend is unknown.` });
   }
   const records = log?.records ?? null;
   const links = attempt(problems, ledgerPath(), ledger, null);
@@ -69,9 +67,9 @@ export function statusModel(registry) {
   const calls = [...window.filter((r) => !toolNames.has(r.caller)), ...[...direct.values()].flat()];
 
   const row = (entry) => {
-    const mine = byName.get(entry.name) ?? [];
     const { status, notes } = checked.get(entry.name);
-    const shared = {
+    const tool = entry.type === 'tool';
+    const known = {
       name: entry.name,
       type: entry.type,
       kind: entry.kind,
@@ -79,27 +77,27 @@ export function statusModel(registry) {
       description: entry.manifest.description,
       health: status,
       notes,
-      runs: mine.length,
-      failed: failures(mine),
-      medianMs: median(mine.filter((r) => r.ok && Number.isFinite(r.ms)).map((r) => r.ms)),
-      lastRunAt: latest(mine),
       links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
+      ...(tool ? { uses: entry.manifest.uses } : { usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
     };
-    if (entry.type === 'atom') {
-      return { ...shared, spentUsd: dollars(spend(mine)), usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) };
-    }
+    if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(tool && { atomCalls: null, atomFailed: null, perDay: null }) };
+    const mine = byName.get(entry.name) ?? [];
+    const activity = { runs: mine.length, failed: failures(mine), medianMs: median(mine.filter((r) => r.ok && Number.isFinite(r.ms)).map((r) => r.ms)) };
+    if (!tool) return { ...known, ...activity, lastRunAt: latest(mine), spentUsd: dollars(spend(mine)) };
     const outside = direct.get(entry.name) ?? [];
     const onDay = (lines) => Map.groupBy(lines, (r) => r.startedAt.slice(0, 10));
-    const [runsOn, callsOn] = [onDay(mine), onDay(outside)];
+    const runsOn = onDay(mine);
+    const callsOn = onDay(outside);
     return {
-      ...shared,
+      ...known,
+      ...activity,
       atomCalls: outside.length,
       atomFailed: failures(outside),
       lastRunAt: latest([...mine, ...outside]),
       spentUsd: dollars(spend([...mine, ...(byCaller.get(entry.name) ?? [])])),
-      uses: entry.manifest.uses,
       perDay: days.map((day) => {
-        const [runs, calls] = [runsOn.get(day) ?? [], callsOn.get(day) ?? []];
+        const runs = runsOn.get(day) ?? [];
+        const calls = callsOn.get(day) ?? [];
         return { day, runs: runs.length, failed: failures(runs), atomCalls: calls.length, atomFailed: failures(calls) };
       }),
     };
@@ -109,7 +107,7 @@ export function statusModel(registry) {
     days,
     home: home(),
     log: { lines: records?.length ?? null, unreadable: log?.bad.length ?? null, firstUnreadable: log?.bad[0]?.line ?? null },
-    calls: { runs: calls.length, failed: failures(calls) },
+    calls: records && { runs: calls.length, failed: failures(calls) },
     budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
     tools: tools.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),

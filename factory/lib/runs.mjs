@@ -8,12 +8,12 @@ export function home() {
   return resolve(raw.replace(/^~(?=\/|$)/, homedir()));
 }
 
+export const logPath = () => join(home(), 'runs.jsonl');
+
 export function append(record) {
   mkdirSync(home(), { recursive: true });
-  appendFileSync(join(home(), 'runs.jsonl'), `${JSON.stringify(record)}\n`);
+  appendFileSync(logPath(), `${JSON.stringify(record)}\n`);
 }
-
-const logPath = () => join(home(), 'runs.jsonl');
 
 export function readLog() {
   let text;

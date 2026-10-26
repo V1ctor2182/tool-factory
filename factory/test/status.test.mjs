@@ -131,6 +131,16 @@ test('a corrupt run-log line is skipped and reported, and today\'s spend stays u
   assert.deepEqual(broken.calls, model.calls);
 });
 
+test('a run log that cannot be read leaves every count unknown, not zero', () => {
+  const dir = join(root, 'noread');
+  mkdirSync(join(dir, 'runs.jsonl'), { recursive: true });
+  const { code, model: blind } = status(dir);
+  assert.equal(code, 1);
+  assert.deepEqual([blind.log, blind.calls, blind.budget.spentTodayUsd], [{ lines: null, unreadable: null, firstUnreadable: null }, null, null]);
+  assert.deepEqual([...new Set([...blind.tools, ...blind.atoms].flatMap((r) => [r.runs, r.failed, r.spentUsd, r.lastRunAt]))], [null]);
+  assert.deepEqual(row('youtube').uses, blind.tools.find((t) => t.name === 'youtube').uses);
+});
+
 test('the dashboard serves the same model on 127.0.0.1 and refuses writes, framing, and other hosts', async () => {
   const { url, stop } = await serve(home);
   try {

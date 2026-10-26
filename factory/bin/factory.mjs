@@ -100,10 +100,10 @@ const COMMANDS = {
       r.type,
       r.kind,
       r.health,
-      r.atomCalls ? `${r.runs} + ${r.atomCalls} atom calls` : r.runs,
-      r.atomFailed ? `${r.failed} + ${r.atomFailed}` : r.failed,
+      r.runs === null ? 'unknown' : r.atomCalls ? `${r.runs} + ${r.atomCalls} atom calls` : r.runs,
+      r.failed === null ? 'unknown' : r.atomFailed ? `${r.failed} + ${r.atomFailed}` : r.failed,
       r.medianMs === null ? '' : seconds(r.medianMs),
-      `$${r.spentUsd.toFixed(4)}`,
+      r.spentUsd === null ? 'unknown' : `$${r.spentUsd.toFixed(4)}`,
       (r.uses ?? r.usedBy).join(' '),
       r.links?.map((l) => `${l.socket}:${l.where}`).join(' ') ?? 'unknown',
     ]);

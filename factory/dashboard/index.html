@@ -122,7 +122,6 @@ const model = JSON.parse(document.getElementById('status').textContent || 'null'
 const app = document.getElementById('app');
 const HEALTH = { ok: 'Healthy', warn: 'Warning', red: 'Broken' };
 const SOCKET = { into: 'Project', global: 'Global skill', bin: 'On PATH' };
-const historyKnown = model?.log.lines !== null;
 
 function h(tag, props, ...children) {
   const el = document.createElement(tag);
@@ -139,6 +138,7 @@ function h(tag, props, ...children) {
 
 const usd = (n) => (n === null ? 'unknown' : `$${n.toFixed(4)}`);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const counted = (n, word) => [h('b', null, n), ` ${word}${n === 1 ? '' : 's'}`];
 const seconds = (ms) => (ms === null ? 'no runs' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
 
 function ago(iso) {
@@ -161,19 +161,20 @@ function healthPill(level) {
 
 function bars(perDay) {
   const total = (d) => d.runs + d.atomCalls;
+  const failed = (d) => d.failed + d.atomFailed;
   const top = Math.max(1, ...perDay.map(total));
   return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
-    perDay.map((d) => h('span', { title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${d.failed + d.atomFailed} failed`, style: `height:${Math.max(2, (total(d) / top) * 22)}px` },
-      d.failed + d.atomFailed ? h('i', { style: `height:${((d.failed + d.atomFailed) / total(d)) * 100}%` }) : null)));
+    perDay.map((d) => h('span', { title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${failed(d)} failed`, style: `height:${Math.max(2, (total(d) / top) * 22)}px` },
+      failed(d) ? h('i', { style: `height:${(failed(d) / total(d)) * 100}%` }) : null)));
 }
 
 function stats(row) {
   if (row.kind === 'skill') return h('p', { class: 'small muted', style: 'margin-top:10px' }, 'Skill only, used by the agent. It runs no code and calls no atoms, so it has no runs or spend.');
-  if (!historyKnown) return h('p', { class: 'small muted', style: 'margin-top:10px' }, 'Runs and spend unknown, since the run log is unreadable.');
+  if (row.runs === null) return h('p', { class: 'small muted', style: 'margin-top:10px' }, 'Runs and spend unknown, since the run log is unreadable.');
   return h('div', { class: 'stats' },
-    h('span', null, h('b', null, row.runs), row.runs === 1 ? ' run in 7 days' : ' runs in 7 days'),
+    h('span', null, counted(row.runs, 'run'), ' in 7 days'),
     h('span', null, h('b', null, row.failed), ' failed'),
-    row.atomCalls ? h('span', null, 'plus ', h('b', null, row.atomCalls), row.atomCalls === 1 ? ' atom call from direct runs, ' : ' atom calls from direct runs, ', h('b', null, row.atomFailed), ' failed') : null,
+    row.atomCalls ? h('span', null, 'plus ', counted(row.atomCalls, 'atom call'), ' from direct runs, ', h('b', null, row.atomFailed), ' failed') : null,
     h('span', null, 'median ', h('b', null, seconds(row.medianMs))),
     h('span', null, h('b', null, usd(row.spentUsd)), ' spent in 7 days'),
     h('span', null, 'last run ', h('b', null, ago(row.lastRunAt))),
@@ -197,14 +198,14 @@ function atomRow(atom) {
     h('summary', null,
       h('span', { class: 'who' }, h('span', { class: `dot ${atom.health}`, title: HEALTH[atom.health] }), h('span', { class: 'atom-name' }, atom.name), h('span', { class: 'tag' }, atom.kind)),
       h('span', { class: 'usedby' }, atom.usedBy.length ? ['Used by ', atom.usedBy.map((t, i) => [i ? ', ' : '', h('b', null, t)])] : 'Used by no tool'),
-      h('span', { class: 'count' }, historyKnown ? [plural(atom.runs, 'run'), atom.failed ? `, ${atom.failed} failed` : ''] : 'runs unknown'),
+      h('span', { class: 'count' }, atom.runs === null ? 'runs unknown' : [plural(atom.runs, 'run'), atom.failed ? `, ${atom.failed} failed` : '']),
       notes(atom, 'inline-notes')),
     h('div', { class: 'more' },
       h('p', { class: 'muted' }, atom.description),
       h('dl', null,
         h('dt', null, 'Health'), h('dd', null, HEALTH[atom.health]),
         h('dt', null, 'Status'), h('dd', null, atom.status),
-        historyKnown
+        atom.runs !== null
           ? [h('dt', null, 'Median'), h('dd', null, seconds(atom.medianMs)),
             h('dt', null, 'Spent, 7 days'), h('dd', null, usd(atom.spentUsd)),
             h('dt', null, 'Last run'), h('dd', null, ago(atom.lastRunAt))]
@@ -245,8 +246,8 @@ function render() {
         h('div', { class: 'value' }, usd(spentTodayUsd)),
         h('div', { class: 'small muted' }, capUsd === null ? 'budget unreadable' : capUsd === 0 ? 'No model spend allowed, the daily budget is $0.' : `of the $${capUsd.toFixed(2)} daily budget`),
         capUsd ? h('div', { class: `meter${spentTodayUsd >= capUsd ? ' over' : ''}` }, h('div', { style: `width:${share * 100}%` })) : null),
-      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Calls, 7 days'), h('div', { class: 'value' }, historyKnown ? model.calls.runs : 'unknown')),
-      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Failed calls, 7 days'), h('div', { class: 'value' }, historyKnown ? model.calls.failed : 'unknown')),
+      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Calls, 7 days'), h('div', { class: 'value' }, model.calls?.runs ?? 'unknown')),
+      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Failed calls, 7 days'), h('div', { class: 'value' }, model.calls?.failed ?? 'unknown')),
       h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Health'),
         h('div', { class: 'stats', style: 'margin-top:8px' }, counts.map(([level, n]) => h('span', { class: `health ${level}` }, `${n} ${HEALTH[level].toLowerCase()}`))))),
     h('h2', null, 'Tools'),
