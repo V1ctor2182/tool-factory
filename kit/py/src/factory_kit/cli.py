@@ -28,6 +28,9 @@ class _Parser(argparse.ArgumentParser):
         raise AtomError("invalid_args", message)
 
 
+_TYPES = {"integer": int, "number": float}
+
+
 def _flag(name: str) -> str:
     return "--" + re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
 
@@ -41,7 +44,8 @@ def _parser(manifest: dict) -> _Parser:
         required = schema.get("required", [])
         positional = [name for name in required if not schema["properties"][name].get("x-flag")]
         for name in positional:
-            p.add_argument(name, help=schema["properties"][name].get("description"))
+            prop = schema["properties"][name]
+            p.add_argument(name, nargs="+" if prop.get("type") == "array" else None, help=prop.get("description"))
         for name, prop in schema["properties"].items():
             if name in positional:
                 continue
@@ -51,6 +55,7 @@ def _parser(manifest: dict) -> _Parser:
                 p.add_argument(
                     _flag(name),
                     dest=name,
+                    type=_TYPES.get(prop.get("type"), str),
                     required=name in required,
                     default=prop.get("default"),
                     choices=prop.get("enum"),

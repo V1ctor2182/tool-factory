@@ -14,7 +14,7 @@ runs="$TOOL_FACTORY_HOME/runs.jsonl"
 fail() { echo "FAIL digest: $1" >&2; exit 1; }
 
 TOOL_FACTORY_CALLER=digest-test "$bin" make --transcript "$fixture" --json > "$out/digest.json"
-uvx -q check-jsonschema --schemafile "$repo/contracts/digest.schema.json" "$out/digest.json" > /dev/null \
+"$repo/contracts/check" digest "$out/digest.json" \
 	|| fail "make output does not match digest.schema.json"
 summary=$(jq -r .summary "$out/digest.json" | tr '[:upper:]' '[:lower:]')
 case "$summary" in *atoms*) ;; *) fail "summary does not mention atoms: $summary" ;; esac
@@ -31,6 +31,16 @@ paid=$(tail -n 1 "$runs")
 [ "$(jq .cacheHit "$out/again.json")" = true ] || fail "second make missed the cache"
 [ "$(jq ".costUsd == 0" "$out/again.json")" = true ] || fail "a cache hit reported model spend"
 [ "$(tail -n 1 "$runs" | jq ".costUsd == 0")" = true ] || fail "the cached run logged a cost"
+
+notes="$test_dir/fixtures/factory-notes.json"
+"$bin" make --transcript "$fixture" --image-notes "$notes" --json > "$out/visual.json" \
+	|| fail "make --image-notes failed: $(cat "$out/visual.json")"
+"$repo/contracts/check" digest "$out/visual.json" \
+	|| fail "make --image-notes output does not match digest.schema.json"
+[ "$(jq -c --slurpfile n "$notes" '[$n[0].images[].time] as $t | all(.visual[]; .start as $s | $t | index($s) != null)' "$out/visual.json")" = true ] \
+	|| fail "a visual start matches no image note time: $(jq -c '[.visual[].start]' "$out/visual.json")"
+jq -r '.visual[].note' "$out/visual.json" | grep -qi terminal \
+	|| fail "visual does not mention the terminal from the image notes: $(jq -c .visual "$out/visual.json")"
 
 jq '.segments[0].text = "A transcript the cache has not seen."' "$fixture" > "$out/new.json"
 if TOOL_FACTORY_BUDGET_USD=0.0001 "$bin" make --transcript "$out/new.json" --json > "$out/over.json"; then fail "over budget exited 0"; fi
@@ -90,7 +100,7 @@ rm -rf "$out/stub-home"
 jq '.segments[0].text = "A reply with a negative cost."' "$fixture" > "$out/stubbed.json"
 env STUB_REPLY=negative PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" "$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out" \
 	|| fail "a reply with a negative cost failed: $(cat "$out/stubbed.out")"
-uvx -q check-jsonschema --schemafile "$repo/contracts/digest.schema.json" "$out/stubbed.out" > /dev/null \
+"$repo/contracts/check" digest "$out/stubbed.out" \
 	|| fail "a reply with a negative cost broke digest.schema.json: $(jq -c .costUsd "$out/stubbed.out")"
 [ "$(stub_cost)" = 0.25 ] || fail "a reply with a negative cost logged $(stub_cost), not the 0.25 per-call ceiling"
 

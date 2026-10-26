@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/url-list.schema.json",
+  "title": "URL list",
+  "description": "Video URLs that a search, a playlist, or a channel resolves to, in the site's order.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The search words, or the playlist or channel URL." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Video page URL that captions and download accept." },
+          "id": { "type": "string" },
+          "title": { "type": ["string", "null"] },
+          "durationSec": { "type": ["number", "null"], "minimum": 0 },
+          "channel": { "type": ["string", "null"] }
+        },
+        "required": ["url", "id", "title", "durationSec", "channel"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false. A list is read fresh on every call." }
+  },
+  "required": ["source", "items", "cacheHit"],
+  "additionalProperties": false
+}

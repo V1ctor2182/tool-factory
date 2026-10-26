@@ -12,9 +12,10 @@ runs="$TOOL_FACTORY_HOME/runs.jsonl"
 zoo="https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
 fail() { echo "FAIL youtube: $1" >&2; exit 1; }
+sh "$test_dir/routing.sh"
 matches_manifest() {
 	contract=$(jq -r --arg v "$1" '.verbs[] | select(.name == $v) | .output' "$test_dir/../manifest.json")
-	uvx -q check-jsonschema --schemafile "$repo/contracts/$contract.schema.json" "$2" > /dev/null \
+	"$repo/contracts/check" "$contract" "$2" \
 		|| fail "$1 output does not match the $contract contract its manifest names"
 }
 
@@ -45,8 +46,8 @@ for form in "get $zoo" "$zoo"; do
 	[ -f "$(jq -r .transcriptPath "$out/digest.json")" ] || fail "run $form named a transcript path that does not exist"
 done
 
-if "$run" not-a-url --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "not-a-url exited 0"; fi
-[ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "not-a-url did not report invalid_source"
+if "$run" ftp://example.com/clip --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "an ftp URL exited 0"; fi
+[ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "an ftp URL did not report invalid_source"
 
 rm -rf "$TOOL_FACTORY_HOME/youtube"
 touch "$TOOL_FACTORY_HOME/youtube"

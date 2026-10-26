@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/frame-set.schema.json",
+  "title": "Frame set",
+  "description": "Key frames of one video file, the first frame plus one at each scene change.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "Absolute path of the video file." },
+    "threshold": { "type": "number", "minimum": 0, "maximum": 1, "description": "ffmpeg scene score above which a frame starts a new scene." },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "time": { "type": "number", "minimum": 0, "description": "Seconds into the video." },
+          "path": { "type": "string", "description": "Absolute path of the JPEG image." }
+        },
+        "required": ["time", "path"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["source", "threshold", "frames", "cacheHit"],
+  "additionalProperties": false
+}

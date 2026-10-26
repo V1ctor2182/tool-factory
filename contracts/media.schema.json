@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "media",
+  "$id": "https://victor-tool-factory.local/contracts/media.schema.json",
   "title": "Media",
   "description": "One downloaded audio or video file in the data home.",
   "type": "object",

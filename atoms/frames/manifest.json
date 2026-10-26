@@ -1,0 +1,27 @@
+{
+  "name": "frames",
+  "type": "atom",
+  "kind": "transform",
+  "description": "Key frames of a local video file with their timestamps, from ffmpeg scene detection.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/frames",
+  "contract": "frame-set",
+  "verbs": [
+    {
+      "name": "get",
+      "description": "The first frame plus one JPEG at each scene change. Prints one time and path per line, or the frame set with --json. Cached by file hash and threshold.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "video": { "type": "string", "description": "Local video file, such as the path download get --video prints." },
+          "threshold": { "type": "number", "default": 0.3, "description": "Scene score from 0 to 1 above which a frame starts a new scene. Lower finds more frames." }
+        },
+        "required": ["video"]
+      },
+      "output": "frame-set"
+    }
+  ],
+  "needs": { "bin": ["ffmpeg"], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

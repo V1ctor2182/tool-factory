@@ -1,0 +1,27 @@
+{
+  "name": "see",
+  "type": "atom",
+  "kind": "model",
+  "description": "A description and the visible text of each image, from one model call.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/see",
+  "contract": "image-notes",
+  "model": { "backend": "claude-cli", "default": "haiku", "prompt": "prompts/see.md" },
+  "verbs": [
+    {
+      "name": "describe",
+      "description": "Describe one or more images in one model call. Prints one note per image, or the image notes with --json. Cached per image by image hash, model, and prompt hash. Refuses with budget_exceeded once today's model spend reaches the daily budget.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "images": { "type": "array", "items": { "type": "string" }, "description": "PNG, JPEG, GIF, or WebP files." }
+        },
+        "required": ["images"]
+      },
+      "output": "image-notes"
+    }
+  ],
+  "needs": { "bin": ["claude"], "secrets": [], "paid": ["claude"] },
+  "adapters": ["cli", "skill", "mcp"]
+}
