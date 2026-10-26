@@ -14,6 +14,21 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+const failures = (lines) => lines.filter((r) => !r.ok).length;
+const latest = (lines) => lines.reduce((last, r) => (r.startedAt > last ? r.startedAt : last), '') || null;
+
+function outsideRuns(runs, calls) {
+  const at = (r) => Date.parse(r.startedAt);
+  const timeline = [...runs, ...calls].sort((a, b) => at(a) - at(b) || (b.type === 'tool') - (a.type === 'tool'));
+  let coveredUntil = -Infinity;
+  return timeline.filter((r) => {
+    if (r.type !== 'tool') return at(r) >= coveredUntil;
+    // startedAt drops milliseconds, so a run covers up to one second past its ms.
+    coveredUntil = Math.max(coveredUntil, at(r) + (r.ms ?? 0) + 1000);
+    return false;
+  });
+}
+
 function attempt(problems, path, work, fallback) {
   try {
     return work();
@@ -50,7 +65,8 @@ export function statusModel(registry) {
   const window = (records ?? []).filter((r) => days.includes(r.startedAt?.slice(0, 10)));
   const byName = Map.groupBy(window, (r) => r.name);
   const byCaller = Map.groupBy(window.filter((r) => toolNames.has(r.caller)), (r) => r.caller);
-  const calls = window.filter((r) => !toolNames.has(r.caller));
+  const direct = new Map([...byCaller].map(([name, lines]) => [name, outsideRuns(byName.get(name) ?? [], lines)]));
+  const calls = [...window.filter((r) => !toolNames.has(r.caller)), ...[...direct.values()].flat()];
 
   const row = (entry) => {
     const mine = byName.get(entry.name) ?? [];
@@ -64,20 +80,28 @@ export function statusModel(registry) {
       health: status,
       notes,
       runs: mine.length,
-      failed: mine.filter((r) => !r.ok).length,
+      failed: failures(mine),
       medianMs: median(mine.filter((r) => r.ok && Number.isFinite(r.ms)).map((r) => r.ms)),
-      lastRunAt: mine.reduce((last, r) => (r.startedAt > last ? r.startedAt : last), '') || null,
+      lastRunAt: latest(mine),
       links: links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
     };
     if (entry.type === 'atom') {
       return { ...shared, spentUsd: dollars(spend(mine)), usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) };
     }
-    const perDay = Map.groupBy(mine, (r) => r.startedAt.slice(0, 10));
+    const outside = direct.get(entry.name) ?? [];
+    const onDay = (lines) => Map.groupBy(lines, (r) => r.startedAt.slice(0, 10));
+    const [runsOn, callsOn] = [onDay(mine), onDay(outside)];
     return {
       ...shared,
+      atomCalls: outside.length,
+      atomFailed: failures(outside),
+      lastRunAt: latest([...mine, ...outside]),
       spentUsd: dollars(spend([...mine, ...(byCaller.get(entry.name) ?? [])])),
       uses: entry.manifest.uses,
-      perDay: days.map((day) => ({ day, runs: perDay.get(day)?.length ?? 0, failed: perDay.get(day)?.filter((r) => !r.ok).length ?? 0 })),
+      perDay: days.map((day) => {
+        const [runs, calls] = [runsOn.get(day) ?? [], callsOn.get(day) ?? []];
+        return { day, runs: runs.length, failed: failures(runs), atomCalls: calls.length, atomFailed: failures(calls) };
+      }),
     };
   };
 
@@ -85,7 +109,7 @@ export function statusModel(registry) {
     days,
     home: home(),
     log: { lines: records?.length ?? null, unreadable: log?.bad.length ?? null, firstUnreadable: log?.bad[0]?.line ?? null },
-    calls: { runs: calls.length, failed: calls.filter((r) => !r.ok).length },
+    calls: { runs: calls.length, failed: failures(calls) },
     budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
     tools: tools.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),

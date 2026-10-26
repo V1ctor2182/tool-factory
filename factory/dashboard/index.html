@@ -159,20 +159,22 @@ function healthPill(level) {
 }
 
 function bars(perDay) {
-  const top = Math.max(1, ...perDay.map((d) => d.runs));
-  return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs per day: ${perDay.map((d) => d.runs).join(', ')}` },
-    perDay.map((d) => h('span', { title: `${d.day}: ${plural(d.runs, 'run')}, ${d.failed} failed`, style: `height:${Math.max(2, (d.runs / top) * 22)}px` },
-      d.failed ? h('i', { style: `height:${(d.failed / d.runs) * 100}%` }) : null)));
+  const total = (d) => d.runs + d.atomCalls;
+  const top = Math.max(1, ...perDay.map(total));
+  return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
+    perDay.map((d) => h('span', { title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${d.failed + d.atomFailed} failed`, style: `height:${Math.max(2, (total(d) / top) * 22)}px` },
+      d.failed + d.atomFailed ? h('i', { style: `height:${((d.failed + d.atomFailed) / total(d)) * 100}%` }) : null)));
 }
 
 function stats(row) {
   return h('div', { class: 'stats' },
     h('span', null, h('b', null, row.runs), ' runs in 7 days'),
     h('span', null, h('b', null, row.failed), ' failed'),
+    row.atomCalls ? h('span', null, 'plus ', h('b', null, row.atomCalls), ' atom calls from direct runs, ', h('b', null, row.atomFailed), ' failed') : null,
     h('span', null, 'median ', h('b', null, seconds(row.medianMs))),
     h('span', null, h('b', null, usd(row.spentUsd)), ' spent'),
     h('span', null, 'last run ', h('b', null, ago(row.lastRunAt))),
-    row.type === 'tool' && row.runs ? bars(row.perDay) : null);
+    row.runs || row.atomCalls ? bars(row.perDay) : null);
 }
 
 function notes(row, cls) {
