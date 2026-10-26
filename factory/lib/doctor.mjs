@@ -30,7 +30,6 @@ function atLeast(found, wanted) {
   return true;
 }
 
-
 function probe(spec) {
   const [bin, wanted] = spec.split('>=');
   const path = which(bin);
