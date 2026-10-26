@@ -23,6 +23,9 @@ const RUNS = [
   line('digest', 'atom', `${day(3)}T12:00:00Z`, { ms: 5000, costUsd: 0.004, caller: 'podcast' }),
   line('transcribe', 'atom', `${day(3)}T12:00:00Z`, { ms: 1500 }),
   line('digest', 'atom', `${day(10)}T12:00:00Z`, { costUsd: 9, caller: 'youtube' }),
+  line('captions', 'atom', `${day(1)}T08:00:00Z`, { ms: 800, ok: false, caller: 'youtube' }),
+  line('digest', 'atom', `${day(1)}T09:00:00Z`, { ms: 4000, costUsd: 0.002, caller: 'youtube' }),
+  line('find-url', 'atom', `${day(2)}T09:00:00Z`, { ms: 600, caller: 'youtube' }),
 ];
 
 function status(dir) {
@@ -74,16 +77,29 @@ test('spend counts today against the budget and charges atom spend to the callin
   assert.deepEqual(model.budget, { capUsd: 3, spentTodayUsd: 0.011 });
   assert.deepEqual(
     ['youtube', 'podcast', 'meeting-notes', 'digest', 'see', 'transcribe'].map((n) => [n, row(n).spentUsd]),
-    [['youtube', 0.011], ['podcast', 0.004], ['meeting-notes', 0], ['digest', 0.0125], ['see', 0.0025], ['transcribe', 0]],
+    [['youtube', 0.013], ['podcast', 0.004], ['meeting-notes', 0], ['digest', 0.0145], ['see', 0.0025], ['transcribe', 0]],
   );
 });
 
 test('runs, failures, and the median of ok runs cover seven days', () => {
   const digest = row('digest');
-  assert.deepEqual([digest.runs, digest.failed, digest.medianMs], [3, 1, 6000]);
-  assert.deepEqual(row('youtube').perDay.map((d) => [d.runs, d.failed]), [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 0]]);
-  assert.deepEqual(row('meeting-notes').perDay.at(-1), { day: day(0), runs: 1, failed: 1 });
-  assert.deepEqual(model.calls, { runs: 3, failed: 1 });
+  assert.deepEqual([digest.runs, digest.failed, digest.medianMs], [4, 1, 5000]);
+  assert.deepEqual(row('meeting-notes').perDay.at(-1), { day: day(0), runs: 1, failed: 1, atomCalls: 0, atomFailed: 0 });
+});
+
+test('a tool run outside the factory shows as its atom calls, and a factory run is not counted twice', () => {
+  const activity = (name) => {
+    const t = row(name);
+    return [t.runs, t.failed, t.atomCalls, t.atomFailed, t.lastRunAt];
+  };
+  assert.deepEqual(activity('youtube'), [1, 0, 3, 1, `${day(0)}T00:00:00Z`]);
+  assert.deepEqual(activity('podcast'), [0, 0, 1, 0, `${day(3)}T12:00:00Z`]);
+  assert.deepEqual(activity('meeting-notes'), [1, 1, 0, 0, `${day(0)}T00:00:00Z`]);
+  assert.deepEqual(
+    row('youtube').perDay.map((d) => [d.runs, d.failed, d.atomCalls, d.atomFailed]),
+    [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 2, 1], [1, 0, 0, 0]],
+  );
+  assert.deepEqual(model.calls, { runs: 7, failed: 2 });
 });
 
 test('linked projects and external tools appear', () => {
