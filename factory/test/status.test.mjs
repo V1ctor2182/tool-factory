@@ -39,6 +39,12 @@ function seed(dir, runs, links) {
   if (links !== undefined) writeFileSync(join(dir, 'links.json'), links);
 }
 
+async function serve(dir) {
+  const server = spawn('node', [join(root, 'factory', 'bin', 'factory.mjs'), 'dashboard', '--port', '0'], { env: { ...env, TOOL_FACTORY_HOME: dir } });
+  const url = await new Promise((resolve) => server.stdout.on('data', (c) => resolve(String(c).match(/http:\/\/\S+\//)[0])));
+  return { url, stop: () => server.kill() };
+}
+
 let model;
 before(() => {
   copyRepo(root);
@@ -125,12 +131,13 @@ test('a corrupt run-log line is skipped and reported, and today\'s spend stays u
   assert.deepEqual(broken.calls, model.calls);
 });
 
-test('the dashboard serves the same model on 127.0.0.1 and refuses writes and other hosts', async () => {
-  const server = spawn('node', [join(root, 'factory', 'bin', 'factory.mjs'), 'dashboard', '--port', '0'], { env });
+test('the dashboard serves the same model on 127.0.0.1 and refuses writes, framing, and other hosts', async () => {
+  const { url, stop } = await serve(home);
   try {
-    const url = await new Promise((resolve) => server.stdout.on('data', (c) => resolve(String(c).match(/http:\/\/\S+\//)[0])));
     assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/$/);
-    const html = await (await fetch(url)).text();
+    const res = await fetch(url);
+    assert.equal(res.headers.get('content-security-policy'), "frame-ancestors 'none'");
+    const html = await res.text();
     const embedded = JSON.parse(html.match(/<script id="status" type="application\/json">(.*?)<\/script>/s)[1]);
     assert.deepEqual(embedded.tools.map((t) => [t.name, t.spentUsd]), model.tools.map((t) => [t.name, t.spentUsd]));
     assert.deepEqual(embedded.atoms.map((a) => a.usedBy), model.atoms.map((a) => a.usedBy));
@@ -139,6 +146,21 @@ test('the dashboard serves the same model on 127.0.0.1 and refuses writes and ot
     const rebound = spawnSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', 'Host: attacker.example', url], { encoding: 'utf8' });
     assert.equal(rebound.stdout, '421');
   } finally {
-    server.kill();
+    stop();
+  }
+});
+
+test('a links.json that is not an array is reported, and every row shows its links as unknown', async () => {
+  const dir = join(root, 'badlinks');
+  seed(dir, RUNS.map((r) => JSON.stringify(r)).join('\n'), '{}');
+  const { code, model: broken } = status(dir);
+  assert.equal(code, 1);
+  assert.deepEqual(broken.problems.map((p) => p.path), [join(dir, 'links.json')]);
+  assert.deepEqual([...new Set([...broken.tools, ...broken.atoms].map((r) => r.links))], [null]);
+  const { url, stop } = await serve(dir);
+  try {
+    assert.equal((await fetch(url)).status, 200);
+  } finally {
+    stop();
   }
 });
