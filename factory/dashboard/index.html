@@ -149,6 +149,11 @@ function ago(iso) {
   return `${Math.round(min / 1440)} days ago`;
 }
 
+function logSummary({ lines, unreadable, firstUnreadable }) {
+  if (lines === null) return 'unreadable';
+  return unreadable ? `${plural(lines, 'line')} read, ${unreadable} unreadable from line ${firstUnreadable}` : plural(lines, 'line');
+}
+
 function healthPill(level) {
   return h('span', { class: `health ${level}` }, HEALTH[level]);
 }
@@ -248,7 +253,7 @@ function render() {
         h('p', { class: 'desc' }, t.description),
         h('p', { class: 'small', style: 'margin-top:8px' }, h('span', { class: 'muted' }, 'Lives in '), h('span', { class: 'mono' }, t.where))))
       : h('p', { class: 'muted' }, 'external.json lists no tools.')),
-    h('footer', null, 'Data home ', h('span', { class: 'mono' }, model.home), `. Run log ${model.logLines === null ? 'unreadable' : plural(model.logLines, 'line')}. Days ${model.days[0]} to ${model.days.at(-1)}, UTC.`),
+    h('footer', null, 'Data home ', h('span', { class: 'mono' }, model.home), `. Run log ${logSummary(model.log)}. Days ${model.days[0]} to ${model.days.at(-1)}, UTC.`),
   ].flat(Infinity).filter(Boolean));
 }
 

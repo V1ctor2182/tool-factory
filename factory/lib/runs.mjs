@@ -13,16 +13,37 @@ export function append(record) {
   appendFileSync(join(home(), 'runs.jsonl'), `${JSON.stringify(record)}\n`);
 }
 
-export function read() {
-  const path = join(home(), 'runs.jsonl');
+const logPath = () => join(home(), 'runs.jsonl');
+
+export function readLog() {
   let text;
   try {
-    text = readFileSync(path, 'utf8');
+    text = readFileSync(logPath(), 'utf8');
   } catch (e) {
-    if (e.code === 'ENOENT') return [];
+    if (e.code === 'ENOENT') return { records: [], bad: [] };
     throw e;
   }
-  return parseLines(text, path);
+  const records = [];
+  const bad = [];
+  text.split('\n').forEach((line, i) => {
+    if (!line.trim()) return;
+    let problem;
+    try {
+      const record = JSON.parse(line);
+      problem = unreadable(record);
+      if (!problem) records.push(record);
+    } catch {
+      problem = 'is not JSON';
+    }
+    if (problem) bad.push({ line: i + 1, problem });
+  });
+  return { records, bad };
+}
+
+export function read() {
+  const { records, bad: [first] } = readLog();
+  if (first) throw new Error(`${logPath()} line ${first.line} ${first.problem}, so today's spend is unknown`);
+  return records;
 }
 
 function unreadable(record) {
@@ -30,23 +51,6 @@ function unreadable(record) {
   if (record.costUsd != null && !Number.isFinite(record.costUsd)) return 'has a costUsd that is not a number';
   if (record.startedAt !== undefined && typeof record.startedAt !== 'string') return 'has a startedAt that is not a string';
   return null;
-}
-
-function parseLines(text, strictPath) {
-  return text.split('\n').flatMap((line, i) => {
-    if (!line.trim()) return [];
-    let record;
-    let problem;
-    try {
-      record = JSON.parse(line);
-      problem = strictPath && unreadable(record);
-    } catch {
-      problem = 'is not JSON';
-    }
-    if (!problem) return [record];
-    if (strictPath) throw new Error(`${strictPath} line ${i + 1} ${problem}, so today's spend is unknown`);
-    return [];
-  });
 }
 
 export function lastDays(count, now = new Date()) {
@@ -81,7 +85,13 @@ function stamp(date) {
 }
 
 function outcome(code, stdout) {
-  const objects = parseLines(stdout);
+  const objects = stdout.split('\n').flatMap((line) => {
+    try {
+      return [JSON.parse(line)];
+    } catch {
+      return [];
+    }
+  });
   const failed = objects.find((o) => o?.error);
   return {
     ok: code === 0 && !failed,

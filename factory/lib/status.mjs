@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
-import { budget, home, lastDays, read, spend, today } from './runs.mjs';
+import { budget, home, lastDays, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
 const dollars = (usd) => Math.round(usd * 1e6) / 1e6;
@@ -33,7 +33,13 @@ function external(root, problems) {
 export function statusModel(registry) {
   const problems = [...registry.problems];
   const days = lastDays(WINDOW);
-  const records = attempt(problems, join(home(), 'runs.jsonl'), read, null);
+  const logPath = join(home(), 'runs.jsonl');
+  const log = attempt(problems, logPath, readLog, null);
+  if (log?.bad.length) {
+    const [first] = log.bad;
+    problems.push({ path: logPath, message: `has ${log.bad.length} unreadable line${log.bad.length === 1 ? '' : 's'}, the first at line ${first.line}, which ${first.problem}. The history skips them, and today's spend is unknown.` });
+  }
+  const records = log?.records ?? null;
   const links = attempt(problems, ledgerPath(), ledger, []);
   const checked = new Map(health(registry.entries).map((r) => [r.name, r]));
   const capUsd = attempt(problems, 'TOOL_FACTORY_BUDGET_USD', budget, null);
@@ -78,9 +84,9 @@ export function statusModel(registry) {
   return {
     days,
     home: home(),
-    logLines: records?.length ?? null,
+    log: { lines: records?.length ?? null, unreadable: log?.bad.length ?? null, firstUnreadable: log?.bad[0]?.line ?? null },
     calls: { runs: calls.length, failed: calls.filter((r) => !r.ok).length },
-    budget: { capUsd, spentTodayUsd: records && dollars(spend(today(records))) },
+    budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
     tools: tools.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),
     external: external(registry.root, problems),
