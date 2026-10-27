@@ -7,147 +7,173 @@
 <style>
 :root {
   color-scheme: light dark;
-  --paper: #ebebe6;
-  --ink: #1c2620;
-  --muted: #5d665f;
-  --rule: #1c262040;
-  --orange: #ff5b14;
-  --orange-ink: #1c2620;
-  --wire: #1c262066;
-  --node: #f4f4f0;
-  --grain: 0.09;
-  --heavy: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --bg: #f7f7f5;
+  --surface: #fcfcfb;
+  --ink: #141414;
+  --muted: #6b6b68;
+  --faint: #9a9a96;
+  --line: #e2e2de;
+  --wire: #14141440;
+  --bad: #b4321f;
+  --on-ink: #fafaf8;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #121613;
-    --ink: #e8e8e1;
-    --muted: #9aa39b;
-    --rule: #e8e8e130;
-    --orange: #ff6a26;
-    --orange-ink: #121613;
-    --wire: #e8e8e150;
-    --node: #181d19;
-    --grain: 0.05;
+    --bg: #111110;
+    --surface: #171716;
+    --ink: #f1f1ee;
+    --muted: #a3a39e;
+    --faint: #75756f;
+    --line: #2a2a28;
+    --wire: #f1f1ee40;
+    --bad: #f07a63;
+    --on-ink: #111110;
   }
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.45 var(--heavy); }
-body::after {
-  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 10; opacity: var(--grain);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font); }
 button { font: inherit; color: inherit; }
-.mono, .log, .tag, .stat, .kindgrp, .coords, .ref, .unit { font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; }
-.sheet { max-width: 1320px; margin: 0 auto; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); min-height: 100vh; }
-
-header { display: grid; grid-template-columns: 96px 1fr minmax(260px, 340px); border-bottom: 1px solid var(--ink); }
-.rail { background: var(--orange); }
-.title { border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); display: flex; flex-direction: column; }
-.title h1 { margin: 0; padding: 18px 24px 8px; font: 800 clamp(48px, 9vw, 112px)/0.86 var(--heavy); letter-spacing: -0.055em; text-transform: uppercase; }
-.title .band { background: var(--orange); color: var(--orange-ink); font: 700 clamp(14px, 2vw, 22px)/1 var(--heavy); letter-spacing: -0.02em; text-transform: uppercase; padding: 10px 24px; margin-top: auto; }
-.log { font-size: 11.5px; line-height: 1.75; padding: 16px 18px; }
-.log .dash { border-top: 1px dashed var(--rule); margin: 8px 0; }
-.log b { font-weight: 600; }
-.hot { color: var(--orange); }
-.meter { height: 8px; border: 1px solid var(--ink); margin: 6px 0 2px; }
-.meter > div { height: 100%; background: var(--orange); }
-
-.problems { border-bottom: 1px solid var(--ink); background: var(--orange); color: var(--orange-ink); padding: 12px 18px 12px 114px; font-family: var(--mono); font-size: 12px; }
-.problems ul { margin: 4px 0 0; padding-left: 18px; text-transform: none; letter-spacing: 0; }
-
-.stage { position: relative; display: grid; grid-template-columns: 96px minmax(250px, 1fr) minmax(230px, 1fr) minmax(260px, 340px); }
-.stage::before { content: ""; grid-column: 1; grid-row: 1 / span 2; background: var(--orange); }
-.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 1; }
-.wires path { fill: none; stroke: var(--wire); stroke-width: 1.2; stroke-dasharray: 3 3; transition: opacity 0.15s; }
-.wires path.lit { stroke: var(--orange); stroke-width: 2.5; stroke-dasharray: none; }
-.wires path.dim { opacity: 0.15; }
-.col-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); padding: 12px 18px; border-bottom: 1px solid var(--rule); }
-.tools { grid-column: 1 / span 2; grid-row: 2; }
-.atoms { grid-column: 3; grid-row: 2; border-left: 1px solid var(--rule); padding: 0 0 24px; position: relative; overflow: hidden; }
-.atoms::before, .atoms::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top right, transparent calc(50% - 0.5px), var(--rule) 50%, transparent calc(50% + 0.5px)); }
-.atoms::after { transform: scaleX(-1); }
-.panel { grid-column: 4; grid-row: 1 / span 2; border-left: 1px solid var(--ink); }
-.panel .inner { position: sticky; top: 0; }
-.stage > .col-head { grid-column: 2; grid-row: 1; }
-.stage > .col-head + .col-head { grid-column: 3; border-left: 1px solid var(--rule); padding-left: 128px; }
-
-.tool { display: grid; grid-template-columns: 96px 1fr; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 0; cursor: pointer; position: relative; z-index: 2; transition: opacity 0.15s; }
-.tool .num { font: 800 64px/1 var(--heavy); letter-spacing: -0.06em; color: var(--orange-ink); padding: 12px 0 0 10px; }
-.tool .body { padding: 16px 18px 16px 22px; border-left: 1px solid var(--rule); min-width: 0; }
-.tool .name { font: 800 clamp(26px, 3.2vw, 38px)/1 var(--heavy); letter-spacing: -0.045em; text-transform: uppercase; }
-.tool .port { position: absolute; right: -1px; top: 34px; width: 10px; height: 18px; background: var(--ink); }
-.tool:hover .body, .tool[aria-pressed="true"] .body { background: var(--node); }
-.tool[aria-pressed="true"] .port { background: var(--orange); }
-.tool .desc { color: var(--muted); font-size: 13px; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.tag { font-size: 10.5px; border: 1px solid var(--ink); padding: 1px 6px; }
-.tag.ok { border-style: dashed; color: var(--muted); border-color: var(--muted); }
-.tag.warn { background: var(--ink); color: var(--paper); }
-.tag.red { background: var(--orange); color: var(--orange-ink); border-color: var(--orange); }
-.stat { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 14px; font-size: 11px; margin-top: 10px; color: var(--muted); }
-.stat b { color: var(--ink); font-weight: 600; }
-.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 20px; }
-.bars span { width: 6px; min-height: 2px; background: var(--rule); display: flex; flex-direction: column-reverse; overflow: hidden; }
-.bars span.on { background: var(--ink); }
-.bars span i { display: block; background: var(--orange); }
-.dim { opacity: 0.3; }
-
-.kindgrp { font-size: 10.5px; color: var(--muted); padding: 14px 18px 6px 128px; position: relative; z-index: 2; }
-.atom { display: block; width: calc(100% - 146px); margin: 0 18px 8px 128px; text-align: left; background: var(--node); border: 1px solid var(--ink); padding: 8px 12px; cursor: pointer; position: relative; z-index: 2; transition: opacity 0.15s; }
-.atom .socket { position: absolute; left: -9px; top: 12px; width: 8px; height: 14px; background: var(--ink); }
-.atom:hover { background: var(--paper); }
-.atom[aria-pressed="true"] { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
-.atom[aria-pressed="true"] .socket { background: var(--orange); }
-.atom .name { font: 800 17px/1.1 var(--heavy); letter-spacing: -0.03em; text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
-.atom .tag { margin-left: auto; }
-.atom .stat { margin-top: 4px; }
-.note { display: block; font-family: var(--mono); font-size: 11px; color: var(--orange); margin-top: 4px; }
-.prose { text-transform: none; letter-spacing: 0; }
-.log .prose { font-family: var(--heavy); font-size: 13px; line-height: 1.45; }
-.log .chart { margin: 6px 0; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .muted { color: var(--muted); }
-button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.bad { color: var(--bad); }
+.mono { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
 
-.coords { border-top: 1px solid var(--ink); text-align: center; font-size: 12px; letter-spacing: 0.3em; padding: 8px 16px; overflow-wrap: anywhere; }
-.ref { display: grid; grid-template-columns: 96px 150px 1fr; border-top: 1px solid var(--ink); font-family: var(--heavy); text-transform: uppercase; letter-spacing: -0.02em; font-weight: 700; font-size: clamp(16px, 2.2vw, 26px); }
-.ref > div { padding: 10px 18px; border-left: 1px solid var(--ink); }
-.ref > div:first-child { border-left: 0; }
-.elsewhere { display: grid; grid-template-columns: 96px repeat(auto-fit, minmax(260px, 1fr)); border-top: 1px solid var(--ink); }
-.elsewhere > div { padding: 14px 18px; border-left: 1px solid var(--rule); }
-.elsewhere .name { font: 800 22px/1 var(--heavy); letter-spacing: -0.04em; text-transform: uppercase; }
+.shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.side { border-right: 1px solid var(--line); padding: 22px 14px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 500; letter-spacing: -0.01em; padding: 0 6px 22px; }
+.mark { width: 32px; height: 32px; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; font-weight: 700; font-size: 17px; flex: none; }
+.side .label { font-size: 12px; color: var(--faint); padding: 0 6px 6px; }
+.side a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; color: var(--ink); text-decoration: none; font-size: 14px; }
+.side a:hover { background: var(--line); }
+.side a.on { background: var(--ink); color: var(--on-ink); box-shadow: 0 6px 18px #0000001f; }
+.side a .n { margin-left: auto; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.side a.on .n { color: var(--on-ink); opacity: 0.7; }
+.side .foot { margin-top: auto; font-size: 12px; color: var(--muted); padding: 0 6px; display: grid; gap: 8px; }
+
+.main { min-width: 0; }
+.top { display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 28px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.crumb { color: var(--muted); }
+.crumb b { color: var(--ink); font-weight: 500; }
+.chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+.chip.dark { background: var(--line); border-color: var(--line); }
+.push { margin-left: auto; }
+.pagehead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 64px; padding: 10px 28px; border-bottom: 1px solid var(--line); }
+.pagehead h1 { font-size: 16px; font-weight: 500; margin: 0 auto 0 0; }
+
+.problems { margin: 20px 28px 0; border: 1px solid var(--bad); padding: 12px 16px; color: var(--bad); font-size: 13px; }
+.problems ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink); }
+
+.frame { position: relative; margin: 0 56px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding: 28px; }
+.rule { position: relative; border-top: 1px solid var(--line); }
+.rule::before, .rule::after { content: ""; position: absolute; top: -8px; width: 15px; height: 15px; background: var(--ink); clip-path: polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%); }
+.rule::before { left: 49px; }
+.rule::after { right: 49px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--surface); }
+.kpi { padding: 16px 20px 18px; border-left: 1px solid var(--line); min-width: 0; }
+.kpi:first-child { border-left: 0; }
+.kpi .l { font-size: 14px; color: var(--muted); }
+.kpi .v { font-size: 34px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; margin: 6px 0 12px; font-variant-numeric: tabular-nums; }
+.kpi .s { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.ticks { height: 20px; border: 1px solid var(--ink); padding: 3px; }
+.ticks i { display: block; height: 100%; min-width: 0; background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px); }
+.ticks.bad { border-color: var(--bad); }
+.ticks.bad i { background: repeating-linear-gradient(90deg, var(--bad) 0 2px, transparent 2px 4px); }
+.sources { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+.stage { position: relative; display: grid; grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.9fr) minmax(280px, 1fr); gap: 0; margin-top: 28px; }
+.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.wires path { fill: none; stroke: var(--wire); stroke-width: 1; transition: opacity 0.15s; }
+.wires path.lit { stroke: var(--ink); stroke-width: 1.5; }
+.wires path.dim { opacity: 0.12; }
+.col-title { font-size: 12px; color: var(--faint); margin-bottom: 10px; }
+.atoms { padding-left: 96px; }
+.panel { padding-left: 28px; }
+.panel .inner { position: sticky; top: 20px; }
+
+.node { display: block; width: 100%; text-align: left; position: relative; z-index: 1; background: var(--surface); border: 1px solid var(--line); cursor: pointer; transition: opacity 0.15s, background 0.15s; }
+.node:hover { border-color: var(--faint); }
+.node[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); box-shadow: 0 8px 22px #00000024; }
+.node[aria-pressed="true"] .stat, .node[aria-pressed="true"] .desc, .node[aria-pressed="true"] .tag { color: var(--on-ink); border-color: #ffffff40; }
+.node[aria-pressed="true"] .bars span.on, .node[aria-pressed="true"] .health.ok { background: var(--on-ink); }
+.node.dim { opacity: 0.35; }
+.tool { padding: 14px 16px; margin-bottom: 10px; }
+.tool .name { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+.tool .desc { color: var(--muted); font-size: 13px; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.atom { padding: 9px 12px; margin-bottom: 8px; }
+.atom .name { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.port, .socket { position: absolute; width: 7px; height: 7px; background: var(--ink); }
+.port { right: -4px; top: 22px; }
+.socket { left: -4px; top: 14px; }
+.node[aria-pressed="true"] .port, .node[aria-pressed="true"] .socket { background: var(--ink); outline: 1px solid var(--on-ink); }
+.kind { font-size: 11px; color: var(--faint); margin: 14px 0 6px; }
+.kind:first-of-type { margin-top: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 11.5px; color: var(--muted); border: 1px solid var(--line); padding: 0 7px; }
+.tag.warn, .tag.red { color: var(--bad); border-color: var(--bad); }
+.health { width: 7px; height: 7px; flex: none; background: var(--ink); opacity: 0.25; }
+.health.warn, .health.red { background: var(--bad); opacity: 1; }
+.stat { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.stat b { font-weight: 500; }
+.note { display: block; font-size: 12px; color: var(--bad); margin-top: 4px; }
+.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 18px; margin-left: auto; }
+.bars span { width: 5px; min-height: 2px; background: var(--line); display: flex; flex-direction: column-reverse; overflow: hidden; }
+.bars span.on { background: var(--ink); }
+.bars span i { display: block; background: var(--bad); }
+
+.answer .who { display: flex; align-items: center; gap: 12px; }
+.answer .who .mark { background: var(--surface); color: var(--ink); border: 1px solid var(--line); width: 40px; height: 40px; }
+.answer .who b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.answer .lede { font-size: 16px; line-height: 1.5; margin: 14px 0; }
+.answer dl { display: grid; grid-template-columns: auto 1fr; margin: 0; border: 1px solid var(--line); background: var(--surface); font-size: 13px; }
+.answer dt, .answer dd { margin: 0; padding: 8px 12px; border-top: 1px solid var(--line); }
+.answer dt:first-of-type, .answer dd:first-of-type { border-top: 0; }
+.answer dt { color: var(--muted); }
+.answer dd { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.answer .chart { margin: 14px 0 0; display: flex; }
+.answer .chart .bars { height: 48px; margin: 0; flex: 1; justify-content: space-between; }
+.answer .chart .bars span { width: auto; flex: 1; }
+.answer .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.answer .chips button { border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.answer .chips button:hover { color: var(--ink); border-color: var(--faint); }
+
+.elsewhere { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); border: 1px solid var(--line); background: var(--surface); }
+.elsewhere > div { padding: 16px 20px; border-left: 1px solid var(--line); }
+.elsewhere > div:first-child { border-left: 0; }
+.elsewhere .name { font-size: 16px; font-weight: 500; }
 .elsewhere p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-.unit { background: var(--ink); color: var(--paper); font-size: 12px; padding: 14px 18px 14px 114px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; }
+h2 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 12px; }
 
-@media (max-width: 960px) {
-  header { grid-template-columns: 36px 1fr; }
-  header .log { grid-column: 1 / -1; border-top: 1px solid var(--ink); }
-  .stage { grid-template-columns: 36px 1fr; }
-  .stage::before { grid-row: 1 / span 3; }
-  .stage > .col-head { display: none; }
-  .kindgrp { padding-left: 18px; }
-  .atom { width: calc(100% - 36px); }
-  .wires { display: none; }
-  .tools { grid-column: 1 / -1; grid-row: 1; }
-  .tool { grid-template-columns: 36px 1fr; }
-  .tool .num { font-size: 22px; padding: 14px 0 0 6px; }
-  .tool .port { display: none; }
-  .atoms { grid-column: 2; grid-row: 2; border-left: 1px solid var(--rule); border-top: 1px solid var(--ink); }
-  .atoms::before, .atoms::after { display: none; }
-  .atom { margin-left: 18px; }
-  .atom .socket { display: none; }
-  .panel { grid-column: 2; grid-row: 3; border-left: 1px solid var(--rule); border-top: 1px solid var(--ink); }
-  .problems, .unit { padding-left: 18px; }
-  .ref { grid-template-columns: 36px 100px 1fr; }
-  .elsewhere { grid-template-columns: 1fr; }
-  .elsewhere > .rail { display: none; }
+@media (max-width: 1100px) {
+  .stage { grid-template-columns: 1fr minmax(200px, 0.9fr); }
+  .panel { grid-column: 1 / -1; padding: 28px 0 0; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpi:nth-child(3) { border-left: 0; }
+  .kpi:nth-child(n + 3) { border-top: 1px solid var(--line); }
+}
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 16px; }
+  .brand { padding: 0; margin-right: auto; }
+  .side .label, .side .foot { display: none; }
+  .top { padding: 0 16px; }
+  .top .crumb { display: none; }
+  .push { margin-left: 0; }
+  .pagehead { padding: 10px 16px; }
+  .frame { margin: 0; border: 0; padding: 20px 16px; }
+  .rule::before, .rule::after { display: none; }
+  .stage { grid-template-columns: 1fr; }
+  .wires, .port, .socket { display: none; }
+  .atoms { padding: 18px 0 0; }
+  .problems { margin: 16px 16px 0; }
 }
 </style>
 </head>
 <body>
-<div class="sheet" id="app"></div>
+<div class="shell" id="app"></div>
 <script id="status" type="application/json"></script>
 <script>
 const model = JSON.parse(document.getElementById('status').textContent || 'null');
@@ -175,7 +201,7 @@ const usd = (n) => (n === null ? 'unknown' : `$${n.toFixed(4)}`);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const counted = (n, word) => [h('b', null, n), ` ${word}${n === 1 ? '' : 's'}`];
 const seconds = (ms) => (ms === null ? 'no runs' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
-const pad = (i) => String(i + 1).padStart(2, '0');
+const short = (day) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 function ago(iso) {
   if (!iso) return 'never';
@@ -191,10 +217,11 @@ function logSummary({ lines, unreadable, firstUnreadable }) {
   return unreadable ? `${plural(lines, 'line')} read, ${unreadable} unreadable from line ${firstUnreadable}` : plural(lines, 'line');
 }
 
-const healthTag = (level) => h('span', { class: `tag ${level}` }, HEALTH[level]);
+const healthTag = (level) => (level === 'ok' ? null : h('span', { class: `tag ${level}` }, HEALTH[level]));
 const total = (d) => d.runs + (d.atomCalls ?? 0);
 const failed = (d) => d.failed + (d.atomFailed ?? 0);
-const notes = (row) => (row.health === 'ok' ? null : row.notes.map((n) => h('span', { class: 'note prose' }, n)));
+const notes = (row) => (row.health === 'ok' ? null : row.notes.map((n) => h('span', { class: 'note' }, n)));
+const ticks = (share, bad) => h('div', { class: `ticks${bad ? ' bad' : ''}`, role: 'img', 'aria-label': `${Math.round(share * 100)}%` }, h('i', { style: `width:${Math.min(1, share) * 100}%` }));
 
 function unmetered(row) {
   if (row.kind === 'skill') return 'skill only, no runs or spend';
@@ -202,10 +229,10 @@ function unmetered(row) {
   return null;
 }
 
-function bars(perDay, height = 20) {
+function bars(perDay) {
   const top = Math.max(1, ...perDay.map(total));
-  return h('span', { class: 'bars', style: `height:${height}px`, role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
-    perDay.map((d) => h('span', { class: total(d) ? 'on' : '', title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${failed(d)} failed`, style: `height:${Math.max(2, (total(d) / top) * height)}px` },
+  return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
+    perDay.map((d) => h('span', { class: total(d) ? 'on' : '', title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${failed(d)} failed`, style: `height:${Math.max(6, (total(d) / top) * 100)}%` },
       failed(d) ? h('i', { style: `height:${(failed(d) / total(d)) * 100}%` }) : null)));
 }
 
@@ -221,8 +248,8 @@ function toolStat(tool) {
   if (none) return h('div', { class: 'stat' }, none);
   return h('div', { class: 'stat' },
     h('span', null, counted(total(tool), 'call')),
-    h('span', { class: failed(tool) ? 'hot' : '' }, h('b', null, failed(tool)), ' failed'),
-    h('span', null, h('b', null, usd(tool.spentUsd))),
+    h('span', { class: failed(tool) ? 'bad' : '' }, h('b', null, failed(tool)), ' failed'),
+    h('span', null, usd(tool.spentUsd)),
     h('span', null, ago(tool.lastRunAt)),
     total(tool) ? bars(tool.perDay) : null);
 }
@@ -232,8 +259,8 @@ function atomStat(atom) {
   if (none) return h('div', { class: 'stat' }, none);
   return h('div', { class: 'stat' },
     h('span', null, counted(atom.runs, 'run')),
-    atom.failed ? h('span', { class: 'hot' }, h('b', null, atom.failed), ' failed') : null,
-    h('span', { class: atom.usedBy.length ? '' : 'hot' }, atom.usedBy.length ? `used by ${atom.usedBy.length}` : 'used by no tool'));
+    atom.failed ? h('span', { class: 'bad' }, h('b', null, atom.failed), ' failed') : null,
+    h('span', { class: atom.usedBy.length ? '' : 'bad' }, atom.usedBy.length ? `used by ${atom.usedBy.length}` : 'used by no tool'));
 }
 
 const rows = model ? [...model.tools, ...model.atoms] : [];
@@ -241,47 +268,50 @@ const counts = Object.fromEntries(Object.keys(HEALTH).map((level) => [level, row
 const related = new Map(rows.map((r) => [r.name, new Set([r.name, ...(r.uses ?? r.usedBy)])]));
 const period = model ? `${model.days.length} days` : '';
 
+function lede(row) {
+  const none = unmetered(row);
+  if (none) return `${row.name} has ${none}.`;
+  const calls = total(row);
+  const sentence = `${row.name} made ${plural(calls, row.type === 'tool' ? 'call' : 'run')} in the last ${period}`;
+  if (!calls) return `${sentence}.`;
+  return failed(row) ? `${sentence}, and ${failed(row)} failed.` : `${sentence}, and none failed.`;
+}
+
 function panelFor(name) {
+  const who = (title) => h('div', { class: 'who' }, h('span', { class: 'mark' }, 'F'), h('b', null, title));
   if (!name) {
+    const calls = model.calls;
     return [
-      h('div', null, 'Select: ', h('b', null, 'none')),
-      h('div', null, 'Window: ', h('b', null, `${model.days[0]} to ${model.days.at(-1)}`)),
-      h('div', { class: 'dash' }),
-      h('div', null, `[ ${plural(model.tools.length, 'tool')} ]`),
-      h('div', null, `[ ${plural(model.atoms.length, 'atom')} ]`),
-      h('div', null, `[ ${model.external.length} elsewhere ]`),
-      h('div', { class: 'dash' }),
-      model.calls ? h('div', { class: 'chart' }, bars(everyDay(), 48)) : null,
-      Object.entries(counts).map(([level, n]) => h('div', { class: level !== 'ok' && n ? 'hot' : '' }, `${HEALTH[level]}: ${n}`)),
-      h('div', { class: 'dash' }),
-      h('div', { class: 'muted' }, 'Pick a tool to light the atoms it calls. Pick an atom to see who shares it.'),
+      who('All tools'),
+      h('p', { class: 'lede' }, calls
+        ? `${plural(calls.runs, 'call')} in the last ${period}, ${calls.failed} failed. ${counts.ok} of ${rows.length} tools and atoms are healthy.`
+        : 'Calls unknown, the run log is unreadable.'),
+      calls ? h('div', { class: 'chart' }, bars(everyDay())) : null,
+      h('div', { class: 'sources' }, h('span', null, `${short(model.days[0])} to ${short(model.days.at(-1))}, UTC`)),
+      h('div', { class: 'chips' }, model.tools.filter((t) => t.uses.length).map((t) => h('button', { type: 'button', onclick: () => select(t.name) }, `What does ${t.name} call?`))),
     ];
   }
   const row = model.tools.find((t) => t.name === name) ?? model.atoms.find((a) => a.name === name);
   const tool = row.type === 'tool';
+  const near = tool ? row.uses : row.usedBy;
   return [
-    h('div', null, 'Source: ', h('b', null, row.type)),
-    h('div', null, 'Name: ', h('b', null, row.name)),
-    h('div', null, 'Kind: ', h('b', null, `${row.kind} / ${row.status}`)),
-    h('div', { class: row.health === 'ok' ? '' : 'hot' }, 'Health: ', h('b', null, HEALTH[row.health])),
+    who(row.name),
+    h('p', { class: 'lede' }, lede(row)),
     notes(row),
-    h('div', { class: 'dash' }),
-    h('div', { class: 'prose' }, row.description),
-    h('div', { class: 'dash' }),
-    unmetered(row)
-      ? h('div', null, `[ ${unmetered(row)} ]`)
-      : [
-        h('div', null, `[ ${plural(row.runs, 'run')} in ${period} ]`),
-        row.atomCalls ? h('div', null, `[ ${plural(row.atomCalls, 'atom call')} from direct runs ]`) : null,
-        h('div', { class: failed(row) ? 'hot' : '' }, `[ ${failed(row)} failed ]`),
-        h('div', null, `[ median ${seconds(row.medianMs)} ]`),
-        h('div', null, `[ ${usd(row.spentUsd)} spent in ${period} ]`),
-        h('div', null, `[ last run ${ago(row.lastRunAt)} ]`),
-        tool && total(row) ? h('div', { class: 'chart' }, bars(row.perDay, 48)) : null,
+    h('p', { class: 'muted', style: 'font-size:13px;margin:0 0 14px' }, row.description),
+    h('dl', null,
+      h('dt', null, 'Kind'), h('dd', null, `${row.type}, ${row.kind}, ${row.status}`),
+      h('dt', null, 'Health'), h('dd', { class: row.health === 'ok' ? '' : 'bad' }, HEALTH[row.health]),
+      unmetered(row) ? null : [
+        h('dt', null, 'Median'), h('dd', null, seconds(row.medianMs)),
+        h('dt', null, `Spent, ${period}`), h('dd', null, usd(row.spentUsd)),
+        h('dt', null, 'Last run'), h('dd', null, ago(row.lastRunAt)),
+        row.atomCalls ? [h('dt', null, 'Direct atom calls'), h('dd', null, row.atomCalls)] : null,
       ],
-    h('div', { class: 'dash' }),
-    h('div', null, tool ? 'Uses: ' : 'Used by: ', h('b', null, (tool ? row.uses : row.usedBy).join(', ') || 'none')),
-    h('div', null, 'Linked: ', h('b', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
+      h('dt', null, 'Linked'), h('dd', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
+    tool && !unmetered(row) && total(row) ? h('div', { class: 'chart' }, bars(row.perDay)) : null,
+    h('div', { class: 'sources' }, h('span', null, `${tool ? 'Uses' : 'Used by'} ${plural(near.length, tool ? 'atom' : 'tool')}`)),
+    h('div', { class: 'chips' }, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
   ];
 }
 
@@ -320,24 +350,22 @@ function select(name) {
   draw();
 }
 
-function toolNode(tool, i) {
-  const el = h('button', { class: 'tool', type: 'button', 'data-tool': tool.name, 'aria-pressed': 'false', onclick: () => select(tool.name) },
-    h('span', { class: 'num' }, pad(i)),
-    h('span', { class: 'body' },
-      h('span', { class: 'name' }, tool.name),
-      h('span', { class: 'tags' }, h('span', { class: 'tag' }, tool.kind), h('span', { class: 'tag' }, tool.status), healthTag(tool.health)),
-      h('span', { class: 'desc' }, tool.description),
-      notes(tool),
-      toolStat(tool)),
+function toolNode(tool) {
+  const el = h('button', { class: 'node tool', type: 'button', 'data-tool': tool.name, 'aria-pressed': 'false', onclick: () => select(tool.name) },
+    h('span', { class: 'name' }, h('span', { class: `health ${tool.health}`, title: HEALTH[tool.health] }), tool.name),
+    h('span', { class: 'tags' }, h('span', { class: 'tag' }, tool.kind), h('span', { class: 'tag' }, tool.status), healthTag(tool.health)),
+    h('span', { class: 'desc' }, tool.description),
+    notes(tool),
+    toolStat(tool),
     tool.uses.length ? h('span', { class: 'port' }) : null);
   nodes.set(tool.name, el);
   return el;
 }
 
 function atomNode(atom) {
-  const el = h('button', { class: 'atom', type: 'button', 'data-atom': atom.name, 'aria-pressed': 'false', onclick: () => select(atom.name) },
+  const el = h('button', { class: 'node atom', type: 'button', 'data-atom': atom.name, 'aria-pressed': 'false', onclick: () => select(atom.name) },
     h('span', { class: 'socket' }),
-    h('span', { class: 'name' }, atom.name, atom.health === 'ok' ? null : healthTag(atom.health)),
+    h('span', { class: 'name' }, h('span', { class: `health ${atom.health}`, title: HEALTH[atom.health] }), atom.name, healthTag(atom.health)),
     notes(atom),
     atomStat(atom));
   nodes.set(atom.name, el);
@@ -350,49 +378,61 @@ function render() {
     return;
   }
   const { capUsd, spentTodayUsd } = model.budget;
-  const share = capUsd && spentTodayUsd !== null ? Math.min(1, spentTodayUsd / capUsd) : 0;
+  const share = capUsd && spentTodayUsd !== null ? spentTodayUsd / capUsd : 0;
   const sick = rows.length - counts.ok;
+  const calls = model.calls;
   const groups = [...KINDS, ...new Set(model.atoms.map((a) => a.kind).filter((k) => !KINDS.includes(k)))]
     .map((kind) => [kind, model.atoms.filter((a) => a.kind === kind)]).filter(([, list]) => list.length);
 
   wires = document.createElementNS(SVG, 'svg');
   wires.setAttribute('class', 'wires');
   wires.setAttribute('aria-hidden', 'true');
-  panel = h('div', { class: 'log inner', 'aria-live': 'polite' });
-  stage = h('main', { class: 'stage' },
+  panel = h('div', { class: 'inner answer', 'aria-live': 'polite' });
+  stage = h('div', { class: 'stage' },
     wires,
-    h('div', { class: 'col-head' }, `Tools / ${model.tools.length}`),
-    h('div', { class: 'col-head' }, `Atoms / ${model.atoms.length}`),
-    h('section', { class: 'tools', 'aria-label': 'Tools' }, model.tools.map(toolNode)),
-    h('section', { class: 'atoms', 'aria-label': 'Atoms' }, groups.map(([kind, list]) => [h('div', { class: 'kindgrp' }, `- ${kind} -`), list.map(atomNode)])),
+    h('section', { class: 'tools', 'aria-label': 'Tools' }, h('div', { class: 'col-title' }, `Tools, ${model.tools.length}`), model.tools.map(toolNode)),
+    h('section', { class: 'atoms', 'aria-label': 'Atoms' }, h('div', { class: 'col-title' }, `Atoms, ${model.atoms.length}`),
+      groups.map(([kind, list]) => [h('div', { class: 'kind' }, kind), list.map(atomNode)])),
     h('aside', { class: 'panel' }, panel));
 
-  app.append(...[
-    h('header', null,
-      h('div', { class: 'rail' }),
-      h('div', { class: 'title' }, h('h1', null, 'Factory'), h('div', { class: 'band' }, `[ ${model.tools.length} tools from ${model.atoms.length} atoms ]`)),
-      h('div', { class: 'log', 'data-tile': 'spend' },
-        h('div', null, 'Spent today: ', h('b', null, usd(spentTodayUsd))),
-        h('div', null, 'Budget: ', h('b', null, capUsd === null ? 'unreadable' : capUsd === 0 ? '$0, no model spend' : `$${capUsd.toFixed(2)} a day`)),
-        capUsd ? h('div', { class: 'meter', role: 'img', 'aria-label': `${Math.round(share * 100)}% of the daily budget` }, h('div', { style: `width:${share * 100}%` })) : null,
-        h('div', { class: 'dash' }),
-        h('div', null, `[ ${model.calls?.runs ?? 'unknown'} calls in ${period} ]`),
-        h('div', { class: model.calls?.failed ? 'hot' : '' }, `[ ${model.calls?.failed ?? 'unknown'} failed ]`),
-        h('div', { class: sick ? 'hot' : '' }, sick ? `[ ${sick} not healthy ]` : `[ all ${rows.length} healthy ]`))),
-    model.problems.length
-      ? h('div', { class: 'problems', role: 'alert' }, h('b', null, `${plural(model.problems.length, 'problem')} found`),
-        h('ul', null, model.problems.map((p) => h('li', null, h('b', null, p.path), ` ${p.message}`))))
-      : null,
-    stage,
-    h('div', { class: 'coords' }, model.home),
-    h('div', { class: 'ref' }, h('div', { class: 'rail' }), h('div', null, 'Window'), h('div', null, `${model.days[0]} / ${model.days.at(-1)} UTC`)),
-    h('section', { class: 'elsewhere', 'aria-label': 'Tools in other repos' },
-      h('div', { class: 'rail' }),
-      model.external.length
-        ? model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), h('div', { class: 'mono', style: 'font-size:11px;margin-top:4px' }, t.where), h('p', null, t.description)))
-        : h('div', { class: 'mono' }, 'external.json lists no tools')),
-    h('footer', { class: 'unit' }, h('span', null, 'Read-only / reload to refresh'), h('span', null, `Run log ${logSummary(model.log)}`)),
-  ].filter(Boolean));
+  app.append(
+    h('nav', { class: 'side' },
+      h('div', { class: 'brand' }, h('span', { class: 'mark' }, 'F'), 'Factory'),
+      h('div', { class: 'label' }, 'Main'),
+      h('a', { href: '#', class: 'on', onclick: (e) => { e.preventDefault(); if (selected) select(selected); scrollTo(0, 0); } }, 'Wiring', h('span', { class: 'n' }, rows.length)),
+      h('a', { href: '#elsewhere', onclick: (e) => { e.preventDefault(); document.getElementById('elsewhere').scrollIntoView(); } }, 'Elsewhere', h('span', { class: 'n' }, model.external.length)),
+      h('div', { class: 'foot' }, h('div', null, 'Data home'), h('div', { class: 'mono' }, model.home), h('div', null, `Run log ${logSummary(model.log)}`))),
+    h('div', { class: 'main' },
+      h('div', { class: 'top' },
+        h('span', { class: 'crumb' }, 'Factory', ' › ', h('b', null, 'Wiring')),
+        h('span', { class: 'chip push' }, `${short(model.days[0])} to ${short(model.days.at(-1))}`),
+        h('span', { class: 'chip' }, 'Read-only, reload to refresh')),
+      h('div', { class: 'pagehead' }, h('h1', null, 'Wiring'),
+        h('span', { class: 'chip' }, `${plural(model.tools.length, 'tool')}, ${plural(model.atoms.length, 'atom')}`),
+        h('span', { class: `chip dark${sick ? ' bad' : ''}` }, sick ? `${sick} not healthy` : 'All healthy')),
+      model.problems.length
+        ? h('div', { class: 'problems', role: 'alert' }, `${plural(model.problems.length, 'problem')} found`,
+          h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
+        : null,
+      h('section', { class: 'frame' },
+        h('div', { class: 'kpis' },
+          h('div', { class: 'kpi', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
+            ticks(share, spentTodayUsd !== null && capUsd !== null && spentTodayUsd >= capUsd),
+            h('div', { class: 's' }, capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
+          h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), ticks(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Tool runs and direct atom calls')),
+          h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
+            ticks(calls?.runs ? calls.failed / calls.runs : 0, calls?.failed), h('div', { class: 's' }, calls?.runs ? `${Math.round((calls.failed / calls.runs) * 100)}% of calls` : 'No calls')),
+          h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Healthy'), h('div', { class: 'v' }, `${counts.ok}/${rows.length}`),
+            ticks(rows.length ? counts.ok / rows.length : 0), h('div', { class: 's' }, sick ? `${counts.warn} warning, ${counts.red} broken` : 'Every tool and atom passes doctor'))),
+        h('div', { class: 'sources' }, h('span', null, `Sources: ${plural(model.log.lines ?? 0, 'log line')}, ${plural(rows.length, 'manifest')}, ${model.days.length}-day window`)),
+        stage),
+      h('div', { class: 'rule' }),
+      h('section', { class: 'frame', id: 'elsewhere', 'aria-label': 'Tools in other repos' },
+        h('h2', null, 'Tools in other repos'),
+        model.external.length
+          ? h('div', { class: 'elsewhere' }, model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), h('div', { class: 'mono muted' }, t.where), h('p', null, t.description))))
+          : h('p', { class: 'muted' }, 'external.json lists no tools.')),
+      h('div', { class: 'rule' })));
 
   new ResizeObserver(draw).observe(stage);
   const start = decodeURIComponent(location.hash.slice(1));
