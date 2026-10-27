@@ -7,126 +7,158 @@
 <style>
 :root {
   color-scheme: light dark;
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --sunken: #f0f2f5;
-  --border: #dde1e7;
-  --text: #16191d;
-  --muted: #5b6470;
-  --ok: #1f7a46;
-  --ok-soft: #e3f4ea;
-  --warn: #8a5a00;
-  --warn-soft: #fbf0d9;
-  --red: #b42318;
-  --red-soft: #fde7e5;
-  --bar: #8c96a3;
-  --meter: #2f6fdb;
+  --paper: #ebebe6;
+  --ink: #1c2620;
+  --muted: #5d665f;
+  --rule: #1c262040;
+  --orange: #ff5b14;
+  --orange-ink: #1c2620;
+  --wire: #1c262066;
+  --node: #f4f4f0;
+  --grain: 0.09;
+  --heavy: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111317;
-    --surface: #1a1d23;
-    --sunken: #22262d;
-    --border: #2e333b;
-    --text: #e8eaed;
-    --muted: #a2aab5;
-    --ok: #5fd08f;
-    --ok-soft: #173325;
-    --warn: #f2bf5e;
-    --warn-soft: #3a2d12;
-    --red: #ff8a80;
-    --red-soft: #3d1a18;
-    --bar: #6c7684;
-    --meter: #7aa7ff;
+    --paper: #121613;
+    --ink: #e8e8e1;
+    --muted: #9aa39b;
+    --rule: #e8e8e130;
+    --orange: #ff6a26;
+    --orange-ink: #121613;
+    --wire: #e8e8e150;
+    --node: #181d19;
+    --grain: 0.05;
   }
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.45 var(--heavy); }
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 10; opacity: var(--grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-main { max-width: 980px; margin: 0 auto; padding: 28px 16px 48px; }
-h1 { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 32px 0 12px; }
-p { margin: 0; }
-.muted { color: var(--muted); }
-.small { font-size: 13px; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 20px; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-.tile .label { font-size: 13px; color: var(--muted); }
-.tile .value { font-size: 22px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
-.meter { height: 6px; border-radius: 3px; background: var(--sunken); margin-top: 10px; overflow: hidden; }
-.meter > div { height: 100%; background: var(--meter); }
-.meter.over > div { background: var(--red); }
-.problems { margin-top: 20px; border: 1px solid var(--red); background: var(--red-soft); border-radius: 12px; padding: 12px 16px; }
-.problems strong { color: var(--red); }
-.problems ul { margin: 6px 0 0; padding-left: 18px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-.head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.name { font-size: 18px; font-weight: 650; }
-.tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); border: 1px solid var(--border); }
-.ok { --c: var(--ok); --c-soft: var(--ok-soft); }
-.warn { --c: var(--warn); --c-soft: var(--warn-soft); }
-.red { --c: var(--red); --c-soft: var(--red-soft); }
-.health { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; color: var(--c); background: var(--c-soft); }
-.health::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.desc { margin-top: 6px; color: var(--muted); }
-.stats { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 18px; margin-top: 12px; font-size: 13px; }
-.stats b { font-weight: 600; font-variant-numeric: tabular-nums; }
-.bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; }
-.bars span { width: 7px; min-height: 2px; border-radius: 2px; background: var(--bar); display: flex; flex-direction: column-reverse; overflow: hidden; }
-.bars span i { display: block; background: var(--red); }
-.notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--c); }
-.links { margin-top: 10px; font-size: 13px; }
-.links ul { margin: 2px 0 0; padding-left: 18px; }
-.atoms { margin-top: 14px; border-top: 1px solid var(--border); }
-details { border-bottom: 1px solid var(--border); }
-details:last-child { border-bottom: 0; }
-summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 210px 1fr auto; gap: 4px 14px; align-items: center; padding: 10px 2px; }
-summary::-webkit-details-marker { display: none; }
-summary:focus-visible { outline: 2px solid var(--meter); outline-offset: 2px; border-radius: 6px; }
-summary .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
-summary .who::before { content: "\25B8"; color: var(--muted); font-size: 11px; width: 10px; }
-details[open] summary .who::before { content: "\25BE"; }
-.atom-name { font-weight: 600; }
-.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--c); }
-.usedby { font-size: 13px; color: var(--muted); }
-.usedby b { color: var(--text); font-weight: 500; }
-.count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.inline-notes { grid-column: 1 / -1; margin: 0; padding-left: 28px; font-size: 13px; color: var(--c); }
-.more { padding: 0 2px 12px 20px; font-size: 13px; }
-.more dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 8px 0 0; }
-.more dt { color: var(--muted); }
-.more dd { margin: 0; overflow-wrap: anywhere; }
-.external .card { margin-bottom: 10px; }
-footer { margin-top: 36px; font-size: 13px; color: var(--muted); }
-@media (max-width: 600px) {
-  main { padding-top: 20px; }
-  summary { grid-template-columns: 1fr auto; }
-  summary .usedby { grid-column: 1 / -1; order: 3; padding-left: 18px; }
-  .inline-notes { order: 4; padding-left: 18px; }
-  .tile .value { font-size: 20px; }
+button { font: inherit; color: inherit; }
+.mono, .log, .tag, .stat, .kindgrp, .coords, .ref, .unit { font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; }
+.sheet { max-width: 1320px; margin: 0 auto; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); min-height: 100vh; }
+
+header { display: grid; grid-template-columns: 96px 1fr minmax(260px, 340px); border-bottom: 1px solid var(--ink); }
+.rail { background: var(--orange); }
+.title { border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); display: flex; flex-direction: column; }
+.title h1 { margin: 0; padding: 18px 24px 8px; font: 800 clamp(48px, 9vw, 112px)/0.86 var(--heavy); letter-spacing: -0.055em; text-transform: uppercase; }
+.title .band { background: var(--orange); color: var(--orange-ink); font: 700 clamp(14px, 2vw, 22px)/1 var(--heavy); letter-spacing: -0.02em; text-transform: uppercase; padding: 10px 24px; margin-top: auto; }
+.log { font-size: 11.5px; line-height: 1.75; padding: 16px 18px; }
+.log .dash { border-top: 1px dashed var(--rule); margin: 8px 0; }
+.log b { font-weight: 600; }
+.hot { color: var(--orange); }
+.meter { height: 8px; border: 1px solid var(--ink); margin: 6px 0 2px; }
+.meter > div { height: 100%; background: var(--orange); }
+
+.problems { border-bottom: 1px solid var(--ink); background: var(--orange); color: var(--orange-ink); padding: 12px 18px 12px 114px; font-family: var(--mono); font-size: 12px; }
+.problems ul { margin: 4px 0 0; padding-left: 18px; text-transform: none; letter-spacing: 0; }
+
+.stage { position: relative; display: grid; grid-template-columns: 96px minmax(250px, 1fr) minmax(230px, 1fr) minmax(260px, 340px); }
+.stage::before { content: ""; grid-column: 1; grid-row: 1 / span 2; background: var(--orange); }
+.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 1; }
+.wires path { fill: none; stroke: var(--wire); stroke-width: 1.2; stroke-dasharray: 3 3; transition: opacity 0.15s; }
+.wires path.lit { stroke: var(--orange); stroke-width: 2.5; stroke-dasharray: none; }
+.wires path.dim { opacity: 0.15; }
+.col-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); padding: 12px 18px; border-bottom: 1px solid var(--rule); }
+.tools { grid-column: 1 / span 2; grid-row: 2; }
+.atoms { grid-column: 3; grid-row: 2; border-left: 1px solid var(--rule); padding: 0 0 24px; position: relative; overflow: hidden; }
+.atoms::before, .atoms::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top right, transparent calc(50% - 0.5px), var(--rule) 50%, transparent calc(50% + 0.5px)); }
+.atoms::after { transform: scaleX(-1); }
+.panel { grid-column: 4; grid-row: 1 / span 2; border-left: 1px solid var(--ink); }
+.panel .inner { position: sticky; top: 0; }
+.stage > .col-head { grid-column: 2; grid-row: 1; }
+.stage > .col-head + .col-head { grid-column: 3; border-left: 1px solid var(--rule); padding-left: 128px; }
+
+.tool { display: grid; grid-template-columns: 96px 1fr; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 0; cursor: pointer; position: relative; z-index: 2; transition: opacity 0.15s; }
+.tool .num { font: 800 64px/1 var(--heavy); letter-spacing: -0.06em; color: var(--orange-ink); padding: 12px 0 0 10px; }
+.tool .body { padding: 16px 18px 16px 22px; border-left: 1px solid var(--rule); min-width: 0; }
+.tool .name { font: 800 clamp(26px, 3.2vw, 38px)/1 var(--heavy); letter-spacing: -0.045em; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+.tool .name::after { content: ""; flex: 1; }
+.tool .port { position: absolute; right: -1px; top: 34px; width: 10px; height: 18px; background: var(--ink); }
+.tool:hover .body, .tool[aria-pressed="true"] .body { background: var(--node); }
+.tool[aria-pressed="true"] .port { background: var(--orange); }
+.tool .desc { color: var(--muted); font-size: 13px; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 10.5px; border: 1px solid var(--ink); padding: 1px 6px; }
+.tag.ok { border-style: dashed; color: var(--muted); border-color: var(--muted); }
+.tag.warn { background: var(--ink); color: var(--paper); }
+.tag.red { background: var(--orange); color: var(--orange-ink); border-color: var(--orange); }
+.stat { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 14px; font-size: 11px; margin-top: 10px; color: var(--muted); }
+.stat b { color: var(--ink); font-weight: 600; }
+.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 20px; }
+.bars span { width: 6px; min-height: 2px; background: var(--rule); display: flex; flex-direction: column-reverse; overflow: hidden; }
+.bars span.on { background: var(--ink); }
+.bars span i { display: block; background: var(--orange); }
+.dim { opacity: 0.3; }
+
+.kindgrp { font-size: 10.5px; color: var(--muted); padding: 14px 18px 6px 128px; position: relative; z-index: 2; }
+.atom { display: block; width: calc(100% - 146px); margin: 0 18px 8px 128px; text-align: left; background: var(--node); border: 1px solid var(--ink); padding: 8px 12px; cursor: pointer; position: relative; z-index: 2; transition: opacity 0.15s; }
+.atom::before { content: ""; position: absolute; left: -9px; top: 12px; width: 8px; height: 14px; background: var(--ink); }
+.atom:hover { background: var(--paper); }
+.atom[aria-pressed="true"] { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
+.atom[aria-pressed="true"]::before { background: var(--orange); }
+.atom .name { font: 800 17px/1.1 var(--heavy); letter-spacing: -0.03em; text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
+.atom .tag { margin-left: auto; }
+.atom .stat { margin-top: 4px; }
+.atom .note { font-family: var(--mono); font-size: 11px; color: var(--orange); margin-top: 4px; }
+button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+.coords { border-top: 1px solid var(--ink); text-align: center; font-size: 12px; letter-spacing: 0.3em; padding: 8px 16px; overflow-wrap: anywhere; }
+.ref { display: grid; grid-template-columns: 96px 150px 1fr; border-top: 1px solid var(--ink); font-family: var(--heavy); text-transform: uppercase; letter-spacing: -0.02em; font-weight: 700; font-size: clamp(16px, 2.2vw, 26px); }
+.ref > div { padding: 10px 18px; border-left: 1px solid var(--ink); }
+.ref > div:first-child { border-left: 0; }
+.elsewhere { display: grid; grid-template-columns: 96px repeat(auto-fit, minmax(260px, 1fr)); border-top: 1px solid var(--ink); }
+.elsewhere > div { padding: 14px 18px; border-left: 1px solid var(--rule); }
+.elsewhere .name { font: 800 22px/1 var(--heavy); letter-spacing: -0.04em; text-transform: uppercase; }
+.elsewhere p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.unit { background: var(--ink); color: var(--paper); font-size: 12px; padding: 14px 18px 14px 114px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; }
+
+@media (max-width: 960px) {
+  header { grid-template-columns: 36px 1fr; }
+  header .log { grid-column: 1 / -1; border-top: 1px solid var(--ink); }
+  .stage { grid-template-columns: 36px 1fr; }
+  .stage::before { grid-row: 1 / span 3; }
+  .stage > .col-head { display: none; }
+  .kindgrp { padding-left: 18px; }
+  .atom { width: calc(100% - 36px); }
+  .wires { display: none; }
+  .tools { grid-column: 1 / -1; grid-row: 1; }
+  .tool { grid-template-columns: 36px 1fr; }
+  .tool .num { font-size: 22px; padding: 14px 0 0 6px; }
+  .tool .port { display: none; }
+  .atoms { grid-column: 2; grid-row: 2; border-left: 1px solid var(--rule); border-top: 1px solid var(--ink); }
+  .atoms::before, .atoms::after { display: none; }
+  .atom { margin-left: 18px; }
+  .atom::before { display: none; }
+  .panel { grid-column: 2; grid-row: 3; border-left: 1px solid var(--rule); border-top: 1px solid var(--ink); }
+  .problems, .unit { padding-left: 18px; }
+  .ref { grid-template-columns: 36px 100px 1fr; }
+  .elsewhere { grid-template-columns: 1fr; }
+  .elsewhere > .rail { display: none; }
 }
 </style>
 </head>
 <body>
-<main id="app"></main>
+<div class="sheet" id="app"></div>
 <script id="status" type="application/json"></script>
 <script>
 const model = JSON.parse(document.getElementById('status').textContent || 'null');
 const app = document.getElementById('app');
 const HEALTH = { ok: 'Healthy', warn: 'Warning', red: 'Broken' };
 const SOCKET = { into: 'Project', global: 'Global skill', bin: 'On PATH' };
+const KINDS = ['transform', 'model', 'observe', 'act'];
+const SVG = 'http://www.w3.org/2000/svg';
 
 function h(tag, props, ...children) {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(props ?? {})) {
     if (key === 'class') el.className = value;
+    else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
     else el.setAttribute(key, value);
   }
   for (const child of children.flat(Infinity)) {
@@ -138,8 +170,8 @@ function h(tag, props, ...children) {
 
 const usd = (n) => (n === null ? 'unknown' : `$${n.toFixed(4)}`);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const counted = (n, word) => [h('b', null, n), ` ${word}${n === 1 ? '' : 's'}`];
 const seconds = (ms) => (ms === null ? 'no runs' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
+const pad = (i) => String(i + 1).padStart(2, '0');
 
 function ago(iso) {
   if (!iso) return 'never';
@@ -155,115 +187,216 @@ function logSummary({ lines, unreadable, firstUnreadable }) {
   return unreadable ? `${plural(lines, 'line')} read, ${unreadable} unreadable from line ${firstUnreadable}` : plural(lines, 'line');
 }
 
-function healthPill(level) {
-  return h('span', { class: `health ${level}` }, HEALTH[level]);
-}
+const healthTag = (level) => h('span', { class: `tag ${level}` }, HEALTH[level]);
+const total = (d) => d.runs + d.atomCalls;
+const failed = (d) => d.failed + d.atomFailed;
 
-function bars(perDay) {
-  const total = (d) => d.runs + d.atomCalls;
-  const failed = (d) => d.failed + d.atomFailed;
+function bars(perDay, height = 20) {
   const top = Math.max(1, ...perDay.map(total));
-  return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
-    perDay.map((d) => h('span', { title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${failed(d)} failed`, style: `height:${Math.max(2, (total(d) / top) * 22)}px` },
+  return h('span', { class: 'bars', style: `height:${height}px`, role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
+    perDay.map((d) => h('span', { class: total(d) ? 'on' : '', title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${failed(d)} failed`, style: `height:${Math.max(2, (total(d) / top) * height)}px` },
       failed(d) ? h('i', { style: `height:${(failed(d) / total(d)) * 100}%` }) : null)));
 }
 
-function stats(row) {
-  if (row.kind === 'skill') return h('p', { class: 'small muted', style: 'margin-top:10px' }, 'Skill only, used by the agent. It runs no code and calls no atoms, so it has no runs or spend.');
-  if (row.runs === null) return h('p', { class: 'small muted', style: 'margin-top:10px' }, 'Runs and spend unknown, since the run log is unreadable.');
-  return h('div', { class: 'stats' },
-    h('span', null, counted(row.runs, 'run'), ' in 7 days'),
-    h('span', null, h('b', null, row.failed), ' failed'),
-    row.atomCalls ? h('span', null, 'plus ', counted(row.atomCalls, 'atom call'), ' from direct runs, ', h('b', null, row.atomFailed), ' failed') : null,
-    h('span', null, 'median ', h('b', null, seconds(row.medianMs))),
-    h('span', null, h('b', null, usd(row.spentUsd)), ' spent in 7 days'),
-    h('span', null, 'last run ', h('b', null, ago(row.lastRunAt))),
-    row.runs || row.atomCalls ? bars(row.perDay) : null);
+function everyDay() {
+  return model.days.map((day, i) => model.tools.filter((t) => t.perDay).reduce((sum, t) => {
+    const d = t.perDay[i];
+    return { day, runs: sum.runs + d.runs, failed: sum.failed + d.failed, atomCalls: sum.atomCalls + d.atomCalls, atomFailed: sum.atomFailed + d.atomFailed };
+  }, { day, runs: 0, failed: 0, atomCalls: 0, atomFailed: 0 }));
 }
 
-function notes(row, cls) {
-  if (row.health === 'ok' || !row.notes.length) return null;
-  return h('ul', { class: `${cls} ${row.health}` }, row.notes.map((n) => h('li', null, n)));
+function toolStat(tool) {
+  if (tool.kind === 'skill') return h('div', { class: 'stat' }, 'Skill only, no runs or spend');
+  if (tool.runs === null) return h('div', { class: 'stat' }, 'Runs unknown, the run log is unreadable');
+  const calls = tool.runs + tool.atomCalls;
+  const fails = tool.failed + tool.atomFailed;
+  return h('div', { class: 'stat' },
+    h('span', null, h('b', null, calls), calls === 1 ? ' call' : ' calls'),
+    h('span', { class: fails ? 'hot' : '' }, h('b', { class: fails ? 'hot' : '' }, fails), ' failed'),
+    h('span', null, h('b', null, usd(tool.spentUsd))),
+    h('span', null, ago(tool.lastRunAt)),
+    calls ? bars(tool.perDay) : null);
 }
 
-function links(row) {
-  if (!row.links) return h('div', { class: 'links muted' }, 'Links unknown, since links.json is unreadable.');
-  if (!row.links.length) return h('div', { class: 'links muted' }, 'Not linked anywhere.');
-  return h('div', { class: 'links' }, h('span', { class: 'muted' }, 'Linked'),
-    h('ul', null, row.links.map((l) => h('li', null, `${SOCKET[l.socket]} `, h('span', { class: 'mono' }, l.where)))));
+function atomStat(atom) {
+  if (atom.runs === null) return h('div', { class: 'stat' }, 'Runs unknown');
+  return h('div', { class: 'stat' },
+    h('span', null, h('b', null, atom.runs), atom.runs === 1 ? ' run' : ' runs'),
+    atom.failed ? h('span', { class: 'hot' }, h('b', { class: 'hot' }, atom.failed), ' failed') : null,
+    h('span', null, atom.usedBy.length ? `used by ${atom.usedBy.length}` : h('span', { class: 'hot' }, 'used by no tool')));
 }
 
-function atomRow(atom) {
-  return h('details', { 'data-atom': atom.name },
-    h('summary', null,
-      h('span', { class: 'who' }, h('span', { class: `dot ${atom.health}`, title: HEALTH[atom.health] }), h('span', { class: 'atom-name' }, atom.name), h('span', { class: 'tag' }, atom.kind)),
-      h('span', { class: 'usedby' }, atom.usedBy.length ? ['Used by ', atom.usedBy.map((t, i) => [i ? ', ' : '', h('b', null, t)])] : 'Used by no tool'),
-      h('span', { class: 'count' }, atom.runs === null ? 'runs unknown' : [plural(atom.runs, 'run'), atom.failed ? `, ${atom.failed} failed` : '']),
-      notes(atom, 'inline-notes')),
-    h('div', { class: 'more' },
-      h('p', { class: 'muted' }, atom.description),
-      h('dl', null,
-        h('dt', null, 'Health'), h('dd', null, HEALTH[atom.health]),
-        h('dt', null, 'Status'), h('dd', null, atom.status),
-        atom.runs !== null
-          ? [h('dt', null, 'Median'), h('dd', null, seconds(atom.medianMs)),
-            h('dt', null, 'Spent, 7 days'), h('dd', null, usd(atom.spentUsd)),
-            h('dt', null, 'Last run'), h('dd', null, ago(atom.lastRunAt))]
-          : [h('dt', null, 'Runs'), h('dd', null, 'unknown, since the run log is unreadable')],
-        h('dt', null, 'Linked'), h('dd', null, atom.links ? atom.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere' : 'unknown'))));
+const related = new Map();
+function relate(model) {
+  for (const t of model.tools) related.set(t.name, new Set([t.name, ...t.uses]));
+  for (const a of model.atoms) related.set(a.name, new Set([a.name, ...a.usedBy]));
 }
 
-function toolCard(tool, atoms) {
-  return h('section', { class: 'card', 'data-tool': tool.name },
-    h('div', { class: 'head' }, h('span', { class: 'name' }, tool.name), h('span', { class: 'tag' }, tool.kind), h('span', { class: 'tag' }, tool.status), healthPill(tool.health)),
-    h('p', { class: 'desc' }, tool.description),
-    notes(tool, 'notes'),
-    stats(tool),
-    links(tool),
-    tool.uses.length ? h('div', { class: 'atoms', 'aria-label': `Atoms ${tool.name} uses` }, tool.uses.map((name) => atomRow(atoms.get(name)))) : null);
+function panelFor(name) {
+  if (!name) {
+    const rows = [...model.tools, ...model.atoms];
+    return [
+      h('div', null, 'Select: ', h('b', null, 'none')),
+      h('div', null, 'Window: ', h('b', null, `${model.days[0]} to ${model.days.at(-1)}`)),
+      h('div', { class: 'dash' }),
+      h('div', null, `[ ${plural(model.tools.length, 'tool')} ]`),
+      h('div', null, `[ ${plural(model.atoms.length, 'atom')} ]`),
+      h('div', null, `[ ${model.external.length} elsewhere ]`),
+      h('div', { class: 'dash' }),
+      model.calls ? h('div', { style: 'margin:6px 0' }, bars(everyDay(), 48)) : null,
+      Object.keys(HEALTH).map((level) => {
+        const n = rows.filter((r) => r.health === level).length;
+        return h('div', { class: level !== 'ok' && n ? 'hot' : '' }, `${HEALTH[level]}: ${n}`);
+      }),
+      h('div', { class: 'dash' }),
+      h('div', { class: 'muted' }, 'Pick a tool to light the atoms it calls. Pick an atom to see who shares it.'),
+    ];
+  }
+  const row = model.tools.find((t) => t.name === name) ?? model.atoms.find((a) => a.name === name);
+  const tool = row.type === 'tool';
+  return [
+    h('div', null, 'Source: ', h('b', null, row.type)),
+    h('div', null, 'Name: ', h('b', null, row.name)),
+    h('div', null, 'Kind: ', h('b', null, `${row.kind} / ${row.status}`)),
+    h('div', { class: row.health === 'ok' ? '' : 'hot' }, 'Health: ', h('b', null, HEALTH[row.health])),
+    row.health !== 'ok' ? row.notes.map((n) => h('div', { class: 'hot', style: 'text-transform:none;letter-spacing:0' }, n)) : null,
+    h('div', { class: 'dash' }),
+    h('div', { style: 'text-transform:none;letter-spacing:0;font-family:var(--heavy);font-size:13px;line-height:1.45' }, row.description),
+    h('div', { class: 'dash' }),
+    row.kind === 'skill'
+      ? h('div', null, '[ skill only, no runs or spend ]')
+      : row.runs === null
+      ? h('div', null, '[ runs unknown, the run log is unreadable ]')
+      : [
+        h('div', null, `[ ${plural(row.runs, 'run')} in 7 days ]`),
+        tool && row.atomCalls ? h('div', null, `[ ${plural(row.atomCalls, 'atom call')} from direct runs ]`) : null,
+        h('div', { class: row.failed || row.atomFailed ? 'hot' : '' }, `[ ${row.failed + (row.atomFailed ?? 0)} failed ]`),
+        h('div', null, `[ median ${seconds(row.medianMs)} ]`),
+        h('div', null, `[ ${usd(row.spentUsd)} spent in 7 days ]`),
+        h('div', null, `[ last run ${ago(row.lastRunAt)} ]`),
+        tool && (row.runs || row.atomCalls) ? h('div', { style: 'margin:6px 0' }, bars(row.perDay, 48)) : null,
+      ],
+    h('div', { class: 'dash' }),
+    h('div', null, tool ? 'Uses: ' : 'Used by: ', h('b', null, (tool ? row.uses : row.usedBy).join(', ') || 'none')),
+    h('div', null, 'Linked: ', h('b', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
+  ];
+}
+
+let selected = null;
+const nodes = new Map();
+let wires, stage, panel;
+
+function draw() {
+  const box = stage.getBoundingClientRect();
+  const at = (el, side) => {
+    const r = el.getBoundingClientRect();
+    return { x: (side === 'right' ? r.right : r.left) - box.left, y: r.top - box.top + Math.min(r.height / 2, 43) };
+  };
+  wires.replaceChildren(...model.tools.flatMap((t) => t.uses.map((u) => {
+    const a = at(nodes.get(t.name), 'right');
+    const b = at(nodes.get(u), 'left');
+    const mid = (a.x + b.x) / 2;
+    const lit = selected && (selected === t.name || selected === u);
+    const path = document.createElementNS(SVG, 'path');
+    path.setAttribute('d', `M${a.x},${a.y} C${mid},${a.y} ${mid},${b.y} ${b.x - 9},${b.y}`);
+    path.setAttribute('class', lit ? 'lit' : selected ? 'dim' : '');
+    return path;
+  })));
+}
+
+function select(name) {
+  selected = selected === name ? null : name;
+  history.replaceState(null, '', selected ? `#${selected}` : location.pathname);
+  const near = selected && related.get(selected);
+  for (const [key, el] of nodes) {
+    el.setAttribute('aria-pressed', String(key === selected));
+    el.classList.toggle('dim', !!near && !near.has(key));
+  }
+  panel.replaceChildren(...panelFor(selected).flat(Infinity).filter(Boolean));
+  draw();
+}
+
+function toolNode(tool, i) {
+  const el = h('button', { class: 'tool', type: 'button', 'data-tool': tool.name, 'aria-pressed': 'false', onclick: () => select(tool.name) },
+    h('span', { class: 'num' }, pad(i)),
+    h('span', { class: 'body' },
+      h('span', { class: 'name' }, tool.name),
+      h('span', { class: 'tags' }, h('span', { class: 'tag' }, tool.kind), h('span', { class: 'tag' }, tool.status), healthTag(tool.health)),
+      h('span', { class: 'desc' }, tool.description),
+      tool.health !== 'ok' ? tool.notes.map((n) => h('span', { class: 'stat hot', style: 'display:block' }, n)) : null,
+      toolStat(tool)),
+    tool.uses.length ? h('span', { class: 'port' }) : null);
+  nodes.set(tool.name, el);
+  return el;
+}
+
+function atomNode(atom) {
+  const el = h('button', { class: 'atom', type: 'button', 'data-atom': atom.name, 'aria-pressed': 'false', onclick: () => select(atom.name) },
+    h('span', { class: 'name' }, atom.name, atom.health === 'ok' ? null : healthTag(atom.health)),
+    atom.health !== 'ok' ? atom.notes.map((n) => h('span', { class: 'note', style: 'display:block' }, n)) : null,
+    atomStat(atom));
+  nodes.set(atom.name, el);
+  return el;
 }
 
 function render() {
   if (!model) {
-    app.append(h('p', null, 'No status model. Open this page through factory dashboard.'));
+    app.append(h('p', { style: 'padding:24px' }, 'No status model. Open this page through factory dashboard.'));
     return;
   }
-  const atoms = new Map(model.atoms.map((a) => [a.name, a]));
-  const rows = [...model.tools, ...model.atoms];
-  const counts = Object.keys(HEALTH).map((level) => [level, rows.filter((r) => r.health === level).length]);
+  relate(model);
   const { capUsd, spentTodayUsd } = model.budget;
   const share = capUsd && spentTodayUsd !== null ? Math.min(1, spentTodayUsd / capUsd) : 0;
-  const orphans = model.atoms.filter((a) => !a.usedBy.length);
+  const rows = [...model.tools, ...model.atoms];
+  const sick = rows.filter((r) => r.health !== 'ok').length;
+  const groups = [...KINDS, ...new Set(model.atoms.map((a) => a.kind).filter((k) => !KINDS.includes(k)))]
+    .map((kind) => [kind, model.atoms.filter((a) => a.kind === kind)]).filter(([, list]) => list.length);
+
+  wires = document.createElementNS(SVG, 'svg');
+  wires.setAttribute('class', 'wires');
+  wires.setAttribute('aria-hidden', 'true');
+  panel = h('div', { class: 'log inner', 'aria-live': 'polite' });
+  stage = h('main', { class: 'stage' },
+    wires,
+    h('div', { class: 'col-head' }, `Tools / ${model.tools.length}`),
+    h('div', { class: 'col-head' }, `Atoms / ${model.atoms.length}`),
+    h('section', { class: 'tools', 'aria-label': 'Tools' }, model.tools.map(toolNode)),
+    h('section', { class: 'atoms', 'aria-label': 'Atoms' }, groups.map(([kind, list]) => [h('div', { class: 'kindgrp' }, `- ${kind} -`), list.map(atomNode)])),
+    h('aside', { class: 'panel' }, panel));
 
   app.append(...[
-    h('header', null, h('h1', null, 'Tool factory'), h('p', { class: 'small muted' }, `${plural(model.tools.length, 'tool')}, ${plural(model.atoms.length, 'atom')}. Read-only, reload to refresh.`)),
+    h('header', null,
+      h('div', { class: 'rail' }),
+      h('div', { class: 'title' }, h('h1', null, 'Factory'), h('div', { class: 'band' }, `[ ${model.tools.length} tools from ${model.atoms.length} atoms ]`)),
+      h('div', { class: 'log', 'data-tile': 'spend' },
+        h('div', null, 'Spent today: ', h('b', null, usd(spentTodayUsd))),
+        h('div', null, 'Budget: ', h('b', null, capUsd === null ? 'unreadable' : capUsd === 0 ? '$0, no model spend' : `$${capUsd.toFixed(2)} a day`)),
+        capUsd ? h('div', { class: 'meter', role: 'img', 'aria-label': `${Math.round(share * 100)}% of the daily budget` }, h('div', { style: `width:${share * 100}%` })) : null,
+        h('div', { class: 'dash' }),
+        h('div', null, `[ ${model.calls?.runs ?? 'unknown'} calls in 7 days ]`),
+        h('div', { class: model.calls?.failed ? 'hot' : '' }, `[ ${model.calls?.failed ?? 'unknown'} failed ]`),
+        h('div', { class: sick ? 'hot' : '' }, sick ? `[ ${sick} not healthy ]` : `[ all ${rows.length} healthy ]`))),
     model.problems.length
-      ? h('div', { class: 'problems', role: 'alert' }, h('strong', null, `${plural(model.problems.length, 'problem')} found`),
-        h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
+      ? h('div', { class: 'problems', role: 'alert' }, h('b', null, `${plural(model.problems.length, 'problem')} found`),
+        h('ul', null, model.problems.map((p) => h('li', null, h('b', null, p.path), ` ${p.message}`))))
       : null,
-    h('div', { class: 'tiles' },
-      h('div', { class: 'tile', 'data-tile': 'spend' }, h('div', { class: 'label' }, 'Spent today'),
-        h('div', { class: 'value' }, usd(spentTodayUsd)),
-        h('div', { class: 'small muted' }, capUsd === null ? 'budget unreadable' : capUsd === 0 ? 'No model spend allowed, the daily budget is $0.' : `of the $${capUsd.toFixed(2)} daily budget`),
-        capUsd ? h('div', { class: `meter${spentTodayUsd >= capUsd ? ' over' : ''}` }, h('div', { style: `width:${share * 100}%` })) : null),
-      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Calls, 7 days'), h('div', { class: 'value' }, model.calls?.runs ?? 'unknown')),
-      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Failed calls, 7 days'), h('div', { class: 'value' }, model.calls?.failed ?? 'unknown')),
-      h('div', { class: 'tile' }, h('div', { class: 'label' }, 'Health'),
-        h('div', { class: 'stats', style: 'margin-top:8px' }, counts.map(([level, n]) => h('span', { class: `health ${level}` }, `${n} ${HEALTH[level].toLowerCase()}`))))),
-    h('h2', null, 'Tools'),
-    model.tools.map((t) => toolCard(t, atoms)),
-    orphans.length ? [h('h2', null, 'Atoms no tool uses'), h('div', { class: 'card' }, orphans.map(atomRow))] : null,
-    h('h2', null, 'Tools in other repos'),
-    h('div', { class: 'external' }, model.external.length
-      ? model.external.map((t) => h('section', { class: 'card', 'data-external': t.name },
-        h('div', { class: 'head' }, h('span', { class: 'name' }, t.name), h('span', { class: 'tag' }, 'external')),
-        h('p', { class: 'desc' }, t.description),
-        h('p', { class: 'small', style: 'margin-top:8px' }, h('span', { class: 'muted' }, 'Lives in '), h('span', { class: 'mono' }, t.where))))
-      : h('p', { class: 'muted' }, 'external.json lists no tools.')),
-    h('footer', null, 'Data home ', h('span', { class: 'mono' }, model.home), `. Run log ${logSummary(model.log)}. Days ${model.days[0]} to ${model.days.at(-1)}, UTC.`),
-  ].flat(Infinity).filter(Boolean));
+    stage,
+    h('div', { class: 'coords' }, model.home),
+    h('div', { class: 'ref' }, h('div', { class: 'rail' }), h('div', null, 'Window'), h('div', null, `${model.days[0]} / ${model.days.at(-1)} UTC`)),
+    h('section', { class: 'elsewhere', 'aria-label': 'Tools in other repos' },
+      h('div', { class: 'rail' }),
+      model.external.length
+        ? model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), h('div', { class: 'mono', style: 'font-size:11px;margin-top:4px' }, t.where), h('p', null, t.description)))
+        : h('div', { class: 'mono' }, 'external.json lists no tools')),
+    h('footer', { class: 'unit' }, h('span', null, 'Read-only / reload to refresh'), h('span', null, `Run log ${logSummary(model.log)}`)),
+  ].filter(Boolean));
+
+  new ResizeObserver(draw).observe(stage);
+  const start = decodeURIComponent(location.hash.slice(1));
+  select(nodes.has(start) ? start : null);
 }
 
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected) select(selected); });
 render();
 performance.mark('rendered');
 </script>
