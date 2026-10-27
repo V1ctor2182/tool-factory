@@ -77,8 +77,7 @@ header { display: grid; grid-template-columns: 96px 1fr minmax(260px, 340px); bo
 .tool { display: grid; grid-template-columns: 96px 1fr; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 0; cursor: pointer; position: relative; z-index: 2; transition: opacity 0.15s; }
 .tool .num { font: 800 64px/1 var(--heavy); letter-spacing: -0.06em; color: var(--orange-ink); padding: 12px 0 0 10px; }
 .tool .body { padding: 16px 18px 16px 22px; border-left: 1px solid var(--rule); min-width: 0; }
-.tool .name { font: 800 clamp(26px, 3.2vw, 38px)/1 var(--heavy); letter-spacing: -0.045em; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
-.tool .name::after { content: ""; flex: 1; }
+.tool .name { font: 800 clamp(26px, 3.2vw, 38px)/1 var(--heavy); letter-spacing: -0.045em; text-transform: uppercase; }
 .tool .port { position: absolute; right: -1px; top: 34px; width: 10px; height: 18px; background: var(--ink); }
 .tool:hover .body, .tool[aria-pressed="true"] .body { background: var(--node); }
 .tool[aria-pressed="true"] .port { background: var(--orange); }
@@ -98,14 +97,18 @@ header { display: grid; grid-template-columns: 96px 1fr minmax(260px, 340px); bo
 
 .kindgrp { font-size: 10.5px; color: var(--muted); padding: 14px 18px 6px 128px; position: relative; z-index: 2; }
 .atom { display: block; width: calc(100% - 146px); margin: 0 18px 8px 128px; text-align: left; background: var(--node); border: 1px solid var(--ink); padding: 8px 12px; cursor: pointer; position: relative; z-index: 2; transition: opacity 0.15s; }
-.atom::before { content: ""; position: absolute; left: -9px; top: 12px; width: 8px; height: 14px; background: var(--ink); }
+.atom .socket { position: absolute; left: -9px; top: 12px; width: 8px; height: 14px; background: var(--ink); }
 .atom:hover { background: var(--paper); }
 .atom[aria-pressed="true"] { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
-.atom[aria-pressed="true"]::before { background: var(--orange); }
+.atom[aria-pressed="true"] .socket { background: var(--orange); }
 .atom .name { font: 800 17px/1.1 var(--heavy); letter-spacing: -0.03em; text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
 .atom .tag { margin-left: auto; }
 .atom .stat { margin-top: 4px; }
-.atom .note { font-family: var(--mono); font-size: 11px; color: var(--orange); margin-top: 4px; }
+.note { display: block; font-family: var(--mono); font-size: 11px; color: var(--orange); margin-top: 4px; }
+.prose { text-transform: none; letter-spacing: 0; }
+.log .prose { font-family: var(--heavy); font-size: 13px; line-height: 1.45; }
+.log .chart { margin: 6px 0; }
+.muted { color: var(--muted); }
 button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 .coords { border-top: 1px solid var(--ink); text-align: center; font-size: 12px; letter-spacing: 0.3em; padding: 8px 16px; overflow-wrap: anywhere; }
@@ -134,7 +137,7 @@ button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .atoms { grid-column: 2; grid-row: 2; border-left: 1px solid var(--rule); border-top: 1px solid var(--ink); }
   .atoms::before, .atoms::after { display: none; }
   .atom { margin-left: 18px; }
-  .atom::before { display: none; }
+  .atom .socket { display: none; }
   .panel { grid-column: 2; grid-row: 3; border-left: 1px solid var(--rule); border-top: 1px solid var(--ink); }
   .problems, .unit { padding-left: 18px; }
   .ref { grid-template-columns: 36px 100px 1fr; }
@@ -170,6 +173,7 @@ function h(tag, props, ...children) {
 
 const usd = (n) => (n === null ? 'unknown' : `$${n.toFixed(4)}`);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const counted = (n, word) => [h('b', null, n), ` ${word}${n === 1 ? '' : 's'}`];
 const seconds = (ms) => (ms === null ? 'no runs' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
 const pad = (i) => String(i + 1).padStart(2, '0');
 
@@ -188,8 +192,15 @@ function logSummary({ lines, unreadable, firstUnreadable }) {
 }
 
 const healthTag = (level) => h('span', { class: `tag ${level}` }, HEALTH[level]);
-const total = (d) => d.runs + d.atomCalls;
-const failed = (d) => d.failed + d.atomFailed;
+const total = (d) => d.runs + (d.atomCalls ?? 0);
+const failed = (d) => d.failed + (d.atomFailed ?? 0);
+const notes = (row) => (row.health === 'ok' ? null : row.notes.map((n) => h('span', { class: 'note prose' }, n)));
+
+function unmetered(row) {
+  if (row.kind === 'skill') return 'skill only, no runs or spend';
+  if (row.runs === null) return 'runs unknown, the run log is unreadable';
+  return null;
+}
 
 function bars(perDay, height = 20) {
   const top = Math.max(1, ...perDay.map(total));
@@ -206,35 +217,32 @@ function everyDay() {
 }
 
 function toolStat(tool) {
-  if (tool.kind === 'skill') return h('div', { class: 'stat' }, 'Skill only, no runs or spend');
-  if (tool.runs === null) return h('div', { class: 'stat' }, 'Runs unknown, the run log is unreadable');
-  const calls = tool.runs + tool.atomCalls;
-  const fails = tool.failed + tool.atomFailed;
+  const none = unmetered(tool);
+  if (none) return h('div', { class: 'stat' }, none);
   return h('div', { class: 'stat' },
-    h('span', null, h('b', null, calls), calls === 1 ? ' call' : ' calls'),
-    h('span', { class: fails ? 'hot' : '' }, h('b', { class: fails ? 'hot' : '' }, fails), ' failed'),
+    h('span', null, counted(total(tool), 'call')),
+    h('span', { class: failed(tool) ? 'hot' : '' }, h('b', null, failed(tool)), ' failed'),
     h('span', null, h('b', null, usd(tool.spentUsd))),
     h('span', null, ago(tool.lastRunAt)),
-    calls ? bars(tool.perDay) : null);
+    total(tool) ? bars(tool.perDay) : null);
 }
 
 function atomStat(atom) {
-  if (atom.runs === null) return h('div', { class: 'stat' }, 'Runs unknown');
+  const none = unmetered(atom);
+  if (none) return h('div', { class: 'stat' }, none);
   return h('div', { class: 'stat' },
-    h('span', null, h('b', null, atom.runs), atom.runs === 1 ? ' run' : ' runs'),
-    atom.failed ? h('span', { class: 'hot' }, h('b', { class: 'hot' }, atom.failed), ' failed') : null,
-    h('span', null, atom.usedBy.length ? `used by ${atom.usedBy.length}` : h('span', { class: 'hot' }, 'used by no tool')));
+    h('span', null, counted(atom.runs, 'run')),
+    atom.failed ? h('span', { class: 'hot' }, h('b', null, atom.failed), ' failed') : null,
+    h('span', { class: atom.usedBy.length ? '' : 'hot' }, atom.usedBy.length ? `used by ${atom.usedBy.length}` : 'used by no tool'));
 }
 
-const related = new Map();
-function relate(model) {
-  for (const t of model.tools) related.set(t.name, new Set([t.name, ...t.uses]));
-  for (const a of model.atoms) related.set(a.name, new Set([a.name, ...a.usedBy]));
-}
+const rows = model ? [...model.tools, ...model.atoms] : [];
+const counts = Object.fromEntries(Object.keys(HEALTH).map((level) => [level, rows.filter((r) => r.health === level).length]));
+const related = new Map(rows.map((r) => [r.name, new Set([r.name, ...(r.uses ?? r.usedBy)])]));
+const period = model ? `${model.days.length} days` : '';
 
 function panelFor(name) {
   if (!name) {
-    const rows = [...model.tools, ...model.atoms];
     return [
       h('div', null, 'Select: ', h('b', null, 'none')),
       h('div', null, 'Window: ', h('b', null, `${model.days[0]} to ${model.days.at(-1)}`)),
@@ -243,11 +251,8 @@ function panelFor(name) {
       h('div', null, `[ ${plural(model.atoms.length, 'atom')} ]`),
       h('div', null, `[ ${model.external.length} elsewhere ]`),
       h('div', { class: 'dash' }),
-      model.calls ? h('div', { style: 'margin:6px 0' }, bars(everyDay(), 48)) : null,
-      Object.keys(HEALTH).map((level) => {
-        const n = rows.filter((r) => r.health === level).length;
-        return h('div', { class: level !== 'ok' && n ? 'hot' : '' }, `${HEALTH[level]}: ${n}`);
-      }),
+      model.calls ? h('div', { class: 'chart' }, bars(everyDay(), 48)) : null,
+      Object.entries(counts).map(([level, n]) => h('div', { class: level !== 'ok' && n ? 'hot' : '' }, `${HEALTH[level]}: ${n}`)),
       h('div', { class: 'dash' }),
       h('div', { class: 'muted' }, 'Pick a tool to light the atoms it calls. Pick an atom to see who shares it.'),
     ];
@@ -259,22 +264,20 @@ function panelFor(name) {
     h('div', null, 'Name: ', h('b', null, row.name)),
     h('div', null, 'Kind: ', h('b', null, `${row.kind} / ${row.status}`)),
     h('div', { class: row.health === 'ok' ? '' : 'hot' }, 'Health: ', h('b', null, HEALTH[row.health])),
-    row.health !== 'ok' ? row.notes.map((n) => h('div', { class: 'hot', style: 'text-transform:none;letter-spacing:0' }, n)) : null,
+    notes(row),
     h('div', { class: 'dash' }),
-    h('div', { style: 'text-transform:none;letter-spacing:0;font-family:var(--heavy);font-size:13px;line-height:1.45' }, row.description),
+    h('div', { class: 'prose' }, row.description),
     h('div', { class: 'dash' }),
-    row.kind === 'skill'
-      ? h('div', null, '[ skill only, no runs or spend ]')
-      : row.runs === null
-      ? h('div', null, '[ runs unknown, the run log is unreadable ]')
+    unmetered(row)
+      ? h('div', null, `[ ${unmetered(row)} ]`)
       : [
-        h('div', null, `[ ${plural(row.runs, 'run')} in 7 days ]`),
-        tool && row.atomCalls ? h('div', null, `[ ${plural(row.atomCalls, 'atom call')} from direct runs ]`) : null,
-        h('div', { class: row.failed || row.atomFailed ? 'hot' : '' }, `[ ${row.failed + (row.atomFailed ?? 0)} failed ]`),
+        h('div', null, `[ ${plural(row.runs, 'run')} in ${period} ]`),
+        row.atomCalls ? h('div', null, `[ ${plural(row.atomCalls, 'atom call')} from direct runs ]`) : null,
+        h('div', { class: failed(row) ? 'hot' : '' }, `[ ${failed(row)} failed ]`),
         h('div', null, `[ median ${seconds(row.medianMs)} ]`),
-        h('div', null, `[ ${usd(row.spentUsd)} spent in 7 days ]`),
+        h('div', null, `[ ${usd(row.spentUsd)} spent in ${period} ]`),
         h('div', null, `[ last run ${ago(row.lastRunAt)} ]`),
-        tool && (row.runs || row.atomCalls) ? h('div', { style: 'margin:6px 0' }, bars(row.perDay, 48)) : null,
+        tool && total(row) ? h('div', { class: 'chart' }, bars(row.perDay, 48)) : null,
       ],
     h('div', { class: 'dash' }),
     h('div', null, tool ? 'Uses: ' : 'Used by: ', h('b', null, (tool ? row.uses : row.usedBy).join(', ') || 'none')),
@@ -287,18 +290,19 @@ const nodes = new Map();
 let wires, stage, panel;
 
 function draw() {
+  if (getComputedStyle(wires).display === 'none') return;
   const box = stage.getBoundingClientRect();
-  const at = (el, side) => {
-    const r = el.getBoundingClientRect();
-    return { x: (side === 'right' ? r.right : r.left) - box.left, y: r.top - box.top + Math.min(r.height / 2, 43) };
-  };
+  const ends = new Map([...nodes].map(([name, el]) => {
+    const r = el.querySelector('.port, .socket')?.getBoundingClientRect();
+    return [name, r && { left: r.left - box.left, right: r.right - box.left, y: r.top - box.top + r.height / 2 }];
+  }));
   wires.replaceChildren(...model.tools.flatMap((t) => t.uses.map((u) => {
-    const a = at(nodes.get(t.name), 'right');
-    const b = at(nodes.get(u), 'left');
+    const a = { x: ends.get(t.name).right, y: ends.get(t.name).y };
+    const b = { x: ends.get(u).left, y: ends.get(u).y };
     const mid = (a.x + b.x) / 2;
     const lit = selected && (selected === t.name || selected === u);
     const path = document.createElementNS(SVG, 'path');
-    path.setAttribute('d', `M${a.x},${a.y} C${mid},${a.y} ${mid},${b.y} ${b.x - 9},${b.y}`);
+    path.setAttribute('d', `M${a.x},${a.y} C${mid},${a.y} ${mid},${b.y} ${b.x},${b.y}`);
     path.setAttribute('class', lit ? 'lit' : selected ? 'dim' : '');
     return path;
   })));
@@ -323,7 +327,7 @@ function toolNode(tool, i) {
       h('span', { class: 'name' }, tool.name),
       h('span', { class: 'tags' }, h('span', { class: 'tag' }, tool.kind), h('span', { class: 'tag' }, tool.status), healthTag(tool.health)),
       h('span', { class: 'desc' }, tool.description),
-      tool.health !== 'ok' ? tool.notes.map((n) => h('span', { class: 'stat hot', style: 'display:block' }, n)) : null,
+      notes(tool),
       toolStat(tool)),
     tool.uses.length ? h('span', { class: 'port' }) : null);
   nodes.set(tool.name, el);
@@ -332,8 +336,9 @@ function toolNode(tool, i) {
 
 function atomNode(atom) {
   const el = h('button', { class: 'atom', type: 'button', 'data-atom': atom.name, 'aria-pressed': 'false', onclick: () => select(atom.name) },
+    h('span', { class: 'socket' }),
     h('span', { class: 'name' }, atom.name, atom.health === 'ok' ? null : healthTag(atom.health)),
-    atom.health !== 'ok' ? atom.notes.map((n) => h('span', { class: 'note', style: 'display:block' }, n)) : null,
+    notes(atom),
     atomStat(atom));
   nodes.set(atom.name, el);
   return el;
@@ -344,11 +349,9 @@ function render() {
     app.append(h('p', { style: 'padding:24px' }, 'No status model. Open this page through factory dashboard.'));
     return;
   }
-  relate(model);
   const { capUsd, spentTodayUsd } = model.budget;
   const share = capUsd && spentTodayUsd !== null ? Math.min(1, spentTodayUsd / capUsd) : 0;
-  const rows = [...model.tools, ...model.atoms];
-  const sick = rows.filter((r) => r.health !== 'ok').length;
+  const sick = rows.length - counts.ok;
   const groups = [...KINDS, ...new Set(model.atoms.map((a) => a.kind).filter((k) => !KINDS.includes(k)))]
     .map((kind) => [kind, model.atoms.filter((a) => a.kind === kind)]).filter(([, list]) => list.length);
 
@@ -373,7 +376,7 @@ function render() {
         h('div', null, 'Budget: ', h('b', null, capUsd === null ? 'unreadable' : capUsd === 0 ? '$0, no model spend' : `$${capUsd.toFixed(2)} a day`)),
         capUsd ? h('div', { class: 'meter', role: 'img', 'aria-label': `${Math.round(share * 100)}% of the daily budget` }, h('div', { style: `width:${share * 100}%` })) : null,
         h('div', { class: 'dash' }),
-        h('div', null, `[ ${model.calls?.runs ?? 'unknown'} calls in 7 days ]`),
+        h('div', null, `[ ${model.calls?.runs ?? 'unknown'} calls in ${period} ]`),
         h('div', { class: model.calls?.failed ? 'hot' : '' }, `[ ${model.calls?.failed ?? 'unknown'} failed ]`),
         h('div', { class: sick ? 'hot' : '' }, sick ? `[ ${sick} not healthy ]` : `[ all ${rows.length} healthy ]`))),
     model.problems.length
