@@ -100,7 +100,7 @@ function outcome(code, stdout) {
   };
 }
 
-export function invoke(entry, verb, args, caller, { interactive = false } = {}) {
+export function invoke(entry, verb, args, caller, { interactive = false, onStderr } = {}) {
   const started = new Date();
   const clock = performance.now();
   return new Promise((done) => {
@@ -116,7 +116,10 @@ export function invoke(entry, verb, args, caller, { interactive = false } = {}) 
       stdout += chunk;
       if (interactive) process.stdout.write(chunk);
     });
-    child.stderr?.on('data', (chunk) => (stderr += chunk));
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk;
+      onStderr?.(chunk);
+    });
     const finish = (code) => {
       if (entry.type === 'tool') {
         append({

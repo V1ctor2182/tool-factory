@@ -78,7 +78,7 @@ export function statusModel(registry) {
       health: status,
       notes,
       links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
-      ...(tool ? { uses: entry.manifest.uses } : { usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
+      ...(tool ? { uses: entry.manifest.uses, verbs: (entry.manifest.verbs ?? []).map(({ name, description, input, output }) => ({ name, description, input, output })) } : { usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
     };
     if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(tool && { atomCalls: null, atomFailed: null, perDay: null }) };
     const mine = byName.get(entry.name) ?? [];

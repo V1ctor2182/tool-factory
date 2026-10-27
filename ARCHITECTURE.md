@@ -198,7 +198,9 @@ The run log gets one line per call through `factory run`, a tool's `run`, or MCP
 { "type": "atom", "name": "digest", "verb": "make", "kind": "model", "startedAt": "2026-10-25T14:02:11Z", "ms": 7264, "ok": true, "cacheHit": false, "costUsd": 0.0085, "caller": "youtube" }
 ```
 
-The dashboard lists tools first, each with its atoms underneath. Each atom row shows which tools use it, read from every tool's `uses`, so reuse is visible. It also shows status, health, runs and failures, spend against budget, linked projects, and the tools in `external.json`. It is read-only.
+The dashboard lists tools first, each with its atoms underneath. Each atom row shows which tools use it, read from every tool's `uses`, so reuse is visible. It also shows status, health, runs and failures, spend against budget, linked projects, and the tools in `external.json`.
+
+The dashboard can also try a tool. Its form for each verb comes from the verb's `input` schema in `manifest.json`. `POST /run/<tool>/<verb>` validates the input against that schema, runs the CLI through `invoke` with `--json`, and logs the run with `dashboard` as the caller, the same path `factory mcp` takes. It streams the CLI's stderr as progress, then the `--json` output. The server answers a run only when the request's `Origin` is the dashboard's own page, so another site open in the browser cannot start one. It refuses `act` atoms, since no one confirms them there. Model spend goes through the same daily budget as every other caller.
 
 ## Design alternatives considered
 

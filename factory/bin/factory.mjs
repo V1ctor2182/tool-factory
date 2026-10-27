@@ -180,7 +180,7 @@ const COMMANDS = {
     if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${values.port} is not a port number.`);
     try {
       const { dashboard } = await import('../dashboard/server.mjs');
-      console.log(`dashboard on ${await dashboard(registry.root, port)}, read-only. Stop it with ctrl-c.`);
+      console.log(`dashboard on ${await dashboard(registry.root, port)}. Stop it with ctrl-c.`);
       return 0;
     } catch (e) {
       console.error(`factory: ${e.message}`);
@@ -206,7 +206,7 @@ const USAGE = `usage: factory <command>
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]
   mcp <names...>            stdio MCP server with one tool per verb
-  dashboard [--port 4100]   the status page on 127.0.0.1, read-only`;
+  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each tool`;
 
 const [command, ...args] = process.argv.slice(2);
 try {

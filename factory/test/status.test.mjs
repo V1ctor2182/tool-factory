@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -155,6 +155,32 @@ test('the dashboard serves the same model on 127.0.0.1 and refuses writes, frami
     assert.equal((await fetch(new URL('status.json', url))).status, 404);
     const rebound = spawnSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', 'Host: attacker.example', url], { encoding: 'utf8' });
     assert.equal(rebound.stdout, '421');
+  } finally {
+    stop();
+  }
+});
+
+test('the dashboard runs a tool verb only for its own page, and logs the run as the dashboard', async () => {
+  const dir = join(root, 'tryhome');
+  seed(dir, '');
+  const { url, stop } = await serve(dir);
+  const origin = new URL(url).origin;
+  const post = (path, body, headers = {}) => fetch(new URL(path, url), { method: 'POST', headers: { origin, 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post('run/youtube/transcript', { input: 'x' }, { origin: 'https://attacker.example' })).status, 403);
+    assert.equal((await post('run/youtube/transcript', { input: 'x' }, { 'content-type': 'text/plain' })).status, 415);
+    assert.equal((await post('run/youtube/nope', { input: 'x' })).status, 404);
+    assert.equal((await post('run/captions/get', { input: 'x' })).status, 404);
+    assert.equal((await post('run/youtube/transcript', { input: 'x', extra: true })).status, 400);
+    assert.equal((await fetch(new URL('run/youtube/transcript', url))).status, 405);
+
+    const res = await post('run/youtube/transcript', { input: 'not a url' });
+    assert.equal(res.status, 200);
+    const last = (await res.text()).trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+    assert.equal(last.code, 1);
+    assert.equal(last.output.error.code, 'invalid_source');
+    const logged = readFileSync(join(dir, 'runs.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    assert.deepEqual(logged.filter((r) => r.type === 'tool').map((r) => [r.name, r.verb, r.caller, r.ok]), [['youtube', 'transcript', 'dashboard', false]]);
   } finally {
     stop();
   }
