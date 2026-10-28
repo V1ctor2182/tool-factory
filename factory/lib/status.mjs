@@ -18,10 +18,10 @@ const failures = (lines) => lines.filter((r) => !r.ok).length;
 const latest = (lines) => lines.reduce((last, r) => (r.startedAt > last ? r.startedAt : last), '') || null;
 
 function outsideRuns(runs, calls) {
-  const timeline = [...runs, ...calls].map((r) => [Date.parse(r.startedAt), r]).sort(([a, x], [b, y]) => a - b || (y.type === 'tool') - (x.type === 'tool'));
+  const timeline = [...runs, ...calls].map((r) => [Date.parse(r.startedAt), r]).sort(([a, x], [b, y]) => a - b || (y.type === 'microservice') - (x.type === 'microservice'));
   let coveredUntil = -Infinity;
   return timeline.filter(([at, r]) => {
-    if (r.type !== 'tool') return at >= coveredUntil;
+    if (r.type !== 'microservice') return at >= coveredUntil;
     // startedAt drops milliseconds, so a run covers up to one second past its ms.
     coveredUntil = Math.max(coveredUntil, at + (r.ms ?? 0) + 1000);
     return false;
@@ -58,17 +58,17 @@ export function statusModel(registry) {
   const capUsd = attempt(problems, 'TOOL_FACTORY_BUDGET_USD', budget, null);
 
   const all = [...registry.entries.values()];
-  const tools = all.filter((e) => e.type === 'tool').sort((a, b) => b.manifest.uses.length - a.manifest.uses.length || a.name.localeCompare(b.name));
-  const toolNames = new Set(tools.map((t) => t.name));
+  const microservices = all.filter((e) => e.type === 'microservice').sort((a, b) => b.manifest.uses.length - a.manifest.uses.length || a.name.localeCompare(b.name));
+  const microserviceNames = new Set(microservices.map((t) => t.name));
   const window = (records ?? []).filter((r) => days.includes(r.startedAt?.slice(0, 10)));
   const byName = Map.groupBy(window, (r) => r.name);
-  const byCaller = Map.groupBy(window.filter((r) => toolNames.has(r.caller)), (r) => r.caller);
+  const byCaller = Map.groupBy(window.filter((r) => microserviceNames.has(r.caller)), (r) => r.caller);
   const direct = new Map([...byCaller].map(([name, lines]) => [name, outsideRuns(byName.get(name) ?? [], lines)]));
-  const calls = [...window.filter((r) => !toolNames.has(r.caller)), ...[...direct.values()].flat()];
+  const calls = [...window.filter((r) => !microserviceNames.has(r.caller)), ...[...direct.values()].flat()];
 
   const row = (entry) => {
     const { status, notes } = checked.get(entry.name);
-    const tool = entry.type === 'tool';
+    const microservice = entry.type === 'microservice';
     const known = {
       name: entry.name,
       type: entry.type,
@@ -78,12 +78,12 @@ export function statusModel(registry) {
       health: status,
       notes,
       links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
-      ...(tool ? { uses: entry.manifest.uses, verbs: (entry.manifest.verbs ?? []).map(({ name, description, input, output }) => ({ name, description, input, output })) } : { usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
+      ...(microservice ? { uses: entry.manifest.uses, verbs: (entry.manifest.verbs ?? []).map(({ name, description, input, output }) => ({ name, description, input, output })) } : { usedBy: microservices.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
     };
-    if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(tool && { atomCalls: null, atomFailed: null, perDay: null }) };
+    if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(microservice && { atomCalls: null, atomFailed: null, perDay: null }) };
     const mine = byName.get(entry.name) ?? [];
     const activity = { runs: mine.length, failed: failures(mine), medianMs: median(mine.filter((r) => r.ok && Number.isFinite(r.ms)).map((r) => r.ms)) };
-    if (!tool) return { ...known, ...activity, lastRunAt: latest(mine), spentUsd: dollars(spend(mine)) };
+    if (!microservice) return { ...known, ...activity, lastRunAt: latest(mine), spentUsd: dollars(spend(mine)) };
     const outside = direct.get(entry.name) ?? [];
     const onDay = (lines) => Map.groupBy(lines, (r) => r.startedAt.slice(0, 10));
     const runsOn = onDay(mine);
@@ -109,7 +109,7 @@ export function statusModel(registry) {
     log: { lines: records?.length ?? null, unreadable: log?.bad.length ?? null, firstUnreadable: log?.bad[0]?.line ?? null },
     calls: records && { runs: calls.length, failed: failures(calls) },
     budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
-    tools: tools.map(row),
+    microservices: microservices.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),
     external: external(registry.root, problems),
     problems,

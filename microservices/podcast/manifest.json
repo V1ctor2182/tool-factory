@@ -1,6 +1,6 @@
 {
   "name": "podcast",
-  "type": "tool",
+  "type": "microservice",
   "kind": "pipeline",
   "description": "Summary, chapters, and transcript of a podcast episode, from its page URL or from search words. Transcribes the audio on this Mac.",
   "status": "alpha",

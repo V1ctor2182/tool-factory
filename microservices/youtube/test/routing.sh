@@ -11,9 +11,9 @@ STUB_LOG="$work/calls"
 SEARCH_FIXTURE="$work/search.json"
 export STUB_LOG SEARCH_FIXTURE
 out="$work/out"
-mkdir -p "$fake/tools/youtube" "$out"
-cp "$test_dir/../run" "$test_dir/../manifest.json" "$fake/tools/youtube/"
-run="$fake/tools/youtube/run"
+mkdir -p "$fake/microservices/youtube" "$out"
+cp "$test_dir/../run" "$test_dir/../manifest.json" "$fake/microservices/youtube/"
+run="$fake/microservices/youtube/run"
 zoo="https://www.youtube.com/watch?v=jNQXAC9IVRw"
 playlist="https://www.youtube.com/playlist?list=PLstub"
 

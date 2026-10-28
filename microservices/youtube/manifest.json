@@ -1,6 +1,6 @@
 {
   "name": "youtube",
-  "type": "tool",
+  "type": "microservice",
   "kind": "pipeline",
   "description": "Summary, chapters, and transcript of a YouTube video, a search, a playlist, or a channel. Falls back to speech recognition when a video has no captions. Optional notes on what appears on screen.",
   "status": "alpha",

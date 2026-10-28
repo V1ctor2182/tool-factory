@@ -30,12 +30,12 @@ function body(req) {
 
 // Streams one JSON line per stderr chunk, then a last line with the exit code and the CLI's --json output.
 async function run(root, req, res, [, name, verbName], refuse) {
-  // A page on another site can POST here too, so only this page's own origin may run a tool.
-  if (req.headers.origin !== `http://${req.headers.host}`) return refuse(403, 'Only the dashboard page itself can run a tool.\n');
+  // A page on another site can POST here too, so only this page's own origin may run a microservice.
+  if (req.headers.origin !== `http://${req.headers.host}`) return refuse(403, 'Only the dashboard page itself can run a microservice.\n');
   if (!req.headers['content-type']?.startsWith('application/json')) return refuse(415, 'Send the input as application/json.\n');
   const entry = load(root).entries.get(name);
-  const verb = entry?.type === 'tool' ? entry.manifest.verbs?.find((v) => v.name === verbName) : null;
-  if (!verb) return refuse(404, `No tool verb ${name} ${verbName}.\n`);
+  const verb = entry?.type === 'microservice' ? entry.manifest.verbs?.find((v) => v.name === verbName) : null;
+  if (!verb) return refuse(404, `No microservice verb ${name} ${verbName}.\n`);
   if (entry.info.guard === 'confirm') return refuse(403, `${name} needs your confirmation on every run, so run it from a terminal.\n`);
   let input;
   try {
@@ -72,7 +72,7 @@ export function dashboard(root, port) {
     const path = new URL(req.url, `http://${HOST}`).pathname;
     const runPath = path.match(RUN);
     if (runPath) {
-      if (req.method !== 'POST') return reply(405, 'text/plain', 'Run a tool with POST.\n', { allow: 'POST' });
+      if (req.method !== 'POST') return reply(405, 'text/plain', 'Run a microservice with POST.\n', { allow: 'POST' });
       try {
         return await run(root, req, res, runPath.map(decodeURIComponent), refuse);
       } catch (e) {
@@ -80,7 +80,7 @@ export function dashboard(root, port) {
         return refuse(500, `The run failed: ${e.message}\n`);
       }
     }
-    if (req.method !== 'GET' && req.method !== 'HEAD') return reply(405, 'text/plain', 'This page is read-only. Tools run through POST /run/<tool>/<verb>.\n', { allow: 'GET, HEAD' });
+    if (req.method !== 'GET' && req.method !== 'HEAD') return reply(405, 'text/plain', 'This page is read-only. Microservices run through POST /run/<microservice>/<verb>.\n', { allow: 'GET, HEAD' });
     if (path !== '/') return refuse(404, 'Not found. The dashboard has one page, /.\n');
     try {
       reply(200, 'text/html', page(template, root));

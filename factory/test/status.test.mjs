@@ -15,11 +15,11 @@ delete env.TOOL_FACTORY_BUDGET_USD;
 
 const line = (name, type, at, extra) => ({ type, name, verb: 'get', kind: 'x', startedAt: at, ms: 1000, ok: true, cacheHit: false, costUsd: 0, caller: 'factory', ...extra });
 const RUNS = [
-  line('youtube', 'tool', `${day(0)}T00:00:00Z`, { ms: 9000 }),
+  line('youtube', 'microservice', `${day(0)}T00:00:00Z`, { ms: 9000 }),
   line('digest', 'atom', `${day(0)}T00:00:00Z`, { ms: 7000, costUsd: 0.0085, caller: 'youtube' }),
   line('see', 'atom', `${day(0)}T00:00:00Z`, { ms: 3000, costUsd: 0.0025, caller: 'youtube' }),
   line('digest', 'atom', `${day(0)}T00:00:00Z`, { ms: 50, ok: false, caller: 'meeting-notes' }),
-  line('meeting-notes', 'tool', `${day(0)}T00:00:00Z`, { ok: false }),
+  line('meeting-notes', 'microservice', `${day(0)}T00:00:00Z`, { ok: false }),
   line('digest', 'atom', `${day(3)}T12:00:00Z`, { ms: 5000, costUsd: 0.004, caller: 'podcast' }),
   line('transcribe', 'atom', `${day(3)}T12:00:00Z`, { ms: 1500 }),
   line('digest', 'atom', `${day(10)}T12:00:00Z`, { costUsd: 9, caller: 'youtube' }),
@@ -48,11 +48,11 @@ async function serve(dir) {
 let model;
 before(() => {
   copyRepo(root);
-  cpSync(join(root, 'tools', 'meeting-notes'), join(root, 'tools', 'clipper'), { recursive: true });
-  manifest(root, 'tools/clipper', (m) => Object.assign(m, { name: 'clipper', uses: ['frames', 'see'] }));
+  cpSync(join(root, 'microservices', 'meeting-notes'), join(root, 'microservices', 'clipper'), { recursive: true });
+  manifest(root, 'microservices/clipper', (m) => Object.assign(m, { name: 'clipper', uses: ['frames', 'see'] }));
   writeFileSync(join(root, 'external.json'), JSON.stringify([{ name: 'art-desk', description: 'Art dataroom.', where: '~/victor/art-desk' }]));
   const path = join(project, '.claude', 'skills', 'youtube');
-  seed(home, RUNS.map((r) => JSON.stringify(r)).join('\n'), JSON.stringify([{ name: 'youtube', socket: 'into', path, target: join(root, 'tools', 'youtube'), linkedAt: `${day(0)}T00:00:00Z` }]));
+  seed(home, RUNS.map((r) => JSON.stringify(r)).join('\n'), JSON.stringify([{ name: 'youtube', socket: 'into', path, target: join(root, 'microservices', 'youtube'), linkedAt: `${day(0)}T00:00:00Z` }]));
   const done = status(home);
   assert.equal(done.code, 0, done.stderr);
   model = done.model;
@@ -60,14 +60,14 @@ before(() => {
 
 after(() => rmSync(root, { recursive: true, force: true }));
 
-const row = (name) => [...model.tools, ...model.atoms].find((r) => r.name === name);
+const row = (name) => [...model.microservices, ...model.atoms].find((r) => r.name === name);
 
-test('tools come first, the tool with the most atoms leading', () => {
-  assert.deepEqual(model.tools.map((t) => t.name), ['youtube', 'podcast', 'clipper', 'meeting-notes', 'writing-style']);
+test('microservices come first, the microservice with the most atoms leading', () => {
+  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'podcast', 'clipper', 'meeting-notes', 'writing-style']);
   assert.deepEqual(row('youtube').uses, ['find-url', 'captions', 'download', 'transcribe', 'frames', 'see', 'digest']);
 });
 
-test('each atom lists the tools whose uses name it', () => {
+test('each atom lists the microservices whose uses name it', () => {
   assert.deepEqual(Object.fromEntries(model.atoms.map((a) => [a.name, a.usedBy])), {
     captions: ['youtube'],
     digest: ['youtube', 'podcast', 'meeting-notes'],
@@ -79,7 +79,7 @@ test('each atom lists the tools whose uses name it', () => {
   });
 });
 
-test('spend counts today against the budget and charges atom spend to the calling tool', () => {
+test('spend counts today against the budget and charges atom spend to the calling microservice', () => {
   assert.deepEqual(model.budget, { capUsd: 3, spentTodayUsd: 0.011 });
   assert.deepEqual(
     ['youtube', 'podcast', 'meeting-notes', 'digest', 'see', 'transcribe'].map((n) => [n, row(n).spentUsd]),
@@ -93,7 +93,7 @@ test('runs, failures, and the median of ok runs cover seven days', () => {
   assert.deepEqual(row('meeting-notes').perDay.at(-1), { day: day(0), runs: 1, failed: 1, atomCalls: 0, atomFailed: 0 });
 });
 
-test('a tool run outside the factory shows as its atom calls, and a factory run is not counted twice', () => {
+test('a microservice run outside the factory shows as its atom calls, and a factory run is not counted twice', () => {
   const activity = (name) => {
     const t = row(name);
     return [t.runs, t.failed, t.atomCalls, t.atomFailed, t.lastRunAt];
@@ -108,7 +108,7 @@ test('a tool run outside the factory shows as its atom calls, and a factory run 
   assert.deepEqual(model.calls, { runs: 7, failed: 2 });
 });
 
-test('linked projects and external tools appear', () => {
+test('linked projects and external microservices appear', () => {
   assert.deepEqual(row('youtube').links, [{ socket: 'into', where: project }]);
   assert.deepEqual(model.external, [{ name: 'art-desk', description: 'Art dataroom.', where: '~/victor/art-desk' }]);
   assert.deepEqual(model.problems, []);
@@ -126,9 +126,19 @@ test('a corrupt run-log line is skipped and reported, and today\'s spend stays u
   assert.equal(broken.budget.spentTodayUsd, null);
   assert.deepEqual(broken.problems.map((p) => p.path), [join(dir, 'runs.jsonl')]);
   assert.match(broken.problems[0].message, /\bline 3\b/);
-  const history = (m) => [...m.tools, ...m.atoms].map((r) => [r.name, r.runs, r.failed, r.medianMs, r.spentUsd]);
+  const history = (m) => [...m.microservices, ...m.atoms].map((r) => [r.name, r.runs, r.failed, r.medianMs, r.spentUsd]);
   assert.deepEqual(history(broken), history(model));
   assert.deepEqual(broken.calls, model.calls);
+});
+
+test('a run-log line written before the rename, with type tool, still counts as a microservice run', () => {
+  const dir = join(root, 'old-type');
+  seed(dir, RUNS.map((r) => JSON.stringify(r.type === 'microservice' ? { ...r, type: 'tool' } : r)).join('\n'));
+  const { code, model: old } = status(dir);
+  assert.equal(code, 0);
+  const history = (m) => [...m.microservices, ...m.atoms].map((r) => [r.name, r.runs, r.failed, r.atomCalls, r.spentUsd]);
+  assert.deepEqual(history(old), history(model));
+  assert.deepEqual([row('youtube').runs, old.microservices.find((t) => t.name === 'youtube').runs], [1, 1]);
 });
 
 test('a run log that cannot be read leaves every count unknown, not zero', () => {
@@ -137,8 +147,8 @@ test('a run log that cannot be read leaves every count unknown, not zero', () =>
   const { code, model: blind } = status(dir);
   assert.equal(code, 1);
   assert.deepEqual([blind.log, blind.calls, blind.budget.spentTodayUsd], [{ lines: null, unreadable: null, firstUnreadable: null }, null, null]);
-  assert.deepEqual([...new Set([...blind.tools, ...blind.atoms].flatMap((r) => [r.runs, r.failed, r.spentUsd, r.lastRunAt]))], [null]);
-  assert.deepEqual(row('youtube').uses, blind.tools.find((t) => t.name === 'youtube').uses);
+  assert.deepEqual([...new Set([...blind.microservices, ...blind.atoms].flatMap((r) => [r.runs, r.failed, r.spentUsd, r.lastRunAt]))], [null]);
+  assert.deepEqual(row('youtube').uses, blind.microservices.find((t) => t.name === 'youtube').uses);
 });
 
 test('the dashboard serves the same model on 127.0.0.1 and refuses writes, framing, and other hosts', async () => {
@@ -149,7 +159,7 @@ test('the dashboard serves the same model on 127.0.0.1 and refuses writes, frami
     assert.equal(res.headers.get('content-security-policy'), "frame-ancestors 'none'");
     const html = await res.text();
     const embedded = JSON.parse(html.match(/<script id="status" type="application\/json">(.*?)<\/script>/s)[1]);
-    assert.deepEqual(embedded.tools.map((t) => [t.name, t.spentUsd]), model.tools.map((t) => [t.name, t.spentUsd]));
+    assert.deepEqual(embedded.microservices.map((t) => [t.name, t.spentUsd]), model.microservices.map((t) => [t.name, t.spentUsd]));
     assert.deepEqual(embedded.atoms.map((a) => a.usedBy), model.atoms.map((a) => a.usedBy));
     assert.equal((await fetch(url, { method: 'POST' })).status, 405);
     assert.equal((await fetch(new URL('status.json', url))).status, 404);
@@ -160,7 +170,7 @@ test('the dashboard serves the same model on 127.0.0.1 and refuses writes, frami
   }
 });
 
-test('the dashboard runs a tool verb only for its own page, and logs the run as the dashboard', async () => {
+test('the dashboard runs a microservice verb only for its own page, and logs the run as the dashboard', async () => {
   const dir = join(root, 'tryhome');
   seed(dir, '');
   const { url, stop } = await serve(dir);
@@ -180,7 +190,7 @@ test('the dashboard runs a tool verb only for its own page, and logs the run as 
     assert.equal(last.code, 1);
     assert.equal(last.output.error.code, 'invalid_source');
     const logged = readFileSync(join(dir, 'runs.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-    assert.deepEqual(logged.filter((r) => r.type === 'tool').map((r) => [r.name, r.verb, r.caller, r.ok]), [['youtube', 'transcript', 'dashboard', false]]);
+    assert.deepEqual(logged.filter((r) => r.type === 'microservice').map((r) => [r.name, r.verb, r.caller, r.ok]), [['youtube', 'transcript', 'dashboard', false]]);
   } finally {
     stop();
   }
@@ -192,7 +202,7 @@ test('a links.json that is not an array is reported, and every row shows its lin
   const { code, model: broken } = status(dir);
   assert.equal(code, 1);
   assert.deepEqual(broken.problems.map((p) => p.path), [join(dir, 'links.json')]);
-  assert.deepEqual([...new Set([...broken.tools, ...broken.atoms].map((r) => r.links))], [null]);
+  assert.deepEqual([...new Set([...broken.microservices, ...broken.atoms].map((r) => r.links))], [null]);
   const { url, stop } = await serve(dir);
   try {
     assert.equal((await fetch(url)).status, 200);

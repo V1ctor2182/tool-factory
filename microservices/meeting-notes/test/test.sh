@@ -55,8 +55,8 @@ rm "$TOOL_FACTORY_HOME/meeting-notes"
 
 
 fake="$TOOL_FACTORY_HOME/repo"
-mkdir -p "$fake/tools/meeting-notes"
-cp "$run" "$manifest" "$fake/tools/meeting-notes/"
+mkdir -p "$fake/microservices/meeting-notes"
+cp "$run" "$manifest" "$fake/microservices/meeting-notes/"
 STUB_TRANSCRIPT="$out/transcript.json"
 export STUB_TRANSCRIPT
 cat > "$out/atom" <<'STUB'
@@ -71,14 +71,14 @@ for name in transcribe digest; do
 	cp "$out/atom" "$fake/atoms/$name/bin/$name"
 	chmod +x "$fake/atoms/$name/bin/$name"
 done
-"$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/stubbed.json" 2> /dev/null || fail "the stubbed transcript failed: $(cat "$out/stubbed.json")"
-if TRANSCRIBE_EXIT=1 "$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/exit1.json" 2> /dev/null; then fail "an atom that printed JSON and exited 1 exited 0"; fi
+"$fake/microservices/meeting-notes/run" transcript /x.wav --json > "$out/stubbed.json" 2> /dev/null || fail "the stubbed transcript failed: $(cat "$out/stubbed.json")"
+if TRANSCRIBE_EXIT=1 "$fake/microservices/meeting-notes/run" transcript /x.wav --json > "$out/exit1.json" 2> /dev/null; then fail "an atom that printed JSON and exited 1 exited 0"; fi
 [ "$(jq -r .error.code "$out/exit1.json")" = internal ] || fail "an atom that printed JSON and exited 1 did not report internal: $(cat "$out/exit1.json")"
 jq -r .error.message "$out/exit1.json" | grep -q "transcribe exited 1" || fail "the internal error does not name the atom and its exit code: $(cat "$out/exit1.json")"
-if TRANSCRIBE_OUT=null "$fake/tools/meeting-notes/run" transcript /x.wav --json > "$out/null.json" 2> /dev/null; then fail "an atom that printed JSON null exited 0"; fi
+if TRANSCRIBE_OUT=null "$fake/microservices/meeting-notes/run" transcript /x.wav --json > "$out/null.json" 2> /dev/null; then fail "an atom that printed JSON null exited 0"; fi
 [ "$(jq -r .error.message "$out/null.json")" = "transcribe exited 0 without a result object on stdout" ] \
 	|| fail "an atom that printed JSON null did not report it as internal: $(cat "$out/null.json")"
-DIGEST_EXIT=3 "$fake/tools/meeting-notes/run" get /x.wav > /dev/null 2>&1 && code=0 || code=$?
+DIGEST_EXIT=3 "$fake/microservices/meeting-notes/run" get /x.wav > /dev/null 2>&1 && code=0 || code=$?
 [ "$code" = 1 ] || fail "plain get exited $code when digest exited 3"
 
 echo "PASS meeting-notes"

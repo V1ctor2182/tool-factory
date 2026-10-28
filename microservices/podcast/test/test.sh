@@ -64,8 +64,8 @@ if PATH="$out/stub:$PATH" "$run" get "$episode" --json > "$out/blocked.json" 2> 
 rm "$TOOL_FACTORY_HOME/podcast"
 
 fake="$work/repo"
-mkdir -p "$fake/tools/podcast"
-cp "$run" "$manifest" "$fake/tools/podcast/"
+mkdir -p "$fake/microservices/podcast"
+cp "$run" "$manifest" "$fake/microservices/podcast/"
 STUB_LOG="$work/calls"
 REPO="$repo"
 export STUB_LOG REPO
@@ -88,7 +88,7 @@ for name in find-url download transcribe digest; do
 	chmod +x "$fake/atoms/$name/bin/$name"
 done
 
-PATH="$out/stub:$PATH" "$fake/tools/podcast/run" "tool factory" --limit 2 --site scsearch --json > "$out/search.json" 2> "$out/search.err" \
+PATH="$out/stub:$PATH" "$fake/microservices/podcast/run" "tool factory" --limit 2 --site scsearch --json > "$out/search.json" 2> "$out/search.err" \
 	|| fail "run <words> failed: $(cat "$out/search.json")"
 matches "$(output_of search)" "$out/search.json" "search output"
 [ "$(jq -c '[(.items | length), .failed[].url, .failed[].error.code]' "$out/search.json")" = '[1,"https://example.com/broken","unavailable"]' ] \
@@ -97,14 +97,14 @@ grep -qx 'find-url search tool factory --limit 2 --site scsearch --json' "$STUB_
 [ "$(cut -d' ' -f1 "$STUB_LOG" | sort -u | jq -Rsc 'split("\n") | map(select(. != ""))')" = "$(jq -c '.uses | sort' "$manifest")" ] \
 	|| fail "the atoms search called are not the uses in its manifest: $(cut -d' ' -f1 "$STUB_LOG" | sort -u | tr '\n' ' ')"
 
-if "$fake/tools/podcast/run" search nothing --json > "$out/none.json" 2> "$out/none.err"; then fail "a search with no results exited 0"; fi
+if "$fake/microservices/podcast/run" search nothing --json > "$out/none.json" 2> "$out/none.err"; then fail "a search with no results exited 0"; fi
 [ "$(jq -r .error.code "$out/none.json")" = no_results ] || fail "a search with no results did not report no_results"
 
-if DOWNLOAD_EXIT=1 "$fake/tools/podcast/run" transcript https://example.com/ep1 --json > "$out/exit1.json" 2> /dev/null; then fail "a download that printed JSON and exited 1 exited 0"; fi
+if DOWNLOAD_EXIT=1 "$fake/microservices/podcast/run" transcript https://example.com/ep1 --json > "$out/exit1.json" 2> /dev/null; then fail "a download that printed JSON and exited 1 exited 0"; fi
 [ "$(jq -r .error.message "$out/exit1.json")" = "download exited 1 without an error object on stdout" ] \
 	|| fail "a download that printed JSON and exited 1 did not report it as internal: $(cat "$out/exit1.json")"
 [ "$(jq -r .error.code "$out/exit1.json")" = internal ] || fail "a download that printed JSON and exited 1 did not report internal"
-DIGEST_EXIT=3 "$fake/tools/podcast/run" get https://example.com/ep1 > /dev/null 2>&1 && code=0 || code=$?
+DIGEST_EXIT=3 "$fake/microservices/podcast/run" get https://example.com/ep1 > /dev/null 2>&1 && code=0 || code=$?
 [ "$code" = 1 ] || fail "plain get exited $code when digest exited 3"
 
 echo "PASS podcast"

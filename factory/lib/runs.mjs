@@ -31,6 +31,8 @@ export function readLog() {
     try {
       const record = JSON.parse(line);
       problem = unreadable(record);
+      // Lines written before the tools/ to microservices/ rename say type 'tool'.
+      if (record?.type === 'tool') record.type = 'microservice';
       if (!problem) records.push(record);
     } catch {
       problem = 'is not JSON';
@@ -121,9 +123,9 @@ export function invoke(entry, verb, args, caller, { interactive = false, onStder
       onStderr?.(chunk);
     });
     const finish = (code) => {
-      if (entry.type === 'tool') {
+      if (entry.type === 'microservice') {
         append({
-          type: 'tool',
+          type: 'microservice',
           name: entry.name,
           verb: verb?.name ?? null,
           kind: entry.kind,

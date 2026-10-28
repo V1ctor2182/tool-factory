@@ -62,23 +62,23 @@ test('an observe atom that caches fails kind-decides-caching', () => {
   assert.match(result.lines.join('\n'), /FAIL rule kind-decides-caching: atoms\/find-url\/src\/find-url\.py:\d+: find-url is an observe atom, which is never cached, but it builds a Cache\./);
 });
 
-test('a tool that calls an atom outside its uses fails tools-call-only-uses', () => {
+test('a microservice that calls an atom outside its uses fails microservices-call-only-uses', () => {
   const root = copy();
-  edit(join(root, 'tools/youtube/manifest.json'), (text) => text.replace('"frames", ', ''));
+  edit(join(root, 'microservices/youtube/manifest.json'), (text) => text.replace('"frames", ', ''));
   const result = rules(root);
   assert.equal(result.code, 1);
-  assert.match(result.lines.join('\n'), /FAIL rule tools-call-only-uses: tools\/youtube\/run:\d+: tool youtube calls atom frames, which its uses does not list\./);
+  assert.match(result.lines.join('\n'), /FAIL rule microservices-call-only-uses: microservices\/youtube\/run:\d+: microservice youtube calls atom frames, which its uses does not list\./);
 });
 
-test('a pipeline tool that uses an act atom fails act-atoms-skill-only', () => {
+test('a pipeline microservice that uses an act atom fails act-atoms-skill-only', () => {
   const root = copy();
   manifest(root, 'atoms/find-url', (m) => (m.kind = 'act'));
   const result = rules(root);
   assert.equal(result.code, 1);
-  for (const line of result.lines) assert.match(line, /^FAIL rule act-atoms-skill-only: tools\/[^/]+\/manifest\.json: /);
+  for (const line of result.lines) assert.match(line, /^FAIL rule act-atoms-skill-only: microservices\/[^/]+\/manifest\.json: /);
   assert.ok(
     result.lines.includes(
-      'FAIL rule act-atoms-skill-only: tools/youtube/manifest.json: tool youtube is a pipeline tool, but it uses find-url, an act atom. Only the agent decides what an act atom does, so a tool that acts is a skill tool.',
+      'FAIL rule act-atoms-skill-only: microservices/youtube/manifest.json: microservice youtube is a pipeline microservice, but it uses find-url, an act atom. Only the agent decides what an act atom does, so a microservice that acts is a skill microservice.',
     ),
     result.lines.join('\n'),
   );
@@ -132,12 +132,12 @@ test('a shell entry that runs a sibling CLI fails atoms-import-only-kit', () => 
   assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule atoms-import-only-kit: atoms/digest/bin/digest:${line}: atom digest calls atom captions. ${CROSS}`] });
 });
 
-test('a tool that names an atom outside its uses in a constant fails tools-call-only-uses', () => {
+test('a microservice that names an atom outside its uses in a constant fails microservices-call-only-uses', () => {
   const root = copy();
-  manifest(root, 'tools/youtube', (m) => m.uses.splice(m.uses.indexOf('see'), 1));
-  edit(join(root, 'tools/youtube/run'), (text) => text.replace('atom("see",', 'atom(SEE,').replace('MAX_FRAMES = 8\n', 'MAX_FRAMES = 8\nSEE = "see"\n'));
-  const line = readFileSync(join(root, 'tools/youtube/run'), 'utf8').split('\n').indexOf('SEE = "see"') + 1;
-  assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule tools-call-only-uses: tools/youtube/run:${line}: tool youtube calls atom see, which its uses does not list.`] });
+  manifest(root, 'microservices/youtube', (m) => m.uses.splice(m.uses.indexOf('see'), 1));
+  edit(join(root, 'microservices/youtube/run'), (text) => text.replace('atom("see",', 'atom(SEE,').replace('MAX_FRAMES = 8\n', 'MAX_FRAMES = 8\nSEE = "see"\n'));
+  const line = readFileSync(join(root, 'microservices/youtube/run'), 'utf8').split('\n').indexOf('SEE = "see"') + 1;
+  assert.deepEqual(rules(root), { code: 1, lines: [`FAIL rule microservices-call-only-uses: microservices/youtube/run:${line}: microservice youtube calls atom see, which its uses does not list.`] });
 });
 
 const undeclared = (rel, line, name, bin) => `FAIL rule declare-binaries: ${rel}:${line}: ${name} runs ${bin}, which needs.bin in atoms/${name}/manifest.json does not declare.`;
@@ -193,55 +193,55 @@ test('an invalid atom manifest reports only the schema error', () => {
   assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: atoms/frames/manifest.json: / lacks contract'] });
 });
 
-function skillTool(root, files = { 'SKILL.md': '---\nname: style\ndescription: House style.\n---\n' }) {
-  const dir = join(root, 'tools/style');
+function skillMicroservice(root, files = { 'SKILL.md': '---\nname: style\ndescription: House style.\n---\n' }) {
+  const dir = join(root, 'microservices/style');
   mkdirSync(dir, { recursive: true });
-  const m = { name: 'style', type: 'tool', kind: 'skill', description: 'House style.', status: 'alpha', needs: { bin: [], secrets: [], paid: [] }, adapters: ['skill'] };
+  const m = { name: 'style', type: 'microservice', kind: 'skill', description: 'House style.', status: 'alpha', needs: { bin: [], secrets: [], paid: [] }, adapters: ['skill'] };
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify(m, null, 2));
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text, { mode: name === 'run' ? 0o755 : 0o644 });
 }
 
-test('a skill tool with SKILL.md and a manifest only passes', () => {
+test('a skill microservice with SKILL.md and a manifest only passes', () => {
   const root = copy();
-  skillTool(root);
+  skillMicroservice(root);
   assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
 });
 
-test('a skill tool with a CLI fails manifest-matches-schema', () => {
+test('a skill microservice with a CLI fails manifest-matches-schema', () => {
   const root = copy();
-  manifest(root, 'tools/youtube', (m) => {
+  manifest(root, 'microservices/youtube', (m) => {
     m.kind = 'skill';
     delete m.runtime;
   });
   assert.deepEqual(rules(root), {
     code: 1,
     lines: [
-      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /uses has more than 0 items',
-      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /adapters/0 is not "skill"',
-      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /adapters/2 is not "skill"',
-      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have entry',
-      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have verbs',
-      'FAIL rule manifest-matches-schema: tools/youtube/manifest.json: / must not have contract',
+      'FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: /uses has more than 0 items',
+      'FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: /adapters/0 is not "skill"',
+      'FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: /adapters/2 is not "skill"',
+      'FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: / must not have entry',
+      'FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: / must not have verbs',
+      'FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: / must not have contract',
     ],
   });
 });
 
-test('a skill tool that holds a script fails tool-kind-shape', () => {
+test('a skill microservice that holds a script fails microservice-kind-shape', () => {
   const root = copy();
-  skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', run: '#!/bin/sh\necho hi\n' });
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/style/run: style is a skill tool, which holds only manifest.json, SKILL.md, and Markdown.'] });
+  skillMicroservice(root, { 'SKILL.md': '---\nname: style\n---\n', run: '#!/bin/sh\necho hi\n' });
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule microservice-kind-shape: microservices/style/run: style is a skill microservice, which holds only manifest.json, SKILL.md, and Markdown.'] });
 });
 
-test('a tool without SKILL.md fails tool-kind-shape', () => {
+test('a microservice without SKILL.md fails microservice-kind-shape', () => {
   const root = copy();
-  rmSync(join(root, 'tools/youtube/SKILL.md'));
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/youtube: youtube is a pipeline tool, but it has no SKILL.md.'] });
+  rmSync(join(root, 'microservices/youtube/SKILL.md'));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule microservice-kind-shape: microservices/youtube: youtube is a pipeline microservice, but it has no SKILL.md.'] });
 });
 
-test('a pipeline tool with no uses fails manifest-matches-schema', () => {
+test('a pipeline microservice with no uses fails manifest-matches-schema', () => {
   const root = copy();
-  manifest(root, 'tools/youtube', (m) => (m.uses = []));
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/youtube/manifest.json: /uses has fewer than 1 items'] });
+  manifest(root, 'microservices/youtube', (m) => (m.uses = []));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: microservices/youtube/manifest.json: /uses has fewer than 1 items'] });
 });
 
 const SHELL_ENTRY = (body) => `#!/bin/sh\nself=$(readlink -f "$0")\n${body}exec uv run --quiet --script "$(dirname "$self")/../src/$(basename "$self").py" "$@"\n`;
@@ -264,15 +264,15 @@ const dataForms = [
   ['a dict key', 'atoms/see/src/see.py', 'NAMES = {"frames": 1}'],
   ['a get call', 'atoms/see/src/see.py', 'def _n(payload):\n    return payload.get("frames")'],
   ['a subscript', 'atoms/see/src/see.py', 'def _n(payload):\n    return payload["frames"]'],
-  ['a dict key in a tool', 'tools/youtube/run', 'NAMES = {"transcribe": 1}'],
-  ['a get call in a tool', 'tools/youtube/run', 'def _n(payload):\n    return payload.get("transcribe")'],
-  ['a subscript in a tool', 'tools/youtube/run', 'def _n(payload):\n    return payload["transcribe"]'],
+  ['a dict key in a microservice', 'microservices/youtube/run', 'NAMES = {"transcribe": 1}'],
+  ['a get call in a microservice', 'microservices/youtube/run', 'def _n(payload):\n    return payload.get("transcribe")'],
+  ['a subscript in a microservice', 'microservices/youtube/run', 'def _n(payload):\n    return payload["transcribe"]'],
 ];
 for (const [what, rel, text] of dataForms) {
   test(`an atom name used as ${what} is data and passes`, () => {
     const root = copy();
-    if (rel.startsWith('tools/')) {
-      manifest(root, 'tools/youtube', (m) => m.uses.splice(m.uses.indexOf('transcribe'), 1));
+    if (rel.startsWith('microservices/')) {
+      manifest(root, 'microservices/youtube', (m) => m.uses.splice(m.uses.indexOf('transcribe'), 1));
       edit(join(root, rel), (text) => text.replace('atom("transcribe", "file", media["path"])', '{}'));
     }
     plant(root, rel, text);
@@ -299,30 +299,30 @@ test('a shell command behind an env prefix fails declare-binaries', () => {
   assert.deepEqual(rules(root), { code: 1, lines: [undeclared('atoms/frames/bin/frames', line, 'frames', 'jq')] });
 });
 
-test('a skill tool that holds a file that is not Markdown fails tool-kind-shape, executable or not', () => {
+test('a skill microservice that holds a file that is not Markdown fails microservice-kind-shape, executable or not', () => {
   const root = copy();
-  skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', 'helper.py': 'print(1)\n', 'notes.md': '# Notes\n' });
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule tool-kind-shape: tools/style/helper.py: style is a skill tool, which holds only manifest.json, SKILL.md, and Markdown.'] });
+  skillMicroservice(root, { 'SKILL.md': '---\nname: style\n---\n', 'helper.py': 'print(1)\n', 'notes.md': '# Notes\n' });
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule microservice-kind-shape: microservices/style/helper.py: style is a skill microservice, which holds only manifest.json, SKILL.md, and Markdown.'] });
 });
 
-test('a skill tool with Markdown references passes', () => {
+test('a skill microservice with Markdown references passes', () => {
   const root = copy();
-  skillTool(root, { 'SKILL.md': '---\nname: style\n---\n', 'reference.md': '# Reference\n' });
+  skillMicroservice(root, { 'SKILL.md': '---\nname: style\n---\n', 'reference.md': '# Reference\n' });
   assert.deepEqual(rules(root), { code: 0, lines: ['PASS rules'] });
 });
 
-test('a skill tool with an adapter other than skill fails manifest-matches-schema', () => {
+test('a skill microservice with an adapter other than skill fails manifest-matches-schema', () => {
   const root = copy();
-  skillTool(root);
-  manifest(root, 'tools/style', (m) => (m.adapters = ['skill', 'mcp']));
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/style/manifest.json: /adapters/1 is not "skill"'] });
+  skillMicroservice(root);
+  manifest(root, 'microservices/style', (m) => (m.adapters = ['skill', 'mcp']));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: microservices/style/manifest.json: /adapters/1 is not "skill"'] });
 });
 
-test('a skill tool with a contract fails manifest-matches-schema', () => {
+test('a skill microservice with a contract fails manifest-matches-schema', () => {
   const root = copy();
-  skillTool(root);
-  manifest(root, 'tools/style', (m) => (m.contract = 'digest'));
-  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: tools/style/manifest.json: / must not have contract'] });
+  skillMicroservice(root);
+  manifest(root, 'microservices/style', (m) => (m.contract = 'digest'));
+  assert.deepEqual(rules(root), { code: 1, lines: ['FAIL rule manifest-matches-schema: microservices/style/manifest.json: / must not have contract'] });
 });
 
 test('a directory symlink loop does not crash the scan', () => {
@@ -334,7 +334,7 @@ test('a directory symlink loop does not crash the scan', () => {
 const wrongKinds = [
   ['an atom kinded pipeline', 'atoms/frames', 'pipeline', '/kind pipeline is not a kind of atom'],
   ['an atom kinded skill', 'atoms/frames', 'skill', '/kind skill is not a kind of atom'],
-  ['a tool kinded model', 'tools/youtube', 'model', '/kind model is not a kind of tool'],
+  ['a microservice kinded model', 'microservices/youtube', 'model', '/kind model is not a kind of microservice'],
   ['a model atom with an unknown kind', 'atoms/see', 'vision', '/kind is not one of pipeline, skill, transform, model, observe, act'],
 ];
 for (const [what, rel, kind, message] of wrongKinds) {

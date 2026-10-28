@@ -8,7 +8,7 @@ import { after, before, test } from 'node:test';
 import { copyRepo, manifest } from './repo.mjs';
 
 const REPO = resolve(import.meta.dirname, '..', '..');
-const MANIFESTS = ['tools', 'atoms'].flatMap((folder) =>
+const MANIFESTS = ['microservices', 'atoms'].flatMap((folder) =>
   readdirSync(join(REPO, folder)).sort().map((name) => JSON.parse(readFileSync(join(REPO, folder, name, 'manifest.json'), 'utf8'))),
 );
 const SERVED = MANIFESTS.filter((m) => m.adapters.includes('mcp') && m.entry);

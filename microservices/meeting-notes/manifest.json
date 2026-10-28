@@ -1,6 +1,6 @@
 {
   "name": "meeting-notes",
-  "type": "tool",
+  "type": "microservice",
   "kind": "pipeline",
   "description": "Summary, chapters, and key points of a local meeting recording, from a transcript made on this Mac.",
   "status": "alpha",

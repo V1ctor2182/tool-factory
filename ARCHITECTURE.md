@@ -1,10 +1,10 @@
 # victor-tool-factory architecture
 
-A personal monorepo of tools Victor can use right away, built from small atomic parts he reuses across tools.
+A personal monorepo of microservices Victor can use right away, built from small atomic parts he reuses across microservices.
 
-This document has two parts. Part 1 is the factory. It covers tools and atoms, where everything lives, what code is shared, how projects and agents plug in, and how Victor manages it all. Part 2 builds one real tool, a YouTube tool, from seven atoms.
+This document has two parts. Part 1 is the factory. It covers microservices and atoms, where everything lives, what code is shared, how projects and agents plug in, and how Victor manages it all. Part 2 builds one real microservice, a YouTube microservice, from seven atoms.
 
-Design date 2026-10-14, restructured 2026-10-19, rebuilt around tools and atoms 2026-10-25. Precedents are two tools Victor already built. `vibehub-personal` is one Node file that is both CLI and MCP server. `art-desk` is a hosted service with a thin MCP wrapper.
+Design date 2026-10-14, restructured 2026-10-19, rebuilt around microservices and atoms 2026-10-25. Precedents are two microservices Victor already built. `vibehub-personal` is one Node file that is both CLI and MCP server. `art-desk` is a hosted service with a thin MCP wrapper.
 
 ---
 
@@ -12,7 +12,7 @@ Design date 2026-10-14, restructured 2026-10-19, rebuilt around tools and atoms 
 
 ## Who it is for
 
-One person on one Mac. Victor calls tools from a terminal or his scripts. Claude Code and Codex call them through a linked skill or MCP. Nobody else installs or runs them.
+One person on one Mac. Victor calls microservices from a terminal or his scripts. Claude Code and Codex call them through a linked skill or MCP. Nobody else installs or runs them.
 
 That fact removes work:
 
@@ -21,19 +21,19 @@ That fact removes work:
 - **Secrets come from the macOS keychain.** No env files with keys in the repo.
 - **No publishing.** `factory link` is the only install path.
 
-The success measure is time from "I need X" to using X. A usable tool comes before factory machinery.
+The success measure is time from "I need X" to using X. A usable microservice comes before factory machinery.
 
-## Tools and atoms
+## Microservices and atoms
 
-| | Tool | Atom |
+| | Microservice | Atom |
 |---|---|---|
 | What it is | Something Victor uses | One building block that does one job |
 | Examples | `youtube`, `meeting-notes`, `writing-style`, `desktop` | `download`, `transcribe`, `frames`, `see`, `digest` |
-| Lives in | `tools/<name>/` | `atoms/<name>/` |
+| Lives in | `microservices/<name>/` | `atoms/<name>/` |
 | Made of | Atoms it lists in `uses`, called through their CLIs | Its own code plus public libraries and the kit |
 | Returns | One contract | One contract |
 
-An atom owns one noun. If it returns two shapes, it is two atoms. A tool owns one job Victor recognizes. Tools never call other tools, so the graph stays two levels deep.
+An atom owns one noun. If it returns two shapes, it is two atoms. A microservice owns one job Victor recognizes. Microservices never call other microservices, so the graph stays two levels deep.
 
 ### Kinds of atom
 
@@ -48,14 +48,14 @@ The kind decides how the factory caches, tests, and guards an atom. It is one fi
 
 `transcribe` runs a local model but counts as `transform`. It is free, and with temperature zero its output is stable enough to assert after normalizing case and punctuation.
 
-### Kinds of tool
+### Kinds of microservice
 
 | Kind | Has | Example |
 |---|---|---|
 | `pipeline` | `SKILL.md`, a `run` script, `uses` | `youtube` chains seven atoms |
 | `skill` | `SKILL.md` only | `writing-style` holds house style, no code |
 
-A pipeline tool has two forms. The script form, `run`, works for Victor's scripts and cron jobs. The skill form tells an agent which atoms to call and lets the agent do the thinking itself. When Claude Code is the caller, it skips `model` atoms like `digest`, because it is already the model.
+A pipeline microservice has two forms. The script form, `run`, works for Victor's scripts and cron jobs. The skill form tells an agent which atoms to call and lets the agent do the thinking itself. When Claude Code is the caller, it skips `model` atoms like `digest`, because it is already the model.
 
 ## Repo layout
 
@@ -64,11 +64,11 @@ victor-tool-factory/
   CLAUDE.md
   README.md
   ARCHITECTURE.md
-  tools/                          what Victor uses
+  microservices/                  what Victor uses
     <name>/
-      manifest.json               "type": "tool", "kind", "uses"
+      manifest.json               "type": "microservice", "kind", "uses"
       SKILL.md                    the skill form
-      run                         the script form, pipeline tools only
+      run                         the script form, pipeline microservices only
       test/
   atoms/                          the building blocks
     <name>/
@@ -87,7 +87,7 @@ victor-tool-factory/
     lib/
     templates/
     dashboard/
-  external.json                   tools in other repos, such as art-desk
+  external.json                   microservices in other repos, such as art-desk
   docs/
     research/
     decisions/
@@ -97,7 +97,7 @@ victor-tool-factory/
 
 | What | Where | In git |
 |---|---|---|
-| Code Victor writes | `tools/`, `atoms/`, `kit/`, `factory/` | Yes |
+| Code Victor writes | `microservices/`, `atoms/`, `kit/`, `factory/` | Yes |
 | Shared data shapes | `contracts/` | Yes |
 | Public libraries | `~/.cache/uv/`, `node_modules` | No. Rebuilt from each atom's dependency list. |
 | Model weights | `~/.cache/huggingface/` | No. Downloaded once. |
@@ -109,8 +109,8 @@ victor-tool-factory/
 
 ## Rules
 
-1. **One noun per atom, one job per tool, one contract each.**
-2. **Atoms import the kit, never each other. Tools call atom CLIs, never atom code.**
+1. **One noun per atom, one job per microservice, one contract each.**
+2. **Atoms import the kit, never each other. Microservices call atom CLIs, never atom code.**
 3. **Runtime data lives in the data home.** The repo holds code, manifests, schemas, prompts, and tests.
 4. **The kind decides caching, tests, cost, and guards.** See the kinds table.
 5. **Declare every dependency.** Binaries, secrets, and paid backends appear in the manifest. `factory doctor` checks them.
@@ -138,39 +138,39 @@ The kit never holds domain logic or anything only one atom uses. Python atoms im
 
 ## Shared data shapes: contracts
 
-A contract is a JSON Schema in `contracts/`. Several atoms may return the same contract, which is how a tool can fall back from one atom to another. Each atom's tests validate its real output against its schema.
+A contract is a JSON Schema in `contracts/`. Several atoms may return the same contract, which is how a microservice can fall back from one atom to another. Each atom's tests validate its real output against its schema.
 
 ## Who may use what
 
 | From | May use | Never uses |
 |---|---|---|
-| Tool | CLIs of atoms in its `uses` | Atom source, the kit, other tools |
-| Atom | Kit, contracts, public libraries | Other atoms, tools, the factory |
-| Kit | Standard library, the model backend | Atoms, tools |
-| Factory | Manifests, CLIs, contracts | Atom or tool source |
+| Microservice | CLIs of atoms in its `uses` | Atom source, the kit, other microservices |
+| Atom | Kit, contracts, public libraries | Other atoms, microservices, the factory |
+| Kit | Standard library, the model backend | Atoms, microservices |
+| Factory | Manifests, CLIs, contracts | Atom or microservice source |
 | Outside caller | CLI, linked skill, MCP, later HTTP | Anything inside a folder |
 
 ## The manifest
 
-Tools and atoms share one manifest shape, `manifest.json`. It is the single source of truth. MCP tools, dashboard rows, and skill docs derive from it.
+Microservices and atoms share one manifest shape, `manifest.json`. It is the single source of truth. MCP tools, dashboard rows, and skill docs derive from it.
 
 | Field | Meaning |
 |---|---|
 | `name`, `description` | Shown everywhere |
-| `type` | `tool` or `atom` |
-| `kind` | `pipeline` or `skill` for tools. `transform`, `model`, `observe`, or `act` for atoms. |
+| `type` | `microservice` or `atom` |
+| `kind` | `pipeline` or `skill` for microservices. `transform`, `model`, `observe`, or `act` for atoms. |
 | `status` | `idea`, `alpha`, `stable`, `deprecated` |
 | `runtime`, `entry` | How to run the CLI |
 | `contract` | The shape every verb returns |
 | `verbs[]` | Name, description, input JSON Schema, output contract |
-| `uses` | Tools only. The atoms it calls. |
+| `uses` | Microservices only. The atoms it calls. |
 | `model` | Model atoms only. Backend, default model, prompt file. |
 | `needs` | `bin`, `secrets`, `paid` |
 | `adapters` | `cli`, `skill`, `mcp`, later `http` |
 
 ## How projects and agents plug in
 
-Usually you plug in a tool. Atoms plug in the same way when a project needs just one part.
+Usually you plug in a microservice. Atoms plug in the same way when a project needs just one part.
 
 | Caller | Socket | Command |
 |---|---|---|
@@ -186,34 +186,34 @@ Links are symlinks and the MCP adapter starts the CLI fresh per call, so an edit
 
 | Task | Command |
 |---|---|
-| Start a tool or atom from a template | `factory new atom see --kind model`, `factory new tool podcast` |
+| Start a microservice or atom from a template | `factory new atom see --kind model`, `factory new microservice podcast` |
 | See everything | `factory list`, `factory status`, `factory dashboard` |
 | Check binaries, secrets, budget, health | `factory doctor` |
 | Run every test and rule | `factory test` |
 | Plug in or unplug | `factory link`, `factory unlink` |
 
-The run log gets one line per call through `factory run`, a tool's `run`, or MCP:
+The run log gets one line per call through `factory run`, a microservice's `run`, or MCP:
 
 ```json
 { "type": "atom", "name": "digest", "verb": "make", "kind": "model", "startedAt": "2026-10-25T14:02:11Z", "ms": 7264, "ok": true, "cacheHit": false, "costUsd": 0.0085, "caller": "youtube" }
 ```
 
-The dashboard lists tools first, each with its atoms underneath. Each atom row shows which tools use it, read from every tool's `uses`, so reuse is visible. It also shows status, health, runs and failures, spend against budget, linked projects, and the tools in `external.json`.
+The dashboard lists microservices first, each with its atoms underneath. Each atom row shows which microservices use it, read from every microservice's `uses`, so reuse is visible. It also shows status, health, runs and failures, spend against budget, linked projects, and the microservices in `external.json`.
 
-The dashboard can also try a tool. Its form for each verb comes from the verb's `input` schema in `manifest.json`. `POST /run/<tool>/<verb>` validates the input against that schema, runs the CLI through `invoke` with `--json`, and logs the run with `dashboard` as the caller, the same path `factory mcp` takes. It streams the CLI's stderr as progress, then the `--json` output. The server answers a run only when the request's `Origin` is the dashboard's own page, so another site open in the browser cannot start one. It refuses `act` atoms, since no one confirms them there. Model spend goes through the same daily budget as every other caller.
+The dashboard can also try a microservice. Its form for each verb comes from the verb's `input` schema in `manifest.json`. `POST /run/<microservice>/<verb>` validates the input against that schema, runs the CLI through `invoke` with `--json`, and logs the run with `dashboard` as the caller, the same path `factory mcp` takes. It streams the CLI's stderr as progress, then the `--json` output. The server answers a run only when the request's `Origin` is the dashboard's own page, so another site open in the browser cannot start one. It refuses `act` atoms, since no one confirms them there. Model spend goes through the same daily budget as every other caller.
 
 ## Design alternatives considered
 
 | Candidate | Why not |
 |---|---|
-| One repo per tool | The dashboard needs every manifest and log in one place. Versioning between repos has no consumer when one person owns every caller. |
-| One process with tools as plugins | Forces one language. One crash takes every tool down. |
-| Flat services with recipes on the side | The previous version of this document. It led with machinery and treated the tools Victor uses as an afterthought. |
-| **Tools made of atoms, in one repo, run by a generic factory** | Chosen. |
+| One repo per microservice | The dashboard needs every manifest and log in one place. Versioning between repos has no consumer when one person owns every caller. |
+| One process with microservices as plugins | Forces one language. One crash takes every microservice down. |
+| Flat services with recipes on the side | The previous version of this document. It led with machinery and treated the microservices Victor uses as an afterthought. |
+| **Microservices made of atoms, in one repo, run by a generic factory** | Chosen. |
 
 ---
 
-# Part 2. Example: the YouTube tool
+# Part 2. Example: the YouTube microservice
 
 ## What it does
 
@@ -248,7 +248,7 @@ youtube <input> [--visual] [--no-digest]
 
 The skill form runs the same steps up to the transcript and image notes. Then the agent reads them and summarizes, so no `digest` call is made.
 
-## The same atoms in other tools
+## The same atoms in other microservices
 
 | Atom | `youtube` | `meeting-notes` | `podcast` | `desktop` |
 |---|---|---|---|---|
@@ -262,12 +262,12 @@ The skill form runs the same steps up to the transcript and image notes. Then th
 | `screenshot` | | | | yes, observe |
 | `click`, `type` | | | | yes, act |
 
-`meeting-notes` runs `transcribe` and `digest` on a local recording. `podcast` finds episodes, downloads them, transcribes, and digests. `desktop` is the computer-use tool. It is a skill-form tool only, because deciding what to click is the agent's job. It comes last, since this app already gives agents computer use. It earns its place only when a script needs to see the screen.
+`meeting-notes` runs `transcribe` and `digest` on a local recording. `podcast` finds episodes, downloads them, transcribes, and digests. `desktop` is the computer-use microservice. It is a skill-form microservice only, because deciding what to click is the agent's job. It comes last, since this app already gives agents computer use. It earns its place only when a script needs to see the screen.
 
 ## Where its code lives
 
 ```
-tools/youtube/
+microservices/youtube/
   manifest.json
   SKILL.md
   run
@@ -288,12 +288,12 @@ contracts/
 
 ## Manifests
 
-`tools/youtube/manifest.json`:
+`microservices/youtube/manifest.json`:
 
 ```json
 {
   "name": "youtube",
-  "type": "tool",
+  "type": "microservice",
   "kind": "pipeline",
   "description": "Summary, chapters, and transcript of a YouTube video, search, or playlist. Optional notes on what appears on screen.",
   "status": "alpha",
@@ -361,11 +361,11 @@ contracts/
 Usable first, machinery second. Each step ends in a check that runs before the next starts.
 
 1. **PR 1, the transcript half.** Atoms `captions`, `download`, and `transcribe`. The kit's `cli`, `paths`, `cache`, and `hash` are born here, since three atoms need them. Time faster-whisper against whisper.cpp and record the choice. Check that each atom passes its literal fixture test.
-2. **PR 2, the YouTube tool, usable.** Atom `digest` with the model adapter inline, plus `tools/youtube` in both forms. Link the skill globally by hand. Check one video with captions and one without, end to end, and check that a second run is served from cache.
+2. **PR 2, the YouTube microservice, usable.** Atom `digest` with the model adapter inline, plus `microservices/youtube` in both forms. Link the skill globally by hand. Check one video with captions and one without, end to end, and check that a second run is served from cache.
 3. **PR 3, search and visual.** Atoms `find-url`, `frames`, and `see`. The model adapter moves into the kit, since `see` is the second model atom. Check `youtube --visual` on one video and `youtube "<search words>"` on one query.
-4. **PR 4, the factory.** Manifest loading, `list`, `doctor`, `test` with the kind and dependency rules, `run`, the run log, the budget, `link`, and `mcp`. Check that a planted cross-atom import fails the test, and that Claude chat calls the tool over MCP.
-5. **PR 5, more tools from the same atoms.** `meeting-notes`, `podcast`, and one skill-only tool from the research briefs. Check that each new pipeline tool needs no new atom code.
-6. **PR 6, dashboard.** Check that it shows tools, atoms with "used by", spend, and the external tools.
+4. **PR 4, the factory.** Manifest loading, `list`, `doctor`, `test` with the kind and dependency rules, `run`, the run log, the budget, `link`, and `mcp`. Check that a planted cross-atom import fails the test, and that Claude chat calls the microservice over MCP.
+5. **PR 5, more microservices from the same atoms.** `meeting-notes`, `podcast`, and one skill-only microservice from the research briefs. Check that each new pipeline microservice needs no new atom code.
+6. **PR 6, dashboard.** Check that it shows microservices, atoms with "used by", spend, and the external microservices.
 7. **Later, only on demand.** `desktop` with `screenshot`, `click`, and `type`, and the confirmation hook for `act` atoms.
 
 ## Decisions still open

@@ -4,12 +4,12 @@ Every prompt in this repo runs in poteto-mode. Read `~/.claude/skills/poteto-mod
 
 ## What this repo is
 
-A personal monorepo of tools Victor uses right away, built from atomic parts he reuses. `ARCHITECTURE.md` is the design. Part 1 covers the factory, Part 2 builds the YouTube tool. Read it before touching `factory/`, `kit/`, `contracts/`, or any `manifest.json`.
+A personal monorepo of microservices Victor uses right away, built from atomic parts he reuses. `ARCHITECTURE.md` is the design. Part 1 covers the factory, Part 2 builds the YouTube microservice. Read it before touching `factory/`, `kit/`, `contracts/`, or any `manifest.json`.
 
 ## Rules that are not negotiable here
 
-- A tool lives in `tools/<name>/` and does one job Victor recognizes. An atom lives in `atoms/<name>/` and owns one noun. Each returns one contract.
-- Tools call atom CLIs listed in `uses`. Tools never call other tools or import atom code. Atoms import `kit/`, never each other.
+- A microservice lives in `microservices/<name>/` and does one job Victor recognizes. An atom lives in `atoms/<name>/` and owns one noun. Each returns one contract.
+- Microservices call atom CLIs listed in `uses`. Microservices never call other microservices or import atom code. Atoms import `kit/`, never each other.
 - An atom's `kind` decides caching, tests, cost, and guards: `transform`, `model`, `observe`, or `act`. Follow the kinds table in `ARCHITECTURE.md`.
 - `kit/` holds plumbing and the one shared model adapter. No domain logic.
 - Runtime data never enters the repo. It lives under `$TOOL_FACTORY_HOME`, default `~/.local/share/tool-factory/`.

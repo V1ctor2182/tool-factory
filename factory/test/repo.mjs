@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 export const REPO = resolve(import.meta.dirname, '..', '..');
 
 export function copyRepo(root) {
-  for (const dir of ['atoms', 'tools', 'contracts', 'kit', 'factory']) {
+  for (const dir of ['atoms', 'microservices', 'contracts', 'kit', 'factory']) {
     cpSync(join(REPO, dir), join(root, dir), { recursive: true, filter: (src) => !src.includes('__pycache__') && !src.includes('.venv') });
   }
   return root;
