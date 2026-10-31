@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-source.schema.json",
+  "title": "UI source",
+  "description": "One shadcn registry item as the site serves it, and whether its code is exposed.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The item URL or file the caller passed." },
+    "exposed": { "type": "boolean", "description": "True when files is non-empty and every file carries its content." },
+    "item": {
+      "type": "object",
+      "description": "The registry item JSON, untouched. shadcn's registry-item schema defines the rest.",
+      "properties": {
+        "name": { "type": "string" },
+        "files": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["name", "files"]
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false. An item is read fresh on every call." }
+  },
+  "required": ["source", "exposed", "item", "cacheHit"],
+  "additionalProperties": false
+}

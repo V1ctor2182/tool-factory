@@ -1,0 +1,25 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "sample-badge",
+  "type": "registry:ui",
+  "title": "Sample Badge",
+  "description": "A synthetic item shaped like a free registry item.",
+  "dependencies": ["clsx"],
+  "registryDependencies": [],
+  "docs": "",
+  "files": [
+    {
+      "path": "registry/ui/sample-badge.tsx",
+      "type": "registry:ui",
+      "content": "export function SampleBadge() {\n  return <span>sample</span>\n}\n",
+      "target": "components/ui/sample-badge.tsx"
+    },
+    {
+      "path": "registry/lib/sample-utils.ts",
+      "type": "registry:lib",
+      "content": "export const sample = true\n"
+    }
+  ],
+  "cssVars": {},
+  "css": {}
+}
