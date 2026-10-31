@@ -5,26 +5,9 @@
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
 import json
-import urllib.error
-import urllib.request
 from pathlib import Path
-from urllib.parse import urlparse
 
-from factory_kit import cli
-
-
-def _fetch(url: str):
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            body = response.read()
-    except urllib.error.HTTPError as e:
-        raise cli.AtomError("unavailable", f"HTTP {e.code} from {url}") from None
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
-        raise cli.AtomError("network_error", f"{url}: {getattr(e, 'reason', e)}") from None
-    try:
-        return json.loads(body)
-    except ValueError:
-        raise cli.AtomError("invalid_source", f"Not JSON: {url}") from None
+from factory_kit import cli, web
 
 
 def _source(source: str, item) -> dict:
@@ -36,10 +19,7 @@ def _source(source: str, item) -> dict:
 
 
 def registry(url: str) -> dict:
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise cli.AtomError("invalid_source", f"Not an http or https URL: {url}")
-    return _source(url, _fetch(url))
+    return _source(url, web.get_json(url, "ui-source"))
 
 
 def parse(path: str) -> dict:

@@ -19,7 +19,7 @@ The result is a catalog, as `contracts/ui-catalog.schema.json` defines it. Witho
 
 Items keep the index's order. A name listed twice appears once. Every item type is kept, so filtering for `registry:ui` or `registry:block` is the caller's job.
 
-The atom is `observe`, so it never caches. Every call reads the index again and sets `cacheHit` to false.
+Requests name the atom in the User-Agent, as `tool-factory/<atom>`. The atom is `observe`, so it never caches. Every call reads the index again and sets `cacheHit` to false.
 
 On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 

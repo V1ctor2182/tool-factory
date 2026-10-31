@@ -130,6 +130,7 @@ The kit is plumbing every atom would otherwise copy.
 | `cache` | Read and write results by key, atomically |
 | `hash` | Stream a SHA-256 for cache keys |
 | `secrets` | Read a secret from the environment, else the keychain |
+| `web` | Fetch JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
 | `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget and logs spend. |
 
 The default `model` backend is headless Claude Code, `claude -p --output-format json --json-schema`. It runs on Victor's Claude Code login, so there is no API key. Checked 2026-10-25. A small call returned schema-valid JSON in `structured_output` with `total_cost_usd` set, in about seven seconds. The Anthropic API is the second backend when a key in the keychain is preferred.

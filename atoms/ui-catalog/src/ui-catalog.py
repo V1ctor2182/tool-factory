@@ -5,32 +5,10 @@
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
 import json
-import urllib.error
-import urllib.request
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
-from factory_kit import cli
-
-
-def _check_url(url: str) -> None:
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise cli.AtomError("invalid_source", f"Not an http or https URL: {url}")
-
-
-def _fetch(url: str):
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            body = response.read()
-    except urllib.error.HTTPError as e:
-        raise cli.AtomError("unavailable", f"HTTP {e.code} from {url}") from None
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
-        raise cli.AtomError("network_error", f"{url}: {getattr(e, 'reason', e)}") from None
-    try:
-        return json.loads(body)
-    except ValueError:
-        raise cli.AtomError("invalid_source", f"Not JSON: {url}") from None
+from factory_kit import cli, web
 
 
 def _folder(url: str) -> str:
@@ -62,9 +40,9 @@ def _catalog(source: str, index: str, data, base: str | None) -> dict:
 
 
 def registry(url: str, base: str | None) -> dict:
-    _check_url(url)
+    web.check_url(url)
     index = url if urlparse(url).path.endswith(".json") else url.rstrip("/") + "/r/registry.json"
-    return _catalog(url, index, _fetch(index), base or urljoin(index, "."))
+    return _catalog(url, index, web.get_json(index, "ui-catalog"), base or urljoin(index, "."))
 
 
 def parse(path: str, base: str | None) -> dict:

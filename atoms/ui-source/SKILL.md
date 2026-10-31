@@ -17,7 +17,7 @@ The result is a UI source, as `contracts/ui-source.schema.json` defines it. `ite
 
 `exposed` is true when `files` is non-empty and every file carries its content. Some sites serve paid items with `files` empty, and those come back with `exposed` false. Without `--json` the CLI prints each file path on its own line, or nothing when the item is not exposed.
 
-The atom is `observe`, so it never caches. Every call reads the item again and sets `cacheHit` to false.
+Requests name the atom in the User-Agent, as `tool-factory/<atom>`. The atom is `observe`, so it never caches. Every call reads the item again and sets `cacheHit` to false.
 
 On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 
@@ -26,5 +26,5 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `invalid_source` | Not an http or https URL, or the response or file is not a registry item with a `name` and `files` | Pass an item URL from `ui-catalog` |
 | `invalid_args` | An unknown argument | Check `bin/ui-source <verb> --help` |
 | `network_error` | The site could not be reached | Retry later |
-| `unavailable` | The site answered with an HTTP error. The status is in the message | Report the message |
+| `unavailable` | The site answered with an HTTP error. The status is in the message. Kobra answers 401 for a Pro item | Treat 401 as code that is not exposed. Report any other status |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |
