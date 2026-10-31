@@ -1,0 +1,40 @@
+{
+  "name": "ui-catalog",
+  "type": "atom",
+  "kind": "observe",
+  "description": "Components a site publishes through a shadcn registry, with each one's item URL. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/ui-catalog",
+  "contract": "ui-catalog",
+  "verbs": [
+    {
+      "name": "registry",
+      "description": "Every item in a site's shadcn registry index, in the index's order. Prints one item URL per line, or the catalog with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Site URL, read at <site>/r/registry.json, or an index URL ending in .json." },
+          "base": { "type": "string", "description": "Folder URL that holds the item files. Defaults to the index's own folder." }
+        },
+        "required": ["url"]
+      },
+      "output": "ui-catalog"
+    },
+    {
+      "name": "parse",
+      "description": "Catalog from a registry index file already on disk.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "A shadcn registry index JSON file." },
+          "base": { "type": "string", "description": "Folder URL that holds the item files. Defaults to the index's homepage plus /r/." }
+        },
+        "required": ["path"]
+      },
+      "output": "ui-catalog"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

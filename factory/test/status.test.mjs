@@ -76,6 +76,7 @@ test('each atom lists the microservices whose uses name it', () => {
     frames: ['youtube', 'clipper'],
     see: ['youtube', 'clipper'],
     transcribe: ['youtube', 'podcast', 'meeting-notes'],
+    'ui-catalog': [],
   });
 });
 

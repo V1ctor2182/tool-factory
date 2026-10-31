@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-catalog.schema.json",
+  "title": "UI catalog",
+  "description": "Components a shadcn registry index lists, in the index's order, each with the URL of its registry item.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The site URL, index URL, or index file the caller passed." },
+    "index": { "type": "string", "description": "The index URL that was read, or the file path for parse." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Registry item name, unique within the index." },
+          "type": { "type": ["string", "null"], "description": "shadcn item type, such as registry:ui or registry:block." },
+          "title": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "itemUrl": { "type": "string", "description": "Registry item URL that ui-source accepts." }
+        },
+        "required": ["name", "type", "title", "description", "itemUrl"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false. An index is read fresh on every call." }
+  },
+  "required": ["source", "index", "items", "cacheHit"],
+  "additionalProperties": false
+}
