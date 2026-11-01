@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #111; font: 16px/1.5 sans-serif; }
+  #card { display: flex; flex-direction: column; gap: 12px; width: 240px; padding: 16px; margin: 24px; background: #222; border-radius: 12px; }
+  #go { padding: 8px 12px; border: 0; border-radius: 6px; background: rgb(37, 99, 235); color: #fff; font-size: 14px; }
+  #go:hover { background: rgb(29, 78, 216); }
+  #dot { width: 24px; height: 24px; border-radius: 50%; background: rgb(250, 204, 21); }
+  #dot.on { animation: slide 300ms ease-out forwards; }
+  @keyframes slide { from { transform: translateX(0); } to { transform: translateX(160px); } }
+  #status { margin: 0; color: #aaa; font-size: 12px; }
+  #name { padding: 6px 8px; border: 1px solid #555; border-radius: 6px; background: #000; color: #eee; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="card">
+  <button id="go">Toggle</button>
+  <div id="dot"></div>
+  <input id="name" placeholder="Name">
+  <p id="status">idle</p>
+  <script>
+    document.getElementById('go').addEventListener('click', () => {
+      document.getElementById('dot').classList.toggle('on');
+      setTimeout(() => { document.getElementById('status').textContent = 'saved'; }, 1000);
+    });
+  </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "url": "file:///replaced-by-test",
+  "target": "#card",
+  "viewport": { "width": 400, "height": 300 },
+  "states": [
+    { "name": "hover button", "actions": [{ "do": "hover", "selector": "#go" }] },
+    { "name": "toggle dot", "actions": [{ "do": "click", "selector": "#go" }], "frames": { "everyMs": 100, "forMs": 300 } },
+    { "name": "type name", "actions": [{ "do": "type", "selector": "#name", "text": "Ada" }] }
+  ]
+}
