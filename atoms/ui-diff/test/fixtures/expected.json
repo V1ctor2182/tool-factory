@@ -1,0 +1,181 @@
+{
+  "tolerance": 24,
+  "score": 0.648512,
+  "states": [
+    {
+      "name": "idle",
+      "score": 0.988095,
+      "missing": null,
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": [
+          50,
+          30
+        ]
+      },
+      "pixels": {
+        "mismatch": 0.016667,
+        "meanDelta": 3.75
+      },
+      "frames": [],
+      "styles": [],
+      "animations": {
+        "onlyA": [],
+        "onlyB": [],
+        "changed": []
+      }
+    },
+    {
+      "name": "hover",
+      "score": 0.725,
+      "missing": null,
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": [
+          50,
+          30
+        ]
+      },
+      "pixels": {
+        "mismatch": 0.0,
+        "meanDelta": 0.0
+      },
+      "frames": [
+        {
+          "index": 0,
+          "mismatch": 0.0
+        },
+        {
+          "index": 1,
+          "mismatch": 1.0
+        },
+        {
+          "index": 2,
+          "mismatch": 0.0
+        },
+        {
+          "index": 3,
+          "mismatch": null
+        }
+      ],
+      "styles": [
+        {
+          "path": ":scope",
+          "property": "background-color",
+          "a": "rgb(10, 20, 30)",
+          "b": "rgb(10, 20, 31)"
+        },
+        {
+          "path": ":scope > :nth-child(2)",
+          "property": "width",
+          "a": "10px",
+          "b": "12px"
+        },
+        {
+          "path": ":scope > :nth-child(10)",
+          "property": "width",
+          "a": "4px",
+          "b": "5px"
+        },
+        {
+          "path": ":scope > :nth-child(1) > :nth-child(1)",
+          "property": "border-top-color",
+          "a": "rgb(0, 0, 0)",
+          "b": "rgb(255, 0, 0)"
+        }
+      ],
+      "animations": {
+        "onlyA": [
+          {
+            "type": "CSSTransition",
+            "name": "opacity",
+            "target": ":scope",
+            "duration": 150,
+            "delay": 0,
+            "easing": "ease",
+            "iterations": 1
+          }
+        ],
+        "onlyB": [
+          {
+            "type": "CSSTransition",
+            "name": "transform",
+            "target": ":scope",
+            "duration": 150,
+            "delay": 0,
+            "easing": "ease",
+            "iterations": 1
+          }
+        ],
+        "changed": [
+          {
+            "summary": {
+              "type": "CSSAnimation",
+              "name": "pulse",
+              "target": ":scope > :nth-child(2)",
+              "duration": 300,
+              "delay": 0,
+              "easing": "ease-out",
+              "iterations": 1
+            },
+            "field": "duration",
+            "a": 300,
+            "b": 450
+          }
+        ]
+      }
+    },
+    {
+      "name": "open",
+      "score": 0.880952,
+      "missing": null,
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": [
+          60,
+          30
+        ]
+      },
+      "pixels": {
+        "mismatch": 0.0,
+        "meanDelta": 0.0
+      },
+      "frames": [],
+      "styles": [],
+      "animations": {
+        "onlyA": [],
+        "onlyB": [],
+        "changed": []
+      }
+    },
+    {
+      "name": "closed",
+      "score": 0.0,
+      "missing": "b",
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": null
+      },
+      "pixels": null,
+      "frames": [],
+      "styles": [],
+      "animations": {
+        "onlyA": [],
+        "onlyB": [],
+        "changed": []
+      }
+    }
+  ]
+}

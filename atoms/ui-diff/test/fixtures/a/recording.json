@@ -1,0 +1,121 @@
+{
+  "source": "file:///fixtures/a.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/a",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "animations": []
+    },
+    {
+      "name": "hover",
+      "screenshot": "01-hover.png",
+      "frames": [
+        "01-hover-f000.png",
+        "01-hover-f001.png",
+        "01-hover-f002.png",
+        "01-hover-f003.png"
+      ],
+      "dom": "01-hover.dom.html",
+      "styles": "01-hover.styles.json",
+      "animations": [
+        {
+          "target": ":scope > :nth-child(2)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "pulse",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "ease-out",
+              "opacity": "0"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "opacity": "1"
+            }
+          ],
+          "duration": 300,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope > :nth-child(2)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "pulse",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "ease-out",
+              "opacity": "0"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "opacity": "0.5"
+            }
+          ],
+          "duration": 300,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope",
+          "pseudoElement": null,
+          "type": "CSSTransition",
+          "name": "opacity",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "linear",
+              "opacity": "0"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "opacity": "1"
+            }
+          ],
+          "duration": 150,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "ease",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        }
+      ]
+    },
+    {
+      "name": "open",
+      "screenshot": "02-open.png",
+      "frames": [],
+      "dom": "02-open.dom.html",
+      "styles": "02-open.styles.json",
+      "animations": []
+    },
+    {
+      "name": "closed",
+      "screenshot": "03-closed.png",
+      "frames": [],
+      "dom": "03-closed.dom.html",
+      "styles": "03-closed.styles.json",
+      "animations": []
+    }
+  ],
+  "cacheHit": false
+}

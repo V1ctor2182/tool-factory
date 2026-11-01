@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-diff.schema.json",
+  "title": "UI diff",
+  "description": "How close recording b is to recording a, two ui-recordings of the same steps file, and what differs in each state.",
+  "type": "object",
+  "properties": {
+    "a": { "type": "string", "description": "Absolute path of the reference recording.json." },
+    "b": { "type": "string", "description": "Absolute path of the recording.json judged against a." },
+    "tolerance": { "type": "integer", "minimum": 0, "maximum": 255, "description": "Largest per-channel difference that still counts as the same pixel." },
+    "score": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mean of the state scores. 1 means identical." },
+    "states": {
+      "type": "array",
+      "description": "a's states in order, then states only b has. States pair by name.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "missing": { "enum": ["a", "b", null], "description": "The recording that lacks this state. A missing state scores 0." },
+          "size": {
+            "type": "object",
+            "description": "Settled screenshot size in CSS pixels, [width, height], including ui-record's margin. Null for a missing side.",
+            "properties": { "a": { "$ref": "#/$defs/size" }, "b": { "$ref": "#/$defs/size" } },
+            "required": ["a", "b"],
+            "additionalProperties": false
+          },
+          "pixels": {
+            "type": ["object", "null"],
+            "description": "The settled screenshots compared on their overlap after top-left alignment. Null for a missing state.",
+            "properties": {
+              "mismatch": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of overlap pixels whose largest channel difference exceeds tolerance." },
+              "meanDelta": { "type": "number", "minimum": 0, "maximum": 255, "description": "Mean of the largest channel difference over the overlap, in levels from 0 to 255." }
+            },
+            "required": ["mismatch", "meanDelta"],
+            "additionalProperties": false
+          },
+          "frames": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": { "type": "integer", "minimum": 0 },
+                "mismatch": { "type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "Null when only one recording has this frame." }
+              },
+              "required": ["index", "mismatch"],
+              "additionalProperties": false
+            }
+          },
+          "styles": {
+            "type": "array",
+            "maxItems": 50,
+            "description": "Computed properties that differ after normalizing, on element paths both recordings have, root first.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "property": { "type": "string" },
+                "a": { "type": ["string", "null"] },
+                "b": { "type": ["string", "null"] }
+              },
+              "required": ["path", "property", "a", "b"],
+              "additionalProperties": false
+            }
+          },
+          "animations": {
+            "type": "object",
+            "description": "Animations matched by element path and name or property.",
+            "properties": {
+              "onlyA": { "type": "array", "items": { "$ref": "#/$defs/summary" } },
+              "onlyB": { "type": "array", "items": { "$ref": "#/$defs/summary" } },
+              "changed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "$ref": "#/$defs/summary" },
+                    "field": { "enum": ["type", "duration", "delay", "easing", "iterations"] },
+                    "a": {},
+                    "b": {}
+                  },
+                  "required": ["summary", "field", "a", "b"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["onlyA", "onlyB", "changed"],
+            "additionalProperties": false
+          },
+          "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side. Null for a missing state." }
+        },
+        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "image"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["a", "b", "tolerance", "score", "states", "cacheHit"],
+  "additionalProperties": false,
+  "$defs": {
+    "size": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "number", "minimum": 0 }, "minItems": 2, "maxItems": 2 },
+        { "type": "null" }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["CSSAnimation", "CSSTransition", "Animation"] },
+        "name": { "type": "string" },
+        "target": { "type": "string", "description": "Element path, with the pseudo-element appended when there is one." },
+        "duration": { "type": "number" },
+        "delay": { "type": "number" },
+        "easing": { "type": "string", "description": "The animation's easing, or the keyframes' shared easing when the animation's own reads linear." },
+        "iterations": { "oneOf": [{ "type": "number" }, { "const": "infinite" }] }
+      },
+      "required": ["type", "name", "target", "duration", "delay", "easing", "iterations"],
+      "additionalProperties": false
+    }
+  }
+}
