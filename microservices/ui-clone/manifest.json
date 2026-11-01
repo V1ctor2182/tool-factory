@@ -7,7 +7,7 @@
   "runtime": "uv",
   "entry": "run",
   "contract": "ui-clone-report",
-  "uses": ["ui-catalog", "ui-source"],
+  "uses": ["ui-catalog", "ui-source", "ui-record", "ui-diff"],
   "verbs": [
     {
       "name": "collect",
@@ -24,6 +24,20 @@
         "required": ["site", "into"]
       },
       "output": "ui-clone-report"
+    },
+    {
+      "name": "judge",
+      "description": "Score a rebuilt component against its original. Records the original page and the rebuild's preview URL with the same ui-record steps file, then compares the two with ui-diff. Makes no model call.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "steps": { "type": "string", "description": "A ui-record steps file, as contracts/ui-steps.schema.json defines it. Its url is the original page." },
+          "rebuild": { "type": "string", "x-flag": true, "description": "URL of the rebuild in the victor-ui preview, such as http://localhost:5173/input-otp-rebuild." },
+          "original": { "type": "string", "description": "recording.json of an earlier ui-record capture of the original, to skip recording it again." }
+        },
+        "required": ["steps", "rebuild"]
+      },
+      "output": "ui-diff"
     }
   ],
   "needs": { "bin": ["node"], "secrets": [], "paid": [] },

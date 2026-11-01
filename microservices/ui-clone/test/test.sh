@@ -34,10 +34,18 @@ case "$name $1" in
 	paid-block) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: false, item: {name: $n, files: []}, cacheHit: false}' ;;
 	*) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: true, item: {name: $n, type: "registry:ui", files: [{path: "\($n).tsx", content: "export {}"}]}, cacheHit: false}' ;;
 	esac ;;
+"ui-record capture")
+	case "$*" in
+	*--url\ http://localhost:5173/missing*) echo '{"error":{"code":"invalid_source","message":"stub selector not found"}}'; exit 1 ;;
+	*--url*) echo '{"dir":"/stub/rebuild"}' ;;
+	*) echo '{"dir":"/stub/original"}' ;;
+	esac ;;
+"ui-diff compare")
+	jq -cn --arg a "$2" --arg b "$3" '{a: $a, b: $b, tolerance: 24, score: 0.95, states: [{name: "idle", score: 0.95}], cacheHit: false}' ;;
 *) echo '{"error":{"code":"internal","message":"stub refused"}}'; exit 1 ;;
 esac
 STUB
-for name in ui-catalog ui-source; do
+for name in ui-catalog ui-source ui-record ui-diff; do
 	mkdir -p "$fake/atoms/$name/bin"
 	cp "$work/stub" "$fake/atoms/$name/bin/$name"
 	chmod +x "$fake/atoms/$name/bin/$name"
@@ -122,5 +130,20 @@ if call collect nowhere --into "$ui" --json; then fail "an unknown site key exit
 
 call collect kobra --into "$ui" --dry-run || fail "text collect failed"
 [ "$(tail -n 1 "$out/stdout")" = "kobra: 2 kept, 2 locked, 1 skipped, 1 failed (dry run)" ] || fail "text collect ended with $(tail -n 1 "$out/stdout")"
+
+steps="$work/steps.json"
+echo '{"url":"https://stub.test/components/x","states":[{"name":"idle","actions":[]}]}' > "$steps"
+call judge "$steps" --rebuild http://localhost:5173/x --json || fail "judge exited nonzero: $(cat "$out/stderr")"
+[ "$(jq -c '[.a, .b, .score]' "$out/stdout")" = '["/stub/original/recording.json","/stub/rebuild/recording.json",0.95]' ] \
+	|| fail "judge did not pass ui-diff's result through: $(cat "$out/stdout")"
+[ "$(cut -d' ' -f1-3 "$STUB_LOG" | tr '\n' '|')" = "ui-record capture $steps|ui-record capture $steps|ui-diff compare /stub/original/recording.json|" ] \
+	|| fail "judge did not record the original, then the rebuild, then compare: $(cat "$STUB_LOG")"
+call judge "$steps" --rebuild http://localhost:5173/x --original /kept/recording.json --json || fail "judge --original exited nonzero"
+[ "$(ran 'ui-record capture')" = 1 ] || fail "judge --original recorded the original again: $(cat "$STUB_LOG")"
+[ "$(jq -r .a "$out/stdout")" = /kept/recording.json ] || fail "judge --original did not compare against the kept recording"
+call judge "$steps" --rebuild http://localhost:5173/x --original /kept/recording.json || fail "judge text mode exited nonzero"
+[ "$(cat "$out/stdout")" = "$(printf 'idle  0.9500\nscore 0.9500')" ] || fail "judge text output is $(cat "$out/stdout")"
+if call judge "$steps" --rebuild http://localhost:5173/missing --original /kept/recording.json --json; then fail "a failed rebuild recording exited 0"; fi
+[ "$(jq -r .error.code "$out/stdout")" = invalid_source ] || fail "a failed rebuild recording did not pass its error through"
 
 echo "PASS ui-clone"

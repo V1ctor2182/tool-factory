@@ -135,7 +135,26 @@ def text_of(report: dict) -> str:
     return "\n".join([*lines, f"{report['site']}: {counts or 'no components'}{' (dry run)' if report['dryRun'] else ''}"])
 
 
-RUN = {"collect": collect}
+def recording_of(steps: str, url: str | None) -> str:
+    log(f"ui-record capture {steps}{f' --url {url}' if url else ''}")
+    recording = atom("ui-record", "capture", steps, *(["--url", url] if url else []))
+    return str(Path(recording["dir"]) / "recording.json")
+
+
+def judge(args) -> dict:
+    original = args.original or recording_of(args.steps, None)
+    rebuild = recording_of(args.steps, args.rebuild)
+    log(f"ui-diff compare {original} {rebuild}")
+    return atom("ui-diff", "compare", original, rebuild)
+
+
+def text_of_diff(diff: dict) -> str:
+    width = max((len(state["name"]) for state in diff["states"]), default=0)
+    lines = [f"{state['name']:<{width}}  {state['score']:.4f}" for state in diff["states"]]
+    return "\n".join([*lines, f"score {diff['score']:.4f}"])
+
+
+RUN = {"collect": (collect, text_of), "judge": (judge, text_of_diff)}
 
 
 class Parser(argparse.ArgumentParser):
@@ -176,8 +195,9 @@ def main() -> int:
     as_json = "--json" in sys.argv[1:]
     try:
         args = parser().parse_args(verb_args(sys.argv[1:]))
-        report = RUN[args.verb](args)
-        print(json.dumps(report, ensure_ascii=False) if as_json else text_of(report))
+        run, text = RUN[args.verb]
+        report = run(args)
+        print(json.dumps(report, ensure_ascii=False) if as_json else text(report))
         return 0
     except AtomFailed as e:
         error = e.error

@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["factory/bin/factory.mjs", "dashboard", "--port", "4100"],
       "port": 4100
+    },
+    {
+      "name": "victor-ui-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/victor/victor/victor-ui", "run", "preview:dev", "--", "--port", "5173", "--strictPort"],
+      "port": 5173
     }
   ]
 }

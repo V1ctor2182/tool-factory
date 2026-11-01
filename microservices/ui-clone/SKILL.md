@@ -1,6 +1,6 @@
 ---
 name: ui-clone
-description: Copy a site's UI components into Victor's private shadcn registry, victor-ui. Use when Victor wants the components of kobra.systems, rareui.com, ui.aceternity.com, or another site with a shadcn registry. Keeps the components whose code the site exposes and whose terms allow keeping, and lists the locked ones.
+description: Copy a site's UI components into Victor's private shadcn registry, victor-ui. Use when Victor wants the components of kobra.systems, rareui.com, ui.aceternity.com, or another site with a shadcn registry. Keeps the components whose code the site exposes and whose terms allow keeping, lists the locked ones, and scores a rebuild of a locked one against its original.
 allowed-tools: Bash(*ui-clone/run *)
 ---
 
@@ -21,12 +21,29 @@ With `--json` it prints one report, as `contracts/ui-clone-report.schema.json` d
 | Outcome | Meaning | Next step |
 |---|---|---|
 | `kept` | The code is in victor-ui, with the site's terms as `meta.license`. `detail` is what `add.mjs` printed, `added` or `updated` | Nothing |
-| `locked` | The site does not expose the code. Its files are empty, or it answered HTTP 401, as Kobra does for Pro items | Input for the browser path, which rebuilds the component from the rendered page |
+| `locked` | The site does not expose the code. Its files are empty, or it answered HTTP 401, as Kobra does for Pro items | Rebuild it, as the next section describes |
 | `skipped` | Not a `registry:ui`, `registry:block`, or `registry:component` item, such as a `registry:lib` helper | Nothing. A kept component that needs it lists it in its dependencies |
 | `needs-terms` | `sites.json` has no written terms for this site, or its terms forbid keeping code. Nothing was fetched | Read the site's license, then add an entry to `sites.json` with `keepCode` and `terms` |
 | `failed` | Any other error. `detail` holds the error code and message | Report it. Retry on `network_error` |
 
-The browser path does not exist yet. Until it does, report the `locked` names to Victor rather than rebuilding them by hand.
+## Rebuild a locked component
+
+A `locked` component is rebuilt from how it looks and behaves, never from its code. Do not read the site's source for it: not its registry item, not a code viewer on its page, not its JS bundles. The rendered page, its DOM, and ui-record's recordings are fair to read.
+
+1. Open the component's page and write a ui-record steps file for it, as `contracts/ui-steps.schema.json` defines it. Name each state a user reaches, such as idle, hover, focus, typed, error, and success. Add `frames` to a state that animates. Pick a `target` selector that also exists on the rebuild's demo.
+2. In victor-ui, add the rebuild as a registry item with `meta.method` set to `rebuild`, plus a demo in `preview/demos/<name>.tsx` that copies the original page's surroundings. Start the preview with `npm run preview:dev`.
+3. Score it, then fix the largest difference and score again:
+
+```sh
+<this skill's folder>/run judge steps.json --rebuild http://localhost:5173/<name> --json
+<this skill's folder>/run judge steps.json --rebuild http://localhost:5173/<name> --original <earlier recording.json> --json
+```
+
+`judge` records the original with the steps file and the rebuild at `--rebuild` with the same steps, then prints ui-diff's result, as `contracts/ui-diff.schema.json` defines it. `--original` reuses an earlier recording of the original. Read each state's `styles`, `animations`, and `image` to find what differs.
+
+Stop at a score of 0.94 or after five rounds. Measured on Kobra's input-otp on 2026-11-01: Kobra's own code in the preview scores 0.960, because the preview lacks Kobra's licensed font, and a rebuild from observation scored 0.963 after two rounds. A site whose font the preview has can reach higher.
+
+Main-thread motion, such as motion's `x` springs, never shows up in `animations`. Neither does a state that lasts only between two frames. Watch the page yourself for those.
 
 On failure before any component is fetched, the script exits 1. With `--json` it prints `{"error": {"code", "message"}}`, otherwise the code and message go to stderr.
 

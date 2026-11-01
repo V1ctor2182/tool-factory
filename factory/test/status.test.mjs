@@ -63,7 +63,7 @@ after(() => rmSync(root, { recursive: true, force: true }));
 const row = (name) => [...model.microservices, ...model.atoms].find((r) => r.name === name);
 
 test('microservices come first, the microservice with the most atoms leading', () => {
-  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'podcast', 'clipper', 'meeting-notes', 'ui-clone', 'writing-style']);
+  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'podcast', 'ui-clone', 'clipper', 'meeting-notes', 'writing-style']);
   assert.deepEqual(row('youtube').uses, ['find-url', 'captions', 'download', 'transcribe', 'frames', 'see', 'digest']);
 });
 
@@ -77,8 +77,8 @@ test('each atom lists the microservices whose uses name it', () => {
     see: ['youtube', 'clipper'],
     transcribe: ['youtube', 'podcast', 'meeting-notes'],
     'ui-catalog': ['ui-clone'],
-    'ui-diff': [],
-    'ui-record': [],
+    'ui-diff': ['ui-clone'],
+    'ui-record': ['ui-clone'],
     'ui-source': ['ui-clone'],
   });
 });
