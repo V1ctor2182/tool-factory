@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-clone-report.schema.json",
+  "title": "UI clone report",
+  "description": "What happened to each component of one site's shadcn registry when ui-clone collected it into victor-ui, in the registry's order.",
+  "type": "object",
+  "properties": {
+    "site": { "type": "string", "description": "The sites.json key, or the URL's host when the site has no entry." },
+    "into": { "type": "string", "description": "Absolute path of the victor-ui repo." },
+    "dryRun": { "type": "boolean", "description": "True when nothing was written. Outcomes are still decided, so kept means it would be kept." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "itemUrl": { "type": "string" },
+          "outcome": {
+            "enum": ["kept", "locked", "skipped", "needs-terms", "failed"],
+            "description": "kept: code written into victor-ui. locked: the site does not expose the code, as empty files or HTTP 401. skipped: a registry type other than registry:ui or registry:block. needs-terms: no written terms allow keeping code from this site. failed: any other error."
+          },
+          "detail": { "type": ["string", "null"], "description": "What add.mjs printed, why it is locked or skipped, or the error code and message." }
+        },
+        "required": ["name", "itemUrl", "outcome", "detail"],
+        "additionalProperties": false
+      }
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "kept": { "type": "integer", "minimum": 0 },
+        "locked": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "needs-terms": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["kept", "locked", "skipped", "needs-terms", "failed"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["site", "into", "dryRun", "items", "counts"],
+  "additionalProperties": false
+}

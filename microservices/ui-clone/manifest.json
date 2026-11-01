@@ -1,0 +1,31 @@
+{
+  "name": "ui-clone",
+  "type": "microservice",
+  "kind": "pipeline",
+  "description": "Copy a site's UI components into Victor's private shadcn registry. Keeps each component whose code the site exposes and whose written terms allow keeping, and reports the rest as locked so a browser can rebuild them later.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "run",
+  "contract": "ui-clone-report",
+  "uses": ["ui-catalog", "ui-source"],
+  "verbs": [
+    {
+      "name": "collect",
+      "description": "List a site's shadcn registry, fetch each component one after another, and write the exposed ones into the victor-ui repo with the site's terms as their license. Rerunning updates the same components. Makes no model call.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "site": { "type": "string", "description": "A site key from sites.json, such as kobra, or a site URL. A URL whose host matches a key uses that key's entry. Any other URL runs without terms, so nothing is kept." },
+          "into": { "type": "string", "x-flag": true, "description": "Path of the victor-ui repo. It must hold scripts/add.mjs." },
+          "limit": { "type": "integer", "description": "Take only the first this many components, in the registry's order." },
+          "only": { "type": "string", "description": "Comma-separated component names to take, such as input-otp,button." },
+          "dryRun": { "type": "boolean", "description": "Fetch and decide every outcome, but write nothing into victor-ui." }
+        },
+        "required": ["site", "into"]
+      },
+      "output": "ui-clone-report"
+    }
+  ],
+  "needs": { "bin": ["node"], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
