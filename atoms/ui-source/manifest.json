@@ -1,0 +1,38 @@
+{
+  "name": "ui-source",
+  "type": "atom",
+  "kind": "observe",
+  "description": "One component's shadcn registry item, with its source files when the site exposes them. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/ui-source",
+  "contract": "ui-source",
+  "verbs": [
+    {
+      "name": "registry",
+      "description": "Fetch one registry item URL, as ui-catalog lists it. Prints the item's file paths, one per line, or the item with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Registry item URL, such as https://kobra.systems/r/input-otp.json." }
+        },
+        "required": ["url"]
+      },
+      "output": "ui-source"
+    },
+    {
+      "name": "parse",
+      "description": "Registry item from a file already on disk.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "A shadcn registry item JSON file." }
+        },
+        "required": ["path"]
+      },
+      "output": "ui-source"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

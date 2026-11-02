@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-steps.schema.json",
+  "title": "UI steps",
+  "description": "A script of states to drive one component page through. Each state's actions run after the previous state's, like one user session, so the same script recorded against an original and a rebuild yields comparable states.",
+  "type": "object",
+  "properties": {
+    "url": { "type": "string", "pattern": "^(https?|file)://", "description": "The page that shows the component." },
+    "target": { "type": "string", "minLength": 1, "default": "body", "description": "CSS selector of the component root. Screenshots, DOM, and styles cover this element." },
+    "viewport": {
+      "type": "object",
+      "default": { "width": 1280, "height": 800 },
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["width", "height"],
+      "additionalProperties": false
+    },
+    "colorScheme": { "enum": ["light", "dark"], "default": "dark" },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+          "frames": {
+            "type": "object",
+            "description": "Take a screenshot every everyMs of page time for forMs after the actions. Frame i is at exactly i * everyMs.",
+            "properties": {
+              "everyMs": { "type": "integer", "minimum": 1 },
+              "forMs": { "type": "integer", "minimum": 1 }
+            },
+            "required": ["everyMs", "forMs"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["name", "actions"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["url", "states"],
+  "additionalProperties": false,
+  "$defs": {
+    "action": {
+      "type": "object",
+      "properties": {
+        "do": { "enum": ["hover", "click", "focus", "type", "press", "paste", "wait", "scroll"] },
+        "selector": { "type": "string", "minLength": 1, "description": "CSS selector. type, press, and paste act on the focused element when it is absent." },
+        "text": { "type": "string" },
+        "key": { "type": "string", "minLength": 1, "description": "A Playwright key name, such as Enter or Backspace." },
+        "ms": { "type": "integer", "minimum": 0, "description": "Page time to advance. The page clock and animations move, real time does not matter." }
+      },
+      "required": ["do"],
+      "additionalProperties": false,
+      "allOf": [
+        { "if": { "properties": { "do": { "enum": ["hover", "click", "focus", "scroll"] } } }, "then": { "required": ["selector"] } },
+        { "if": { "properties": { "do": { "enum": ["type", "paste"] } } }, "then": { "required": ["text"] } },
+        { "if": { "properties": { "do": { "const": "press" } } }, "then": { "required": ["key"] } },
+        { "if": { "properties": { "do": { "const": "wait" } } }, "then": { "required": ["ms"] } }
+      ]
+    }
+  }
+}

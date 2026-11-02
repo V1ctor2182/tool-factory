@@ -1,0 +1,23 @@
+{
+  "kobra": {
+    "url": "https://kobra.systems",
+    "keepCode": true,
+    "terms": "Kobra free tier: free components to take and keep, no account needed (kobra.systems/pricing)",
+    "theme": {
+      "--ease-out": "cubic-bezier(0.23, 1, 0.32, 1)",
+      "--ease-in-out": "cubic-bezier(0.77, 0, 0.175, 1)"
+    }
+  },
+  "rareui": {
+    "url": "https://www.rareui.com",
+    "keepCode": true,
+    "terms": "MIT + Commons Clause + Attribution (github.com/swamimalode07/rare-ui LICENSE): use and modify, do not sell; keep attribution"
+  },
+  "aceternity": {
+    "url": "https://ui.aceternity.com",
+    "index": "https://ui.aceternity.com/registry.json",
+    "base": "https://ui.aceternity.com/registry/",
+    "keepCode": true,
+    "terms": "Aceternity licence: use in your own end products; never redistribute source (ui.aceternity.com/licence). victor-ui stays private."
+  }
+}

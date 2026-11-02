@@ -9,10 +9,10 @@ from urllib.parse import urlparse
 
 import yt_dlp
 from yt_dlp.extractor import gen_extractor_classes
-from yt_dlp.networking.exceptions import TransportError
 
 from factory_kit import cli, paths
 from factory_kit.cache import Cache
+from factory_kit.ytdlp import atom_error
 
 # Single-file formats only, so no download needs ffmpeg to merge streams.
 FORMATS = {"audio": "bestaudio[ext=m4a]/bestaudio/best", "video": "best[ext=mp4]/best"}
@@ -24,27 +24,6 @@ def _offline_key(url: str) -> str | None:
             video_id = ie.get_temp_id(url)
             return f"{ie.ie_key()}-{video_id}" if video_id else None
     return None
-
-
-def _next_cause(e: BaseException) -> BaseException | None:
-    if cause := getattr(e, "cause", None):
-        return cause
-    if exc_info := getattr(e, "exc_info", None):
-        return exc_info[1]
-    return e.__context__
-
-
-def _atom_error(e: Exception) -> cli.AtomError:
-    seen, cause = set(), e
-    while cause is not None and id(cause) not in seen:
-        if isinstance(cause, TransportError):
-            return cli.AtomError("network_error", str(cause))
-        seen.add(id(cause))
-        cause = _next_cause(cause)
-    message = str(e).removeprefix("ERROR: ")
-    if "Unsupported URL" in message:
-        return cli.AtomError("invalid_source", message)
-    return cli.AtomError("unavailable", message)
 
 
 def _intact(media: dict) -> bool:
@@ -90,7 +69,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
                 return media
             info = ydl.process_ie_result(info, download=True)
     except yt_dlp.utils.YoutubeDLError as e:
-        raise _atom_error(e) from None
+        raise atom_error(e) from None
     path = info["requested_downloads"][0]["filepath"]
     media = {
         "source": url,

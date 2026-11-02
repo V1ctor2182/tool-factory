@@ -10,11 +10,11 @@ from urllib.parse import urlparse
 
 import yt_dlp
 from yt_dlp.extractor import gen_extractor_classes
-from yt_dlp.networking.exceptions import TransportError
 
 from factory_kit import cli, paths
 from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
+from factory_kit.ytdlp import atom_error
 
 
 def _offline_key(url: str) -> str | None:
@@ -23,27 +23,6 @@ def _offline_key(url: str) -> str | None:
             video_id = ie.get_temp_id(url)
             return f"{ie.ie_key()}-{video_id}" if video_id else None
     return None
-
-
-def _next_cause(e: BaseException) -> BaseException | None:
-    if cause := getattr(e, "cause", None):
-        return cause
-    if exc_info := getattr(e, "exc_info", None):
-        return exc_info[1]
-    return e.__context__
-
-
-def _atom_error(e: Exception) -> cli.AtomError:
-    seen, cause = set(), e
-    while cause is not None and id(cause) not in seen:
-        if isinstance(cause, TransportError):
-            return cli.AtomError("network_error", str(cause))
-        seen.add(id(cause))
-        cause = _next_cause(cause)
-    message = str(e).removeprefix("ERROR: ")
-    if "Unsupported URL" in message:
-        return cli.AtomError("invalid_source", message)
-    return cli.AtomError("unavailable", message)
 
 
 def _json3_url(info: dict, lang: str) -> str | None:
@@ -109,7 +88,7 @@ def get(url: str, lang: str) -> dict:
                 raise cli.AtomError("no_captions", f"No {lang} captions for {url}")
             transcript = _transcript(url, lang, json.loads(ydl.urlopen(track).read()))
     except yt_dlp.utils.YoutubeDLError as e:
-        raise _atom_error(e) from None
+        raise atom_error(e) from None
     cache.put(f"{key}-{lang}", transcript)
     return transcript
 

@@ -1,0 +1,175 @@
+{
+  "source": "file:///fixtures/b.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/b",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
+      "animations": []
+    },
+    {
+      "name": "hover",
+      "screenshot": "01-hover.png",
+      "frames": [
+        "01-hover-f000.png",
+        "01-hover-f001.png",
+        "01-hover-f002.png"
+      ],
+      "dom": "01-hover.dom.html",
+      "styles": "01-hover.styles.json",
+      "motion": "01-hover.motion.json",
+      "animations": [
+        {
+          "target": ":scope > :nth-child(2)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "pulse",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "ease-out",
+              "composite": "auto",
+              "opacity": "0"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "opacity": "1"
+            }
+          ],
+          "duration": 300,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope > :nth-child(2)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "pulse",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "ease-out",
+              "composite": "auto",
+              "opacity": "0"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "opacity": "0.5"
+            }
+          ],
+          "duration": 450,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope",
+          "pseudoElement": null,
+          "type": "CSSTransition",
+          "name": "transform",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "linear",
+              "composite": "auto",
+              "transform": "translateX(0px)"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "transform": "translateX(10px)"
+            }
+          ],
+          "duration": 150,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "ease",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope > :nth-child(3)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "otpr-slide",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "linear",
+              "composite": "auto",
+              "transform": "translateX(0px)"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "transform": "translateX(10px)"
+            }
+          ],
+          "duration": 200,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope > :nth-child(4)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "fade-in",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "linear",
+              "composite": "auto",
+              "opacity": "0.2"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "opacity": "1"
+            }
+          ],
+          "duration": 200,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        }
+      ]
+    },
+    {
+      "name": "open",
+      "screenshot": "02-open.png",
+      "frames": [],
+      "dom": "02-open.dom.html",
+      "styles": "02-open.styles.json",
+      "motion": "02-open.motion.json",
+      "animations": []
+    }
+  ],
+  "cacheHit": false
+}

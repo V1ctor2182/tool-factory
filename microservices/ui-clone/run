@@ -1,0 +1,218 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import traceback
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parent
+ATOMS = ROOT.parent.parent / "atoms"
+MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+SITES = json.loads((ROOT / "sites.json").read_text(encoding="utf-8"))
+OUTCOMES = ("kept", "locked", "skipped", "needs-terms", "failed")
+CODE_TYPES = ("registry:ui", "registry:block", "registry:component")
+ENV = {**os.environ, "TOOL_FACTORY_CALLER": "ui-clone"}
+
+
+class AtomFailed(Exception):
+    def __init__(self, error: dict):
+        super().__init__(error["message"])
+        self.error = error
+
+
+@dataclass(frozen=True)
+class Site:
+    id: str
+    url: str
+    index: str | None
+    base: str | None
+    keep_code: bool
+    terms: str | None
+    theme: dict
+
+
+def log(message: str) -> None:
+    print(f"ui-clone: {message}", file=sys.stderr, flush=True)
+
+
+def atom(name: str, *args: str) -> dict:
+    done = subprocess.run([str(ATOMS / name / "bin" / name), *args, "--json"], stdout=subprocess.PIPE, text=True, env=ENV)
+    try:
+        result = json.loads(done.stdout)
+    except ValueError:
+        result = None
+    if isinstance(result, dict) and isinstance(result.get("error"), dict):
+        raise AtomFailed(result["error"])
+    if done.returncode or not isinstance(result, dict):
+        wanted = "an error" if done.returncode else "a result"
+        raise AtomFailed({"code": "internal", "message": f"{name} exited {done.returncode} without {wanted} object on stdout"})
+    return result
+
+
+def host_of(url: str) -> str:
+    return (urlparse(url).hostname or "").removeprefix("www.")
+
+
+def site_of(text: str) -> Site:
+    if text in SITES:
+        key = text
+    elif re.match(r"^https?://", text):
+        key = next((k for k, s in SITES.items() if host_of(s["url"]) == host_of(text)), None)
+        if key is None:
+            return Site(host_of(text), text, None, None, False, None, {})
+    else:
+        raise AtomFailed({"code": "invalid_args", "message": f"{text} is neither a site in sites.json ({', '.join(SITES)}) nor an http or https URL"})
+    entry = SITES[key]
+    return Site(key, entry["url"], entry.get("index"), entry.get("base"), entry["keepCode"], entry["terms"], entry.get("theme", {}))
+
+
+def components_of(site: Site, only: str | None, limit: int | None) -> list[dict]:
+    args = ["registry", site.index or site.url, *(["--base", site.base] if site.base else [])]
+    log(f"ui-catalog {' '.join(args)}")
+    items = atom("ui-catalog", *args)["items"]
+    if only:
+        wanted = [name.strip() for name in only.split(",") if name.strip()]
+        missing = sorted(set(wanted) - {item["name"] for item in items})
+        if missing:
+            raise AtomFailed({"code": "invalid_args", "message": f"{site.id} lists no component named {', '.join(missing)}"})
+        items = [item for item in items if item["name"] in wanted]
+    return items if limit is None else items[:limit]
+
+
+def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str | None]:
+    if item["type"] not in CODE_TYPES:
+        return "skipped", f"type {item['type']}"
+    if not site.keep_code:
+        return "needs-terms", f"sites.json has no terms for {site.id}" if site.terms is None else f"the terms do not allow keeping code: {site.terms}"
+    try:
+        fetched = atom("ui-source", "registry", item["itemUrl"])
+    except AtomFailed as e:
+        return "failed", f"{e.error['code']}: {e.error['message']}"
+    if fetched["item"] is None:
+        return "locked", f"HTTP 401 from {item['itemUrl']}"
+    if not fetched["exposed"]:
+        return "locked", "the item's files carry no code"
+    if dry_run:
+        return "kept", "dry run, not written"
+    css_vars = fetched["item"].setdefault("cssVars", {})
+    css_vars["theme"] = {**site.theme, **css_vars.get("theme", {})}
+    added = subprocess.run(
+        ["node", str(into / "scripts" / "add.mjs"), "--license", site.terms],
+        input=json.dumps(fetched),
+        capture_output=True,
+        text=True,
+    )
+    if added.returncode:
+        return "failed", f"add.mjs exited {added.returncode}: {added.stderr.strip()}"
+    return "kept", added.stdout.strip()
+
+
+def collect(args) -> dict:
+    into = Path(args.into).expanduser().absolute()
+    if not (into / "scripts" / "add.mjs").is_file():
+        raise AtomFailed({"code": "invalid_args", "message": f"{into} has no scripts/add.mjs, so it is not a victor-ui repo"})
+    site = site_of(args.site)
+    items = components_of(site, args.only, args.limit)
+    rows = []
+    for n, item in enumerate(items, 1):
+        outcome, detail = by_code(site, item, into, args.dryRun)
+        log(f"{n}/{len(items)} {item['name']}: {outcome}{f' ({detail})' if detail else ''}")
+        rows.append({"name": item["name"], "itemUrl": item["itemUrl"], "outcome": outcome, "detail": detail})
+    counts = {outcome: sum(row["outcome"] == outcome for row in rows) for outcome in OUTCOMES}
+    return {"site": site.id, "into": str(into), "dryRun": args.dryRun, "items": rows, "counts": counts}
+
+
+def text_of(report: dict) -> str:
+    width = max((len(row["name"]) for row in report["items"]), default=0)
+    lines = [f"{row['outcome']:<11} {row['name']:<{width}}  {row['detail'] or ''}".rstrip() for row in report["items"]]
+    counts = ", ".join(f"{n} {outcome}" for outcome, n in report["counts"].items() if n)
+    return "\n".join([*lines, f"{report['site']}: {counts or 'no components'}{' (dry run)' if report['dryRun'] else ''}"])
+
+
+def recording_of(steps: str, url: str | None) -> str:
+    log(f"ui-record capture {steps}{f' --url {url}' if url else ''}")
+    recording = atom("ui-record", "capture", steps, *(["--url", url] if url else []))
+    return str(Path(recording["dir"]) / "recording.json")
+
+
+def judge(args) -> dict:
+    original = args.original or recording_of(args.steps, None)
+    rebuild = recording_of(args.steps, args.rebuild)
+    log(f"ui-diff compare {original} {rebuild}")
+    return atom("ui-diff", "compare", original, rebuild)
+
+
+def text_of_diff(diff: dict) -> str:
+    width = max((len(state["name"]) for state in diff["states"]), default=0)
+    lines = [f"{state['name']:<{width}}  {state['score']:.4f}" for state in diff["states"]]
+    return "\n".join([*lines, f"score {diff['score']:.4f}"])
+
+
+RUN = {"collect": (collect, text_of), "judge": (judge, text_of_diff)}
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise AtomFailed({"code": "invalid_args", "message": message})
+
+
+def flag_of(name: str) -> str:
+    return "--" + re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
+
+
+def parser() -> Parser:
+    p = Parser(prog=MANIFEST["name"], description=MANIFEST["description"], epilog="Without a verb, run <site> means collect <site>.")
+    verbs = p.add_subparsers(dest="verb", required=True, parser_class=Parser)
+    for verb in MANIFEST["verbs"]:
+        v = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
+        schema = verb["input"]
+        for name, prop in schema["properties"].items():
+            required = name in schema["required"]
+            if required and not prop.get("x-flag"):
+                v.add_argument(name, help=prop["description"])
+            elif prop["type"] == "boolean":
+                v.add_argument(flag_of(name), dest=name, action="store_true", help=prop["description"])
+            else:
+                kind = int if prop["type"] == "integer" else str
+                v.add_argument(flag_of(name), dest=name, type=kind, required=required, help=prop["description"])
+        v.add_argument("--json", action="store_true", help="Print one JSON object.")
+    return p
+
+
+def verb_args(argv: list[str]) -> list[str]:
+    if argv and argv[0] in (*RUN, "-h", "--help"):
+        return argv
+    return ["collect", *argv]
+
+
+def main() -> int:
+    as_json = "--json" in sys.argv[1:]
+    try:
+        args = parser().parse_args(verb_args(sys.argv[1:]))
+        run, text = RUN[args.verb]
+        report = run(args)
+        print(json.dumps(report, ensure_ascii=False) if as_json else text(report))
+        return 0
+    except AtomFailed as e:
+        error = e.error
+    except Exception as e:
+        traceback.print_exc()
+        error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+    if as_json:
+        print(json.dumps({"error": error}, ensure_ascii=False))
+    else:
+        print(f"ui-clone: {error['code']}: {error['message']}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

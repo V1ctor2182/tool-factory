@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "service",
   "title": "Service manifest",
-  "description": "The manifest.json of one tool or atom. The factory, MCP adapter, and dashboard read only this file.",
+  "description": "The manifest.json of one microservice or atom. The factory, MCP adapter, and dashboard read only this file.",
   "type": "object",
   "properties": {
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Same as the folder name." },
-    "type": { "enum": ["tool", "atom"] },
+    "type": { "enum": ["microservice", "atom"] },
     "kind": {
       "enum": ["pipeline", "skill", "transform", "model", "observe", "act"],
       "description": "The kinds table in ARCHITECTURE.md decides which kinds each type may take."
@@ -51,7 +51,7 @@
     {
       "if": { "properties": { "kind": { "const": "skill" } } },
       "then": {
-        "description": "A skill tool is SKILL.md and this manifest, with no CLI and no contract.",
+        "description": "A skill microservice is SKILL.md and this manifest, with no CLI and no contract.",
         "properties": { "uses": { "maxItems": 0 }, "adapters": { "items": { "const": "skill" } } },
         "allOf": [
           { "not": { "required": ["runtime"] } },

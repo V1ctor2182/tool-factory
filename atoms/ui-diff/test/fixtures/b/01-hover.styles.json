@@ -1,0 +1,26 @@
+{
+  ":scope": {
+    "margin-top": "0",
+    "color": "rgba(1, 2, 3, 1)",
+    "background-color": "rgb(10, 20, 31)",
+    "font-family": "Inter"
+  },
+  ":scope > :nth-child(1)": {
+    "width": "3px",
+    "font-family": "Inter"
+  },
+  ":scope > :nth-child(2)": {
+    "width": "12px",
+    "opacity": "1",
+    "font-family": "Inter"
+  },
+  ":scope > :nth-child(4)": {
+    "width": "8px"
+  },
+  ":scope > :nth-child(10)": {
+    "width": "5px"
+  },
+  ":scope > :nth-child(1) > :nth-child(1)": {
+    "border-top-color": "rgb(255, 0, 0)"
+  }
+}

@@ -24,6 +24,7 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `invalid_args` | A missing or unknown argument, or both `--audio` and `--video` | Pass one of them |
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site refused the video, for example a private or removed one | Report the message |
+| `rate_limited` | The site answered HTTP 429 | Retry later |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |
 
 A second call for the same video and kind returns the same path with `cacheHit` set to true, and downloads nothing. `bytes` records the file size. If the file is gone or its size changed, the next call downloads it again.

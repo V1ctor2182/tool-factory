@@ -18,7 +18,7 @@ TOOL_FACTORY_CALLER=digest-test "$bin" make --transcript "$fixture" --json > "$o
 	|| fail "make output does not match digest.schema.json"
 summary=$(jq -r .summary "$out/digest.json" | tr '[:upper:]' '[:lower:]')
 case "$summary" in *atoms*) ;; *) fail "summary does not mention atoms: $summary" ;; esac
-case "$summary" in *tools*) ;; *) fail "summary does not mention tools: $summary" ;; esac
+case "$summary" in *microservices*) ;; *) fail "summary does not mention microservices: $summary" ;; esac
 starts=$(jq -c --slurpfile t "$fixture" '[.chapters[].start] as $c | ($t[0].segments | map(.start | floor)) as $s | ($c == ($c | sort)) and all($c[]; . as $x | $s | index($x) != null)' "$out/digest.json")
 [ "$starts" = true ] || fail "chapter starts are out of order or match no segment start: $(jq -c '[.chapters[].start]' "$out/digest.json")"
 [ "$(jq -r .transcriptPath "$out/digest.json")" = "$fixture" ] || fail "transcriptPath is not the fixture path"
@@ -61,7 +61,7 @@ case "$STUB_REPLY" in
 	text) echo "Error: the session ended"; exit 1 ;;
 	no-cost) echo '{"type":"result","is_error":true,"result":"boom"}' ;;
 	cost) echo '{"type":"result","is_error":true,"total_cost_usd":0.02,"result":"boom"}' ;;
-	negative) echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":-5,"structured_output":{"summary":"Atoms and tools.","chapters":[{"start":0,"title":"Intro"}],"keyPoints":["Tools call atoms."]}}' ;;
+	negative) echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":-5,"structured_output":{"summary":"Atoms and microservices.","chapters":[{"start":0,"title":"Intro"}],"keyPoints":["Microservices call atoms."]}}' ;;
 esac
 STUB
 chmod +x "$stub/claude"

@@ -112,7 +112,7 @@ function references(entry, sources, found, entries) {
       return head === module || (head === folder && (next ? next === module : i.names.some((n) => n.name === module)));
     };
     const quoted = String.raw`(?<!\.get\(\s*|[\w\])]\[\s*)["']${other.name}["'](?!\s*:)`;
-    const named = entry.type === 'tool' ? quoted : String.raw`(?:\w\(\s*|/\s*)${quoted}|${quoted}\s*/`;
+    const named = entry.type === 'microservice' ? quoted : String.raw`(?:\w\(\s*|/\s*)${quoted}|${quoted}\s*/`;
     return [
       ...found.filter(imported).map(({ at }) => ({ at, other, how: 'imports' })),
       ...scan(sources, new RegExp(`(?:^|[^\\w-])(?:${folder}/|(?:\\.\\./)+)${other.name}/src`)).map(({ at }) => ({ at, other, how: 'imports' })),
@@ -152,45 +152,45 @@ export const RULES = [
         : f.references.map(({ at, other, how }) => `${at}: atom ${atom.name} ${how} ${other.type} ${other.name}. Atoms import the kit, never each other.`),
   },
   {
-    id: 'tools-call-only-uses',
-    check(tool, f, { entries, root }) {
-      if (tool.type !== 'tool') return [];
-      const uses = tool.manifest.uses ?? [];
+    id: 'microservices-call-only-uses',
+    check(microservice, f, { entries, root }) {
+      if (microservice.type !== 'microservice') return [];
+      const uses = microservice.manifest.uses ?? [];
       return [
         ...uses
           .filter((name) => entries.get(name)?.type !== 'atom' && !existsSync(join(root, 'atoms', name, 'manifest.json')))
-          .map((name) => `${tool.rel}/manifest.json: tool ${tool.name} uses ${name}, which is not an atom.`),
+          .map((name) => `${microservice.rel}/manifest.json: microservice ${microservice.name} uses ${name}, which is not an atom.`),
         ...f.references
           .filter(({ other, how }) => how === 'imports' || !uses.includes(other.name))
           .map(({ at, other, how }) =>
             how === 'imports'
-              ? `${at}: tool ${tool.name} imports the code of ${other.type} ${other.name}. Tools call atom CLIs.`
-              : `${at}: tool ${tool.name} calls ${other.type} ${other.name}, which its uses does not list.`,
+              ? `${at}: microservice ${microservice.name} imports the code of ${other.type} ${other.name}. Microservices call atom CLIs.`
+              : `${at}: microservice ${microservice.name} calls ${other.type} ${other.name}, which its uses does not list.`,
           ),
-        ...f.kitImports.map(({ at }) => `${at}: tool ${tool.name} imports the kit. Tools call atom CLIs.`),
+        ...f.kitImports.map(({ at }) => `${at}: microservice ${microservice.name} imports the kit. Microservices call atom CLIs.`),
       ];
     },
   },
   {
     id: 'act-atoms-skill-only',
-    check: (tool, f, { entries }) =>
-      tool.type !== 'tool' || tool.kind !== 'pipeline'
+    check: (microservice, f, { entries }) =>
+      microservice.type !== 'microservice' || microservice.kind !== 'pipeline'
         ? []
-        : (tool.manifest.uses ?? [])
+        : (microservice.manifest.uses ?? [])
             .filter((name) => entries.get(name)?.kind === 'act')
             .map(
               (name) =>
-                `${tool.rel}/manifest.json: tool ${tool.name} is a pipeline tool, but it uses ${name}, an act atom. Only the agent decides what an act atom does, so a tool that acts is a skill tool.`,
+                `${microservice.rel}/manifest.json: microservice ${microservice.name} is a pipeline microservice, but it uses ${name}, an act atom. Only the agent decides what an act atom does, so a microservice that acts is a skill microservice.`,
             ),
   },
   {
-    id: 'tool-kind-shape',
-    check(tool, f, { root }) {
-      if (tool.type !== 'tool') return [];
-      const skillMd = existsSync(join(tool.dir, 'SKILL.md')) ? [] : [`${tool.rel}: ${describe(tool)}, but it has no SKILL.md.`];
-      if (tool.kind !== 'skill') return skillMd;
-      const extra = walk(tool.dir, (name) => name.startsWith('.')).filter((path) => !path.endsWith('.md') && path !== join(tool.dir, 'manifest.json'));
-      return [...skillMd, ...extra.map((path) => `${relative(root, path)}: ${describe(tool)}, which holds only manifest.json, SKILL.md, and Markdown.`)];
+    id: 'microservice-kind-shape',
+    check(microservice, f, { root }) {
+      if (microservice.type !== 'microservice') return [];
+      const skillMd = existsSync(join(microservice.dir, 'SKILL.md')) ? [] : [`${microservice.rel}: ${describe(microservice)}, but it has no SKILL.md.`];
+      if (microservice.kind !== 'skill') return skillMd;
+      const extra = walk(microservice.dir, (name) => name.startsWith('.')).filter((path) => !path.endsWith('.md') && path !== join(microservice.dir, 'manifest.json'));
+      return [...skillMd, ...extra.map((path) => `${relative(root, path)}: ${describe(microservice)}, which holds only manifest.json, SKILL.md, and Markdown.`)];
     },
   },
   {

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "sample-map",
+  "type": "registry:ui",
+  "title": "Sample Map",
+  "description": "A synthetic item shaped like a Pro item served without its files.",
+  "dependencies": [],
+  "docs": "",
+  "files": [],
+  "cssVars": {},
+  "css": {}
+}

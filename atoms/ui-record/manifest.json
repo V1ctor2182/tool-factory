@@ -1,0 +1,27 @@
+{
+  "name": "ui-record",
+  "type": "atom",
+  "kind": "observe",
+  "description": "What one UI component looks like in each state of a scripted session, recorded deterministically in headless Chromium. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/ui-record",
+  "contract": "ui-recording",
+  "verbs": [
+    {
+      "name": "capture",
+      "description": "Run a ui-steps file against its page and record each state: a settled screenshot, frames, the DOM without scripts, computed styles, and animations. Prints each settled screenshot path, one per line, or the recording with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "steps": { "type": "string", "description": "A ui-steps JSON file, as contracts/ui-steps.schema.json defines it." },
+          "url": { "type": "string", "description": "Record this URL instead of the steps file's url, such as a rebuild's preview." }
+        },
+        "required": ["steps"]
+      },
+      "output": "ui-recording"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

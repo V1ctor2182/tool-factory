@@ -25,14 +25,14 @@ function seconds(ms) {
 
 function ordered(registry) {
   const all = [...registry.entries.values()];
-  return [...all.filter((e) => e.type === 'tool'), ...all.filter((e) => e.type === 'atom')];
+  return [...all.filter((e) => e.type === 'microservice'), ...all.filter((e) => e.type === 'atom')];
 }
 
 function pick(registry, names) {
-  if (!names.length) throw new UsageError('Name at least one tool or atom.');
+  if (!names.length) throw new UsageError('Name at least one microservice or atom.');
   return names.map((name) => {
     const entry = registry.entries.get(name);
-    if (!entry) throw new UsageError(`No tool or atom is named ${name}. Run factory list.`);
+    if (!entry) throw new UsageError(`No microservice or atom is named ${name}. Run factory list.`);
     return entry;
   });
 }
@@ -95,7 +95,7 @@ const COMMANDS = {
       console.log(JSON.stringify(model, null, 2));
       return model.problems.length ? 1 : 0;
     }
-    const rows = [...model.tools, ...model.atoms].map((r) => [
+    const rows = [...model.microservices, ...model.atoms].map((r) => [
       r.name,
       r.type,
       r.kind,
@@ -133,7 +133,13 @@ const COMMANDS = {
     const checks = (positionals.length ? pick(registry, positionals) : ordered(registry))
       .filter((e) => existsSync(join(e.dir, 'test', 'test.sh')))
       .map((e) => ({ label: `${e.rel}/test/test.sh`, argv: ['sh', join(e.dir, 'test', 'test.sh')] }));
-    if (!positionals.length) checks.unshift({ label: 'factory/test', argv: [process.execPath, '--test', join(registry.root, 'factory', 'test')] });
+    if (!positionals.length) {
+      checks.unshift(
+        { label: 'factory/test', argv: [process.execPath, '--test', join(registry.root, 'factory', 'test')] },
+        // --isolated keeps uv from writing a uv.lock or .venv into kit/py.
+        { label: 'kit/py/test', argv: ['uv', 'run', '--quiet', '--isolated', '--directory', join(registry.root, 'kit', 'py'), 'pytest', '-q'] },
+      );
+    }
     const results = await pool(checks, Math.max(2, Math.floor(availableParallelism() / 2)), async (item) => {
       const result = await runCheck(item);
       console.log(`${result.ok ? 'PASS' : 'FAIL'} ${result.label} in ${result.sec.toFixed(1)} s`);
@@ -198,15 +204,15 @@ const COMMANDS = {
 };
 
 const USAGE = `usage: factory <command>
-  list                      every tool and atom with its type and kind
+  list                      every microservice and atom with its type and kind
   status [--json]           health, runs, failures, spend, and links over 7 days
   doctor                    binaries, secrets, and budget
-  test [names...] [--rules] the rules, then factory/test and every test/test.sh
+  test [names...] [--rules] the rules, then factory/test, kit/py/test, and every test/test.sh
   run <name> [args...]      run a CLI and log the call
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]
   mcp <names...>            stdio MCP server with one tool per verb
-  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each tool`;
+  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each microservice`;
 
 const [command, ...args] = process.argv.slice(2);
 try {

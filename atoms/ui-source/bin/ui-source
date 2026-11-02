@@ -1,0 +1,3 @@
+#!/bin/sh
+self=$(readlink -f "$0")
+exec uv run --quiet --script "$(dirname "$self")/../src/$(basename "$self").py" "$@"

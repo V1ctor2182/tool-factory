@@ -10,7 +10,7 @@
   "verbs": [
     {
       "name": "get",
-      "description": "Captions of one video URL. Prefers uploaded captions over automatic ones. Fails with no_captions when the language has neither. Cached by site, video id, and language.",
+      "description": "Captions of one video URL. Prefers uploaded captions over automatic ones. Fails with no_captions when the language has neither, and with rate_limited when the site answers HTTP 429. Cached by site, video id, and language.",
       "input": {
         "type": "object",
         "properties": {

@@ -1,0 +1,53 @@
+{
+  "name": "podcast",
+  "type": "microservice",
+  "kind": "pipeline",
+  "description": "Summary, chapters, and transcript of a podcast episode, from its page URL or from search words. Transcribes the audio on this Mac.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "run",
+  "contract": "digest",
+  "uses": ["find-url", "download", "transcribe", "digest"],
+  "verbs": [
+    {
+      "name": "get",
+      "description": "Digest of one episode, with the path of its saved transcript inside. Makes one paid model call unless the digest is cached.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "description": "Episode page or audio URL on any site yt-dlp supports, such as Apple Podcasts or SoundCloud." }
+        },
+        "required": ["input"]
+      },
+      "output": "digest"
+    },
+    {
+      "name": "transcript",
+      "description": "Transcript of one episode. Makes no model call.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "description": "Episode page or audio URL on any site yt-dlp supports, such as Apple Podcasts or SoundCloud." }
+        },
+        "required": ["input"]
+      },
+      "output": "transcript"
+    },
+    {
+      "name": "search",
+      "description": "Digests of the episodes that search words find, plus the episodes that failed. Makes one paid model call per episode unless its digest is cached.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "description": "Search words." },
+          "limit": { "type": "integer", "description": "How many search results to take, 1 by default." },
+          "site": { "type": "string", "description": "yt-dlp search prefix, ytsearch by default, or scsearch for SoundCloud." }
+        },
+        "required": ["input"]
+      },
+      "output": "digest-list"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

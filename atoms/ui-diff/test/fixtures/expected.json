@@ -1,0 +1,296 @@
+{
+  "tolerance": 24,
+  "score": 0.643777,
+  "states": [
+    {
+      "name": "idle",
+      "score": 0.988095,
+      "missing": null,
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": [
+          50,
+          30
+        ]
+      },
+      "pixels": {
+        "mismatch": 0.016667,
+        "meanDelta": 3.75
+      },
+      "frames": [],
+      "styles": [],
+      "animations": {
+        "onlyA": [],
+        "onlyB": [],
+        "changed": []
+      },
+      "motion": []
+    },
+    {
+      "name": "hover",
+      "score": 0.706061,
+      "missing": null,
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": [
+          50,
+          30
+        ]
+      },
+      "pixels": {
+        "mismatch": 0.0,
+        "meanDelta": 0.0
+      },
+      "frames": [
+        {
+          "index": 0,
+          "mismatch": 0.0
+        },
+        {
+          "index": 1,
+          "mismatch": 1.0
+        },
+        {
+          "index": 2,
+          "mismatch": 0.0
+        },
+        {
+          "index": 3,
+          "mismatch": null
+        }
+      ],
+      "styles": [
+        {
+          "property": "background-color",
+          "a": "rgb(10, 20, 30)",
+          "b": "rgb(10, 20, 31)",
+          "count": 1,
+          "paths": [
+            ":scope"
+          ]
+        },
+        {
+          "property": "font-family",
+          "a": "Diatype",
+          "b": "Inter",
+          "count": 3,
+          "paths": [
+            ":scope",
+            ":scope > :nth-child(1)",
+            ":scope > :nth-child(2)"
+          ]
+        },
+        {
+          "property": "width",
+          "a": "10px",
+          "b": "12px",
+          "count": 1,
+          "paths": [
+            ":scope > :nth-child(2)"
+          ]
+        },
+        {
+          "property": "width",
+          "a": "4px",
+          "b": "5px",
+          "count": 1,
+          "paths": [
+            ":scope > :nth-child(10)"
+          ]
+        },
+        {
+          "property": "border-top-color",
+          "a": "rgb(0, 0, 0)",
+          "b": "rgb(255, 0, 0)",
+          "count": 1,
+          "paths": [
+            ":scope > :nth-child(1) > :nth-child(1)"
+          ]
+        }
+      ],
+      "animations": {
+        "onlyA": [
+          {
+            "type": "CSSTransition",
+            "name": "opacity",
+            "target": ":scope",
+            "properties": [
+              "opacity"
+            ],
+            "duration": 150,
+            "delay": 0,
+            "easing": "ease",
+            "iterations": 1
+          }
+        ],
+        "onlyB": [
+          {
+            "type": "CSSTransition",
+            "name": "transform",
+            "target": ":scope",
+            "properties": [
+              "transform"
+            ],
+            "duration": 150,
+            "delay": 0,
+            "easing": "ease",
+            "iterations": 1
+          }
+        ],
+        "changed": [
+          {
+            "summary": {
+              "type": "CSSAnimation",
+              "name": "pulse",
+              "target": ":scope > :nth-child(2)",
+              "properties": [
+                "opacity"
+              ],
+              "duration": 300,
+              "delay": 0,
+              "easing": "ease-out",
+              "iterations": 1
+            },
+            "field": "duration",
+            "a": 300,
+            "b": 450
+          },
+          {
+            "summary": {
+              "type": "CSSAnimation",
+              "name": "fade",
+              "target": ":scope > :nth-child(4)",
+              "properties": [
+                "opacity"
+              ],
+              "duration": 200,
+              "delay": 0,
+              "easing": "linear",
+              "iterations": 1
+            },
+            "field": "keyframes",
+            "a": [
+              {
+                "offset": 0,
+                "opacity": "0"
+              },
+              {
+                "offset": 1,
+                "opacity": "1"
+              }
+            ],
+            "b": [
+              {
+                "offset": 0,
+                "opacity": "0.2"
+              },
+              {
+                "offset": 1,
+                "opacity": "1"
+              }
+            ]
+          }
+        ]
+      },
+      "motion": [
+        {
+          "path": ":scope > :nth-child(2)",
+          "property": "transform",
+          "frame": 2,
+          "a": [
+            "none",
+            "matrix(1, 0, 0, 1, 10, 0)",
+            "matrix(1, 0, 0, 1, 20, 0)",
+            "matrix(1, 0, 0, 1, 20, 0)"
+          ],
+          "b": [
+            "none",
+            "matrix(1, 0, 0, 1, 10.3, 0)",
+            "matrix(1, 0, 0, 1, 14, 0)"
+          ]
+        },
+        {
+          "path": ":scope > :nth-child(3)",
+          "property": "transform",
+          "frame": null,
+          "a": null,
+          "b": [
+            "none",
+            "matrix(1, 0, 0, 1, 0, 4)",
+            "matrix(1, 0, 0, 1, 0, 8)"
+          ]
+        },
+        {
+          "path": ":scope > :nth-child(5)",
+          "property": "opacity",
+          "frame": 1,
+          "a": [
+            "1",
+            null,
+            null,
+            null
+          ],
+          "b": [
+            "1",
+            "0.5",
+            "0"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "open",
+      "score": 0.880952,
+      "missing": null,
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": [
+          60,
+          30
+        ]
+      },
+      "pixels": {
+        "mismatch": 0.0,
+        "meanDelta": 0.0
+      },
+      "frames": [],
+      "styles": [],
+      "animations": {
+        "onlyA": [],
+        "onlyB": [],
+        "changed": []
+      },
+      "motion": []
+    },
+    {
+      "name": "closed",
+      "score": 0.0,
+      "missing": "b",
+      "size": {
+        "a": [
+          50,
+          30
+        ],
+        "b": null
+      },
+      "pixels": null,
+      "frames": [],
+      "styles": [],
+      "animations": {
+        "onlyA": [],
+        "onlyB": [],
+        "changed": []
+      },
+      "motion": []
+    }
+  ]
+}

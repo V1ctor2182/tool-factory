@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
+import { cliArgs, usage } from './registry.mjs';
 import { budget, home, lastDays, logPath, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
@@ -18,10 +19,10 @@ const failures = (lines) => lines.filter((r) => !r.ok).length;
 const latest = (lines) => lines.reduce((last, r) => (r.startedAt > last ? r.startedAt : last), '') || null;
 
 function outsideRuns(runs, calls) {
-  const timeline = [...runs, ...calls].map((r) => [Date.parse(r.startedAt), r]).sort(([a, x], [b, y]) => a - b || (y.type === 'tool') - (x.type === 'tool'));
+  const timeline = [...runs, ...calls].map((r) => [Date.parse(r.startedAt), r]).sort(([a, x], [b, y]) => a - b || (y.type === 'microservice') - (x.type === 'microservice'));
   let coveredUntil = -Infinity;
   return timeline.filter(([at, r]) => {
-    if (r.type !== 'tool') return at >= coveredUntil;
+    if (r.type !== 'microservice') return at >= coveredUntil;
     // startedAt drops milliseconds, so a run covers up to one second past its ms.
     coveredUntil = Math.max(coveredUntil, at + (r.ms ?? 0) + 1000);
     return false;
@@ -44,6 +45,19 @@ function external(root, problems) {
   return good.map(({ name, description, where }) => ({ name, description, where }));
 }
 
+// The top-level fields of each contract a verb returns, so the dashboard documents output without a second copy of the schema.
+function contracts(root, entries, problems) {
+  const names = new Set(entries.flatMap((e) => (e.manifest.verbs ?? []).map((v) => v.output)));
+  return Object.fromEntries([...names].sort().map((name) => {
+    const path = `contracts/${name}.schema.json`;
+    const schema = attempt(problems, path, () => readJson(join(root, path)), null);
+    if (!schema) return [name, null];
+    const required = schema.required ?? [];
+    const fields = Object.entries(schema.properties ?? {}).map(([field, p]) => ({ name: field, type: p.type ? [p.type].flat().join(' or ') : 'const' in p ? JSON.stringify(p.const) : p.enum ? p.enum.map((v) => JSON.stringify(v)).join(' or ') : 'any', required: required.includes(field), description: p.description ?? null }));
+    return [name, { description: schema.description ?? null, fields }];
+  }));
+}
+
 export function statusModel(registry) {
   const problems = [...registry.problems];
   const days = lastDays(WINDOW);
@@ -58,17 +72,17 @@ export function statusModel(registry) {
   const capUsd = attempt(problems, 'TOOL_FACTORY_BUDGET_USD', budget, null);
 
   const all = [...registry.entries.values()];
-  const tools = all.filter((e) => e.type === 'tool').sort((a, b) => b.manifest.uses.length - a.manifest.uses.length || a.name.localeCompare(b.name));
-  const toolNames = new Set(tools.map((t) => t.name));
+  const microservices = all.filter((e) => e.type === 'microservice').sort((a, b) => b.manifest.uses.length - a.manifest.uses.length || a.name.localeCompare(b.name));
+  const microserviceNames = new Set(microservices.map((t) => t.name));
   const window = (records ?? []).filter((r) => days.includes(r.startedAt?.slice(0, 10)));
   const byName = Map.groupBy(window, (r) => r.name);
-  const byCaller = Map.groupBy(window.filter((r) => toolNames.has(r.caller)), (r) => r.caller);
+  const byCaller = Map.groupBy(window.filter((r) => microserviceNames.has(r.caller)), (r) => r.caller);
   const direct = new Map([...byCaller].map(([name, lines]) => [name, outsideRuns(byName.get(name) ?? [], lines)]));
-  const calls = [...window.filter((r) => !toolNames.has(r.caller)), ...[...direct.values()].flat()];
+  const calls = [...window.filter((r) => !microserviceNames.has(r.caller)), ...[...direct.values()].flat()];
 
   const row = (entry) => {
     const { status, notes } = checked.get(entry.name);
-    const tool = entry.type === 'tool';
+    const microservice = entry.type === 'microservice';
     const known = {
       name: entry.name,
       type: entry.type,
@@ -78,12 +92,15 @@ export function statusModel(registry) {
       health: status,
       notes,
       links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
-      ...(tool ? { uses: entry.manifest.uses, verbs: (entry.manifest.verbs ?? []).map(({ name, description, input, output }) => ({ name, description, input, output })) } : { usedBy: tools.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
+      guard: entry.info.guard,
+      adapters: entry.manifest.adapters ?? [],
+      verbs: (entry.manifest.verbs ?? []).map((verb) => ({ name: verb.name, usage: usage(entry, verb), cli: cliArgs(verb), description: verb.description, input: verb.input, output: verb.output })),
+      ...(microservice ? { uses: entry.manifest.uses } : { usedBy: microservices.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
     };
-    if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(tool && { atomCalls: null, atomFailed: null, perDay: null }) };
+    if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(microservice && { atomCalls: null, atomFailed: null, perDay: null }) };
     const mine = byName.get(entry.name) ?? [];
     const activity = { runs: mine.length, failed: failures(mine), medianMs: median(mine.filter((r) => r.ok && Number.isFinite(r.ms)).map((r) => r.ms)) };
-    if (!tool) return { ...known, ...activity, lastRunAt: latest(mine), spentUsd: dollars(spend(mine)) };
+    if (!microservice) return { ...known, ...activity, lastRunAt: latest(mine), spentUsd: dollars(spend(mine)) };
     const outside = direct.get(entry.name) ?? [];
     const onDay = (lines) => Map.groupBy(lines, (r) => r.startedAt.slice(0, 10));
     const runsOn = onDay(mine);
@@ -109,8 +126,9 @@ export function statusModel(registry) {
     log: { lines: records?.length ?? null, unreadable: log?.bad.length ?? null, firstUnreadable: log?.bad[0]?.line ?? null },
     calls: records && { runs: calls.length, failed: failures(calls) },
     budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
-    tools: tools.map(row),
+    microservices: microservices.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),
+    contracts: contracts(registry.root, all, problems),
     external: external(registry.root, problems),
     problems,
   };

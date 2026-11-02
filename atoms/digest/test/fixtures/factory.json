@@ -3,13 +3,13 @@
   "method": "captions",
   "language": "en",
   "model": null,
-  "text": "This repo is a tool factory. It holds two kinds of parts, atoms and tools. An atom is one building block that does one job, such as download, transcribe, or digest. A tool is something Victor uses, such as the YouTube tool. Tools call atoms through their command line, and never call other tools. Atoms import the shared kit, and never import each other.",
+  "text": "This repo is a tool factory. It holds two kinds of parts, atoms and microservices. An atom is one building block that does one job, such as download, transcribe, or digest. A microservice is something Victor uses, such as the YouTube microservice. Microservices call atoms through their command line, and never call other microservices. Atoms import the shared kit, and never import each other.",
   "segments": [
     { "start": 0.0, "end": 3.5, "text": "This repo is a tool factory." },
-    { "start": 3.5, "end": 8.0, "text": "It holds two kinds of parts, atoms and tools." },
+    { "start": 3.5, "end": 8.0, "text": "It holds two kinds of parts, atoms and microservices." },
     { "start": 8.0, "end": 14.0, "text": "An atom is one building block that does one job, such as download, transcribe, or digest." },
-    { "start": 14.0, "end": 18.5, "text": "A tool is something Victor uses, such as the YouTube tool." },
-    { "start": 18.5, "end": 24.0, "text": "Tools call atoms through their command line, and never call other tools." },
+    { "start": 14.0, "end": 18.5, "text": "A microservice is something Victor uses, such as the YouTube microservice." },
+    { "start": 18.5, "end": 24.0, "text": "Microservices call atoms through their command line, and never call other microservices." },
     { "start": 24.0, "end": 28.0, "text": "Atoms import the shared kit, and never import each other." }
   ],
   "cacheHit": false

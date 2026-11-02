@@ -1,0 +1,26 @@
+{
+  ":scope": {
+    "margin-top": "0px",
+    "color": "rgb(1, 2, 3)",
+    "background-color": "rgb(10, 20, 30)",
+    "font-family": "Diatype"
+  },
+  ":scope > :nth-child(1)": {
+    "width": "3px",
+    "font-family": "Diatype"
+  },
+  ":scope > :nth-child(2)": {
+    "width": "10px",
+    "opacity": "1",
+    "font-family": "Diatype"
+  },
+  ":scope > :nth-child(3)": {
+    "width": "8px"
+  },
+  ":scope > :nth-child(10)": {
+    "width": "4px"
+  },
+  ":scope > :nth-child(1) > :nth-child(1)": {
+    "border-top-color": "rgb(0, 0, 0)"
+  }
+}

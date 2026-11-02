@@ -2,7 +2,7 @@
   "model": "haiku",
   "images": [
     { "path": "/fixture/frame-0.jpg", "description": "A title slide on a dark background.", "text": "TOOL FACTORY", "time": 0 },
-    { "path": "/fixture/frame-18.jpg", "description": "A terminal window lists three folders named atoms, kit, and tools.", "text": "$ ls\natoms  kit  tools", "time": 18 }
+    { "path": "/fixture/frame-18.jpg", "description": "A terminal window lists three folders named atoms, kit, and microservices.", "text": "$ ls\natoms  kit  microservices", "time": 18 }
   ],
   "costUsd": 0,
   "cacheHit": false
