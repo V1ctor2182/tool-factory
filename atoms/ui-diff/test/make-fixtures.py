@@ -78,12 +78,16 @@ MOTION_A = {
     ":scope": {"opacity": ["0", "0.5", "1", "1"]},
     ":scope > :nth-child(1)": {"transform": ["none", "matrix(1, 0, 0, 1, 5, 0)", "matrix(1, 0, 0, 1, 5, 0)", "matrix(1, 0, 0, 1, 5, 0)"]},
     ":scope > :nth-child(2)": {"transform": ["none", "matrix(1, 0, 0, 1, 10, 0)", "matrix(1, 0, 0, 1, 20, 0)", "matrix(1, 0, 0, 1, 20, 0)"]},
+    ":scope > :nth-child(4)": {"opacity": ["1", "0.5", None, None]},
+    ":scope > :nth-child(5)": {"opacity": ["1", None, None, None]},
 }
 MOTION_B = {
     ":scope": {"opacity": ["0", "0.505", "1"]},
     ":scope > :nth-child(1)": {"transform": ["matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)", "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5.2, 0, 0, 1)", "matrix(1, 0, 0, 1, 5, 0)"]},
     ":scope > :nth-child(2)": {"transform": ["none", "matrix(1, 0, 0, 1, 10.3, 0)", "matrix(1, 0, 0, 1, 14, 0)"]},
     ":scope > :nth-child(3)": {"transform": ["none", "matrix(1, 0, 0, 1, 0, 4)", "matrix(1, 0, 0, 1, 0, 8)"]},
+    ":scope > :nth-child(4)": {"opacity": ["1", "0.5", None]},
+    ":scope > :nth-child(5)": {"opacity": ["1", "0.5", "0"]},
 }
 
 block = card()

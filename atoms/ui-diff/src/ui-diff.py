@@ -6,6 +6,7 @@
 # ///
 import hashlib
 import json
+import math
 import re
 import shutil
 import tempfile
@@ -216,15 +217,18 @@ def _animations(list_a: list, list_b: list) -> tuple[dict, float | None]:
     return {"onlyA": only_a, "onlyB": only_b, "changed": changed}, (same / total if total else None)
 
 
-def _matrix(prop: str, value: str | None) -> list[float]:
+def _matrix(prop: str, value: str) -> list[float]:
     if prop == "opacity":
         return [float(value)]
     n = [float(v) for v in NUMBER.findall(value.partition("(")[2])] if value and value != "none" else [1, 0, 0, 1, 0, 0]
     return n if len(n) == 16 else [n[0], n[1], 0, 0, n[2], n[3], 0, 0, 0, 0, 1, 0, n[4], n[5], 0, 1]
 
 
-def _distance(prop: str, va: str, vb: str) -> float:
+def _distance(prop: str, va: str | None, vb: str | None) -> float:
     """How far apart two computed values are, in multiples of what still counts as the same. Above 1 they differ."""
+    if va is None or vb is None:
+        # ui-record writes null for a frame where the element is not in the DOM.
+        return 0.0 if va == vb else math.inf
     eps = lambda i: OPACITY_EPS if prop == "opacity" else MOVE_PX if i in TRANSLATE else MATRIX_EPS
     return max(abs(x - y) / eps(i) for i, (x, y) in enumerate(zip(_matrix(prop, va), _matrix(prop, vb))))
 

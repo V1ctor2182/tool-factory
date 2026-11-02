@@ -28,6 +28,20 @@
         "matrix(1, 0, 0, 1, 0, 4)",
         "matrix(1, 0, 0, 1, 0, 8)"
       ]
+    },
+    ":scope > :nth-child(4)": {
+      "opacity": [
+        "1",
+        "0.5",
+        null
+      ]
+    },
+    ":scope > :nth-child(5)": {
+      "opacity": [
+        "1",
+        "0.5",
+        "0"
+      ]
     }
   }
 }

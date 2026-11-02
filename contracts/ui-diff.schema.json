@@ -98,8 +98,8 @@
                 "path": { "type": "string" },
                 "property": { "enum": ["transform", "opacity"] },
                 "frame": { "type": ["integer", "null"], "minimum": 0, "description": "The frame where the tracks are furthest apart. Null when only one recording moves the element." },
-                "a": { "type": ["array", "null"], "items": { "type": "string" }, "description": "The value at every frame, or null when the element holds still in a." },
-                "b": { "type": ["array", "null"], "items": { "type": "string" } }
+                "a": { "type": ["array", "null"], "items": { "type": ["string", "null"] }, "description": "The value at every frame, or null when the element holds still in a. A frame where the element is not in the DOM holds null." },
+                "b": { "type": ["array", "null"], "items": { "type": ["string", "null"] } }
               },
               "required": ["path", "property", "frame", "a", "b"],
               "additionalProperties": false
