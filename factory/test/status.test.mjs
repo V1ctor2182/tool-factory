@@ -62,6 +62,13 @@ after(() => rmSync(root, { recursive: true, force: true }));
 
 const row = (name) => [...model.microservices, ...model.atoms].find((r) => r.name === name);
 
+test('every verb carries its CLI usage, and each output names a contract with its fields', () => {
+  assert.equal(row('captions').verbs.find((v) => v.name === 'get').usage, 'captions get <url> [--lang <lang>]');
+  assert.equal(row('youtube').verbs.find((v) => v.name === 'transcript').usage.split(' ').slice(0, 3).join(' '), 'youtube transcript <input>');
+  assert.deepEqual(model.contracts['ui-source'].fields.map((f) => [f.name, f.type, f.required]), [['source', 'string', true], ['exposed', 'boolean', true], ['item', 'object or null', true], ['cacheHit', 'boolean', true]]);
+  assert.ok([...model.microservices, ...model.atoms].every((r) => r.verbs.every((v) => v.output in model.contracts)));
+});
+
 test('microservices come first, the microservice with the most atoms leading', () => {
   assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'podcast', 'ui-clone', 'clipper', 'meeting-notes', 'writing-style']);
   assert.deepEqual(row('youtube').uses, ['find-url', 'captions', 'download', 'transcribe', 'frames', 'see', 'digest']);
@@ -174,7 +181,7 @@ test('the dashboard serves the same model on 127.0.0.1 and refuses writes, frami
   }
 });
 
-test('the dashboard runs a microservice verb only for its own page, and logs the run as the dashboard', async () => {
+test('the dashboard runs a microservice or atom verb only for its own page, and logs the run as the dashboard', async () => {
   const dir = join(root, 'tryhome');
   seed(dir, '');
   const { url, stop } = await serve(dir);
@@ -184,7 +191,7 @@ test('the dashboard runs a microservice verb only for its own page, and logs the
     assert.equal((await post('run/youtube/transcript', { input: 'x' }, { origin: 'https://attacker.example' })).status, 403);
     assert.equal((await post('run/youtube/transcript', { input: 'x' }, { 'content-type': 'text/plain' })).status, 415);
     assert.equal((await post('run/youtube/nope', { input: 'x' })).status, 404);
-    assert.equal((await post('run/captions/get', { input: 'x' })).status, 404);
+    assert.equal((await post('run/captions/nope', { url: 'x' })).status, 404);
     assert.equal((await post('run/youtube/transcript', { input: 'x', extra: true })).status, 400);
     assert.equal((await fetch(new URL('run/youtube/transcript', url))).status, 405);
 
@@ -195,6 +202,10 @@ test('the dashboard runs a microservice verb only for its own page, and logs the
     assert.equal(last.output.error.code, 'invalid_source');
     const logged = readFileSync(join(dir, 'runs.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
     assert.deepEqual(logged.filter((r) => r.type === 'microservice').map((r) => [r.name, r.verb, r.caller, r.ok]), [['youtube', 'transcript', 'dashboard', false]]);
+
+    const atom = await post('run/ui-source/parse', { path: join(dir, 'missing.json') });
+    assert.equal(atom.status, 200);
+    assert.equal((await atom.text()).trim().split('\n').map((l) => JSON.parse(l)).at(-1).output.error.code, 'invalid_source');
   } finally {
     stop();
   }

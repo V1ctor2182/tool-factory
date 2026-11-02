@@ -1,6 +1,6 @@
 # victor-tool-factory
 
-Microservices Victor uses right away, built from small atomic parts he reuses. A microservice such as `youtube` lives in `microservices/` and chains atoms such as `download`, `transcribe`, and `digest`, which live in `atoms/`. Each has a `manifest.json`, a CLI, and a `SKILL.md`. A generic `factory` CLI reads the manifests and provides linking, MCP, health checks, the run log, and a dashboard that shows them all and lets Victor try each microservice. The design and its rules are in [ARCHITECTURE.md](ARCHITECTURE.md).
+Microservices Victor uses right away, built from small atomic parts he reuses. A microservice such as `youtube` lives in `microservices/` and chains atoms such as `download`, `transcribe`, and `digest`, which live in `atoms/`. Each has a `manifest.json`, a CLI, and a `SKILL.md`. A generic `factory` CLI reads the manifests and provides linking, MCP, health checks, the run log, and a dashboard that shows them all, documents every verb's input and output, and lets Victor try any microservice or atom. The design and its rules are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 The first microservice comes from an AI video pipeline. The research below is where it started.
 

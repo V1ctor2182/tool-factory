@@ -97,14 +97,16 @@ h2.big { font-size: 48px; }
 .sources { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; font-size: 14px; color: var(--muted); margin-top: 14px; }
 
 .split { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 56px; align-items: start; padding-top: 96px; }
-.composer .pick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.composer .pick { display: grid; gap: 8px; margin-bottom: 14px; }
+.pick .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pick .group { width: 110px; font-size: 13px; color: var(--muted); }
 .composer .pick button { border: 0; background: var(--well); border-radius: 10px; padding: 7px 14px; font-size: 15px; cursor: pointer; }
 .composer .pick button:hover { background: var(--line); }
 .composer .pick button[aria-pressed="true"] { background: var(--blue-chip); color: var(--blue-ink); font-weight: 500; }
 .field { display: flex; align-items: center; gap: 10px; background: var(--blue-wash); border-radius: 16px; padding: 10px 10px 10px 14px; }
 .field:focus-within { box-shadow: 0 0 0 3px var(--blue-edge); }
 .token { flex: none; font-family: var(--mono); font-size: 15px; letter-spacing: 0; border-radius: 8px; padding: 3px 9px; background: var(--card); border: 1px solid var(--blue-edge); color: var(--blue-ink); }
-.token.verb { background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 35%, transparent); color: var(--warn); }
+.token.doc-verb { background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 35%, transparent); color: var(--warn); }
 .field input { flex: 1; min-width: 0; border: 0; background: none; font-family: var(--mono); font-size: 18px; letter-spacing: 0; padding: 8px 2px; outline: none; }
 .field input::placeholder { color: var(--muted); opacity: 0.7; }
 .send { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; border-radius: 12px; background: var(--blue); color: #fff; cursor: pointer; }
@@ -227,8 +229,36 @@ h2.big { font-size: 48px; }
   .wires, .port, .socket { display: none; }
   .atoms { padding: 20px 0 0; }
   .menu .vd { display: none; }
+  .pick .group { width: 100%; }
+  .doc { padding: 20px; }
   .reply { padding: 18px; }
   .ask { max-width: 100%; }
+}
+.docs { display: grid; gap: 20px; margin-top: 40px; }
+.doc { background: var(--well); border-radius: 20px; padding: 28px; min-width: 0; scroll-margin-top: 90px; }
+.doc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.doc-head h3 { font-size: 26px; letter-spacing: -0.03em; margin: 0; }
+.doc .tag { font-size: 13px; color: var(--muted); background: var(--card); border-radius: 8px; padding: 2px 8px; }
+.doc > p { margin: 8px 0 0; color: var(--muted); max-width: 80ch; }
+.doc-verb { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-top: 16px; min-width: 0; }
+.doc-verb-head { display: flex; align-items: center; gap: 12px; }
+.doc-verb-head .mono { flex: 1; min-width: 0; font-size: 14px; }
+.doc-verb-head .pill { padding: 5px 14px; font-size: 14px; }
+.doc-verb > p { margin: 8px 0 0; }
+.doc-verb h4 { margin: 18px 0 6px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.doc-verb h4 .mono { text-transform: none; color: var(--ink); }
+.tbl { overflow-x: auto; }
+.tbl table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); }
+.tbl td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl td.mono { white-space: nowrap; }
+@media (max-width: 760px) {
+  .tbl table, .tbl tbody { display: block; }
+  .tbl thead { display: none; }
+  .tbl tr { display: grid; grid-template-columns: auto auto 1fr; gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .tbl td { border: 0; padding: 0; }
+  .tbl td:nth-child(3) { color: var(--muted); }
+  .tbl td:last-child { grid-column: 1 / -1; }
 }
 </style>
 </head>
@@ -394,7 +424,7 @@ function panelFor(name) {
   ];
 }
 
-const runnable = model ? model.microservices.filter((s) => s.verbs.length) : [];
+const runnable = rows.filter((r) => r.verbs.length && r.guard !== 'confirm');
 const trying = { service: runnable[0], verb: runnable[0]?.verbs[0], busy: false };
 let composer, thread;
 
@@ -441,9 +471,9 @@ function result(verb, output) {
   return h('pre', { class: 'raw' }, JSON.stringify(output, null, 2));
 }
 
-function tryOut(name) {
+function tryOut(name, verbName) {
   trying.service = runnable.find((s) => s.name === name);
-  trying.verb = trying.service.verbs[0];
+  trying.verb = trying.service.verbs.find((v) => v.name === verbName) ?? trying.service.verbs[0];
   drawComposer();
   document.getElementById('try').scrollIntoView();
   composer.querySelector('.field input')?.focus({ preventScroll: true });
@@ -460,7 +490,11 @@ function drawComposer() {
   };
   const extras = Object.keys(properties).filter((name) => name !== lead);
   composer.replaceChildren(
-    h('div', { class: 'pick', role: 'group', 'aria-label': 'Microservice' }, runnable.map((s) => h('button', { type: 'button', 'aria-pressed': String(s === service), onclick: () => { trying.service = s; trying.verb = s.verbs[0]; drawComposer(); } }, s.name))),
+    h('div', { class: 'pick', role: 'group', 'aria-label': 'Microservice or atom' }, [['microservice', 'Microservices'], ['atom', 'Atoms']].map(([type, label]) => {
+      const list = runnable.filter((s) => s.type === type);
+      return list.length ? h('div', { class: 'row' }, h('span', { class: 'group' }, label),
+        list.map((s) => h('button', { type: 'button', 'aria-pressed': String(s === service), onclick: () => { trying.service = s; trying.verb = s.verbs[0]; drawComposer(); } }, s.name))) : null;
+    })),
     h('div', { class: 'field' },
       h('span', { class: 'token' }, service.name),
       h('span', { class: 'token verb' }, verb.name),
@@ -530,6 +564,30 @@ async function submit(e) {
     trying.busy = false;
     drawComposer();
   }
+}
+
+function fields(list) {
+  return h('div', { class: 'tbl' }, h('table', null,
+    h('thead', null, h('tr', null, ['Field', 'Type', 'Required', 'Description'].map((t) => h('th', null, t)))),
+    h('tbody', null, list.map((f) => h('tr', null, h('td', { class: 'mono' }, f.name), h('td', { class: 'mono' }, f.type), h('td', null, f.required ? 'yes' : 'no'), h('td', null, f.description ?? ''))))));
+}
+
+function doc(row) {
+  const guard = row.guard === 'confirm' ? 'confirm on every run' : row.guard === 'budget' ? 'spends the model budget' : null;
+  return h('article', { class: 'doc', id: `doc-${row.name}` },
+    h('div', { class: 'doc-head' }, h('h3', null, row.name), h('span', { class: 'tag' }, row.type === 'atom' ? `atom, ${row.kind}` : `microservice, ${row.kind}`), guard ? h('span', { class: 'tag' }, guard) : null),
+    h('p', null, row.description),
+    row.verbs.map((v) => {
+      const { properties, required = [] } = v.input;
+      const out = model.contracts[v.output];
+      return h('div', { class: 'doc-verb' },
+        h('div', { class: 'doc-verb-head' }, h('span', { class: 'mono' }, v.usage), runnable.includes(row) ? h('button', { class: 'pill', type: 'button', onclick: () => tryOut(row.name, v.name) }, 'Try') : null),
+        h('p', null, v.description),
+        h('h4', null, 'Input'),
+        fields(Object.entries(properties).map(([name, p]) => ({ name, type: [p.type].flat().join(' or '), required: required.includes(name), description: p.description }))),
+        h('h4', null, 'Output ', h('span', { class: 'mono' }, v.output)),
+        out ? [out.description ? h('p', null, out.description) : null, fields(out.fields)] : h('p', { class: 'muted' }, `contracts/${v.output}.schema.json is missing.`));
+    }));
 }
 
 let selected = null;
@@ -626,6 +684,7 @@ function render() {
       h('nav', null,
         runnable.length ? h('a', { href: '#try' }, 'Try') : null,
         h('a', { href: '#wiring' }, 'Wiring'),
+        h('a', { href: '#docs' }, 'Docs'),
         h('a', { href: '#elsewhere' }, 'Elsewhere')),
       h('span', { class: 'when' }, span),
       h('a', { class: 'pill', href: '' }, 'Reload'))),
@@ -649,11 +708,11 @@ function render() {
         h('div', { class: 'sources' }, h('span', null, `Sources: ${plural(model.log.lines ?? 0, 'log line')}, ${plural(rows.length, 'manifest')}, ${model.days.length}-day window`))),
       runnable.length ? [
         h('hr', { class: 'divider' }),
-        h('section', { id: 'try', 'aria-label': 'Try a microservice' },
+        h('section', { id: 'try', 'aria-label': 'Try a verb' },
           h('div', { class: 'split' },
             h('div', null,
               h('h2', { class: 'big' }, 'Try one. ', h('span', { class: 'soft' }, 'Paste a link, get the answer.')),
-              h('p', { class: 'say' }, 'Pick a microservice and a verb. Runs go through the same budget and land in the run log.')),
+              h('p', { class: 'say' }, 'Pick a microservice or an atom, then a verb. Runs go through the same budget and land in the run log.')),
             composer = h('form', { class: 'composer', onsubmit: submit })),
           thread = h('div', { class: 'thread', 'aria-live': 'polite' })),
       ] : null,
@@ -661,6 +720,10 @@ function render() {
       h('section', { id: 'wiring', 'aria-label': 'Wiring' },
         h('h2', { class: 'big', style: 'padding-top:96px' }, 'The wiring. ', h('span', { class: 'soft' }, 'Click a microservice to see what it calls.')),
         h('div', { class: 'window' }, stage)),
+      h('hr', { class: 'divider' }),
+      h('section', { id: 'docs', 'aria-label': 'Docs' },
+        h('h2', { class: 'big', style: 'padding-top:96px' }, 'The docs. ', h('span', { class: 'soft' }, 'Every verb, its input, and its output, read from the manifests.')),
+        h('div', { class: 'docs' }, rows.filter((r) => r.verbs.length).map(doc))),
       h('hr', { class: 'divider' }),
       h('section', { id: 'elsewhere', 'aria-label': 'Microservices in other repos' },
         h('h2', { class: 'big', style: 'padding-top:96px' }, 'Elsewhere. ', h('span', { class: 'soft' }, 'Microservices that live in other repos.')),

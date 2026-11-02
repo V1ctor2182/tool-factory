@@ -69,9 +69,22 @@ export function flag(name) {
   return `--${name.replace(/(?<!^)(?=[A-Z])/g, '-').toLowerCase()}`;
 }
 
+// A microservice with one verb takes no verb word.
+const verbWords = (entry, verb) => (entry.type === 'microservice' && entry.manifest.verbs.length === 1 ? [] : [verb.name]);
+
+export function usage(entry, verb) {
+  const { properties, required = [] } = verb.input;
+  const positional = required.filter((name) => !properties[name]['x-flag']);
+  const flags = Object.keys(properties).filter((name) => !positional.includes(name)).map((name) => {
+    const option = properties[name].type === 'boolean' ? flag(name) : `${flag(name)} <${name}>`;
+    return required.includes(name) ? option : `[${option}]`;
+  });
+  return [entry.name, ...verbWords(entry, verb), ...positional.map((name) => `<${name}>`), ...flags].join(' ');
+}
+
 export function argv(entry, verb, input) {
   const { properties, required = [] } = verb.input;
-  const words = entry.type === 'microservice' && entry.manifest.verbs.length === 1 ? [] : [verb.name];
+  const words = verbWords(entry, verb);
   const positional = required.filter((name) => !properties[name]['x-flag'] && name in input);
   const flags = [];
   for (const [name, value] of Object.entries(input)) {

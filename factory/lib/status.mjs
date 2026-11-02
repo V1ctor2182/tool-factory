@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
+import { usage } from './registry.mjs';
 import { budget, home, lastDays, logPath, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
@@ -44,6 +45,19 @@ function external(root, problems) {
   return good.map(({ name, description, where }) => ({ name, description, where }));
 }
 
+// The top-level fields of each contract a verb returns, so the dashboard documents output without a second copy of the schema.
+function contracts(root, entries, problems) {
+  const names = new Set(entries.flatMap((e) => (e.manifest.verbs ?? []).map((v) => v.output)));
+  return Object.fromEntries([...names].sort().map((name) => {
+    const path = `contracts/${name}.schema.json`;
+    const schema = attempt(problems, path, () => readJson(join(root, path)), null);
+    if (!schema) return [name, null];
+    const required = schema.required ?? [];
+    const fields = Object.entries(schema.properties ?? {}).map(([field, p]) => ({ name: field, type: p.type ? [p.type].flat().join(' or ') : 'const' in p ? JSON.stringify(p.const) : p.enum ? p.enum.map((v) => JSON.stringify(v)).join(' or ') : 'any', required: required.includes(field), description: p.description ?? null }));
+    return [name, { description: schema.description ?? null, fields }];
+  }));
+}
+
 export function statusModel(registry) {
   const problems = [...registry.problems];
   const days = lastDays(WINDOW);
@@ -78,7 +92,9 @@ export function statusModel(registry) {
       health: status,
       notes,
       links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
-      ...(microservice ? { uses: entry.manifest.uses, verbs: (entry.manifest.verbs ?? []).map(({ name, description, input, output }) => ({ name, description, input, output })) } : { usedBy: microservices.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
+      guard: entry.info.guard,
+      verbs: (entry.manifest.verbs ?? []).map((verb) => ({ name: verb.name, usage: usage(entry, verb), description: verb.description, input: verb.input, output: verb.output })),
+      ...(microservice ? { uses: entry.manifest.uses } : { usedBy: microservices.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
     };
     if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(microservice && { atomCalls: null, atomFailed: null, perDay: null }) };
     const mine = byName.get(entry.name) ?? [];
@@ -111,6 +127,7 @@ export function statusModel(registry) {
     budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
     microservices: microservices.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),
+    contracts: contracts(registry.root, all, problems),
     external: external(registry.root, problems),
     problems,
   };

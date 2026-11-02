@@ -201,7 +201,9 @@ The run log gets one line per call through `factory run`, a microservice's `run`
 
 The dashboard lists microservices first, each with its atoms underneath. Each atom row shows which microservices use it, read from every microservice's `uses`, so reuse is visible. It also shows status, health, runs and failures, spend against budget, linked projects, and the microservices in `external.json`.
 
-The dashboard can also try a microservice. Its form for each verb comes from the verb's `input` schema in `manifest.json`. `POST /run/<microservice>/<verb>` validates the input against that schema, runs the CLI through `invoke` with `--json`, and logs the run with `dashboard` as the caller, the same path `factory mcp` takes. It streams the CLI's stderr as progress, then the `--json` output. The server answers a run only when the request's `Origin` is the dashboard's own page, so another site open in the browser cannot start one. It refuses `act` atoms, since no one confirms them there. Model spend goes through the same daily budget as every other caller.
+The dashboard can also try any verb of a microservice or an atom. Its form for each verb comes from the verb's `input` schema in `manifest.json`. `POST /run/<name>/<verb>` validates the input against that schema, runs the CLI through `invoke` with `--json`, and logs the run with `dashboard` as the caller, the same path `factory mcp` takes. It streams the CLI's stderr as progress, then the `--json` output. The server answers a run only when the request's `Origin` is the dashboard's own page, so another site open in the browser cannot start one. It refuses `act` atoms, since no one confirms them there. Model spend goes through the same daily budget as every other caller.
+
+A Docs section lists every verb as an API reference: its CLI usage, its input fields from `input`, and its output contract's top-level fields read from `contracts/<output>.schema.json`. Each verb has a Try button that loads it into the form.
 
 ## Design alternatives considered
 
