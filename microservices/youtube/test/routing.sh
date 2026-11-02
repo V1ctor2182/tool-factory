@@ -41,11 +41,12 @@ case "$name $1" in
 	esac ;;
 "find-url list") jq -c --arg s "$2" --argjson n "${limit:-3}" '.source = $s | .items |= .[:$n]' "$SEARCH_FIXTURE" ;;
 "captions get")
-	case "$2" in *broken*) fail unavailable ;; esac
+	case "$2" in *broken*) fail unavailable ;; *nocaps*) fail no_captions ;; *limited*) fail rate_limited ;; esac
 	case "$2" in http://*|https://*) ;; *) fail invalid_source ;; esac
 	jq -cn --arg s "$2" '{source: $s, method: "captions", language: "en", model: null, text: "Elephants.", segments: [{start: 0, end: 2, text: "Elephants."}], cacheHit: false}'
 	exit "${CAPTIONS_EXIT:-0}" ;;
 "download get") jq -cn --arg s "$2" '{source: $s, path: "/stub/video.mp4", kind: "video", extractor: "stub", id: "stub", title: null, durationSec: 19, bytes: 1, cacheHit: false}' ;;
+"transcribe file") jq -cn --arg s "$2" '{source: $s, method: "whisper", language: "en", model: "stub", text: "Elephants.", segments: [{start: 0, end: 2, text: "Elephants."}], cacheHit: false}' ;;
 "frames get") echo '{"source":"/stub/video.mp4","threshold":0.3,"frames":[{"time":0,"path":"/stub/f0.jpg"},{"time":9,"path":"/stub/f9.jpg"}],"cacheHit":false}' ;;
 "see describe") echo '{"model":"haiku","images":[{"path":"/stub/f0.jpg","description":"A man by elephants.","text":""},{"path":"/stub/f9.jpg","description":"Elephants.","text":"ZOO"}],"costUsd":0,"cacheHit":false}' ;;
 "digest make")
@@ -125,6 +126,15 @@ if call "$zoo" --no-digest --visual --json; then fail "--no-digest --visual exit
 
 call "me at the zoo" --limit 2 || fail "text search failed"
 [ "$(grep -c '^# ' "$out/stdout")" = 2 ] || fail "text search did not print a header per video"
+
+for code in nocaps limited; do
+	url="https://www.youtube.com/watch?v=$code"
+	call transcript "$url" --json || fail "transcript of a $code video failed: $(cat "$out/stdout")"
+	matches transcript "$out/stdout" "transcript of a $code video"
+	[ "$(jq -r .source "$out/stdout")" = "$url" ] || fail "transcript of a $code video lost its source URL"
+	[ "$(ran "download get $url --audio")" = 1 ] || fail "a $code video did not download its audio: $(cat "$STUB_LOG")"
+	[ "$(ran 'transcribe file /stub/video.mp4')" = 1 ] || fail "a $code video did not transcribe the audio: $(cat "$STUB_LOG")"
+done
 
 if CAPTIONS_EXIT=1 "$run" transcript "$zoo" --json > "$out/stdout" 2> /dev/null; then fail "captions that printed JSON and exited 1 exited 0"; fi
 [ "$(jq -r .error.message "$out/stdout")" = "captions exited 1 without an error object on stdout" ] \

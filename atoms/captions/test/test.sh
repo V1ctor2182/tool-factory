@@ -30,17 +30,42 @@ jq -S 'del(.source, .cacheHit)' "$out/again.json" | diff "$out/expected.json" - 
 if "$bin" get not-a-url --json > "$out/invalid.json" 2> "$out/invalid.err"; then fail "not-a-url exited 0"; fi
 [ "$(jq -r .error.code "$out/invalid.json")" = invalid_source ] || fail "not-a-url did not report invalid_source"
 
-python3 -u -m http.server 0 --bind 127.0.0.1 --directory "$out" > "$out/server.log" 2>&1 &
+cat > "$out/server.py" <<'PY'
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class Site(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/watch":
+            self.send_response(429)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(b"<html><body>No video here.</body></html>")
+
+    def log_message(self, *args):
+        pass
+
+
+server = HTTPServer(("127.0.0.1", 0), Site)
+print(f"port {server.server_port}", flush=True)
+server.serve_forever()
+PY
+python3 -u "$out/server.py" > "$out/server.log" 2>&1 &
 server=$!
 port=
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-	port=$(sed -n 's/.* port \([0-9]*\).*/\1/p' "$out/server.log")
+	port=$(sed -n 's/^port \([0-9]*\)$/\1/p' "$out/server.log")
 	[ -n "$port" ] && break
 	sleep 0.2
 done
 [ -n "$port" ] || fail "local HTTP server did not start"
 if "$bin" get "http://127.0.0.1:$port" --json > "$out/page.json" 2> "$out/page.err"; then fail "a page with no video exited 0"; fi
 [ "$(jq -r .error.code "$out/page.json")" = invalid_source ] || fail "a page with no video reported $(jq -c .error "$out/page.json")"
+if "$bin" get "http://127.0.0.1:$port/watch" --json > "$out/limited.json" 2> "$out/limited.err"; then fail "a 429 exited 0"; fi
+[ "$(jq -r .error.code "$out/limited.json")" = rate_limited ] || fail "a 429 reported $(jq -c .error "$out/limited.json")"
 
 printf '[]' > "$out/list.json3"
 printf '{"events": [{"segs": [{"utf8": "hi"}]}]}' > "$out/no-start.json3"
