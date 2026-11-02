@@ -32,7 +32,7 @@ case "$name $1" in
 	pro-card) echo "{\"error\":{\"code\":\"unavailable\",\"message\":\"HTTP 401 from $2\"}}"; exit 1 ;;
 	broken) echo "{\"error\":{\"code\":\"network_error\",\"message\":\"stub could not reach $2\"}}"; exit 1 ;;
 	paid-block) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: false, item: {name: $n, files: []}, cacheHit: false}' ;;
-	*) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: true, item: {name: $n, type: "registry:ui", files: [{path: "\($n).tsx", content: "export {}"}]}, cacheHit: false}' ;;
+	*) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: true, item: {name: $n, type: "registry:ui", files: [{path: "\($n).tsx", content: "export {}"}], cssVars: {theme: {"--ease-out": "linear", "--otp-gap": "4px"}}}, cacheHit: false}' ;;
 	esac ;;
 "ui-record capture")
 	case "$*" in
@@ -56,7 +56,7 @@ import { appendFileSync, readFileSync } from 'node:fs'
 const result = JSON.parse(readFileSync(0, 'utf8'))
 const license = process.argv[process.argv.indexOf('--license') + 1]
 if (result.item.name === 'bad-add') { console.error('stub add refused'); process.exit(1) }
-appendFileSync(new URL('../written', import.meta.url), `${result.item.name}\t${license}\n`)
+appendFileSync(new URL('../written', import.meta.url), `${result.item.name}\t${license}\t${JSON.stringify(result.item.cssVars.theme)}\n`)
 console.log(`added ${result.item.name}: registry/${result.item.name}/${result.item.name}.tsx`)
 ADD
 
@@ -84,6 +84,8 @@ report "collect kobra"
 [ "$(jq -r '.items[5].detail' "$out/stdout")" = "add.mjs exited 1: stub add refused" ] || fail "a failed add.mjs did not report its stderr"
 [ "$(cut -f1 "$ui/written")" = input-otp ] || fail "add.mjs did not write exactly input-otp: $(cat "$ui/written")"
 [ "$(cut -f2 "$ui/written")" = "$(jq -r .kobra.terms "$test_dir/../sites.json")" ] || fail "add.mjs did not get kobra's terms as --license"
+[ "$(cut -f3 "$ui/written")" = '{"--ease-out":"linear","--ease-in-out":"cubic-bezier(0.77, 0, 0.175, 1)","--otp-gap":"4px"}' ] \
+	|| fail "add.mjs did not get kobra's theme under the item's own: $(cut -f3 "$ui/written")"
 grep -q '^ui-clone: 1/6 input-otp: kept' "$out/stderr" || fail "collect did not log progress to stderr: $(cat "$out/stderr")"
 
 call collect kobra --into "$ui" --only input-otp --json || fail "collect kobra again failed"

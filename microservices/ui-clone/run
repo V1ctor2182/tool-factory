@@ -37,6 +37,7 @@ class Site:
     base: str | None
     keep_code: bool
     terms: str | None
+    theme: dict
 
 
 def log(message: str) -> None:
@@ -67,11 +68,11 @@ def site_of(text: str) -> Site:
     elif re.match(r"^https?://", text):
         key = next((k for k, s in SITES.items() if host_of(s["url"]) == host_of(text)), None)
         if key is None:
-            return Site(host_of(text), text, None, None, False, None)
+            return Site(host_of(text), text, None, None, False, None, {})
     else:
         raise AtomFailed({"code": "invalid_args", "message": f"{text} is neither a site in sites.json ({', '.join(SITES)}) nor an http or https URL"})
     entry = SITES[key]
-    return Site(key, entry["url"], entry.get("index"), entry.get("base"), entry["keepCode"], entry["terms"])
+    return Site(key, entry["url"], entry.get("index"), entry.get("base"), entry["keepCode"], entry["terms"], entry.get("theme", {}))
 
 
 def components_of(site: Site, only: str | None, limit: int | None) -> list[dict]:
@@ -102,6 +103,8 @@ def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str
         return "locked", "the item's files carry no code"
     if dry_run:
         return "kept", "dry run, not written"
+    css_vars = fetched["item"].setdefault("cssVars", {})
+    css_vars["theme"] = {**site.theme, **css_vars.get("theme", {})}
     added = subprocess.run(
         ["node", str(into / "scripts" / "add.mjs"), "--license", site.terms],
         input=json.dumps(fetched),
