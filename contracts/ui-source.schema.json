@@ -8,8 +8,8 @@
     "source": { "type": "string", "description": "The item URL or file the caller passed." },
     "exposed": { "type": "boolean", "description": "True when files is non-empty and every file carries its content." },
     "item": {
-      "type": "object",
-      "description": "The registry item JSON, untouched. shadcn's registry-item schema defines the rest.",
+      "type": ["object", "null"],
+      "description": "The registry item JSON, untouched. shadcn's registry-item schema defines the rest. Null when the site answers HTTP 401 for the item, as Kobra does for a Pro item.",
       "properties": {
         "name": { "type": "string" },
         "files": { "type": "array", "items": { "type": "object" } }

@@ -96,9 +96,9 @@ def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str
     try:
         fetched = atom("ui-source", "registry", item["itemUrl"])
     except AtomFailed as e:
-        if e.error["code"] == "unavailable" and "401" in e.error["message"]:
-            return "locked", e.error["message"]
         return "failed", f"{e.error['code']}: {e.error['message']}"
+    if fetched["item"] is None:
+        return "locked", f"HTTP 401 from {item['itemUrl']}"
     if not fetched["exposed"]:
         return "locked", "the item's files carry no code"
     if dry_run:

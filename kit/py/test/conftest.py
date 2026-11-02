@@ -7,6 +7,7 @@ ROUTES = {
     "/item.json": (200, b'{"name": "badge"}'),
     "/page.html": (200, b"<html></html>"),
     "/limited.json": (429, b"slow down"),
+    "/pro.json": (401, b"sign in"),
 }
 
 

@@ -21,6 +21,13 @@ def test_maps_failures_to_error_codes(server, path, code):
     assert raised.value.code == code
 
 
+def test_returns_none_for_an_expected_status(server):
+    assert web.get_json(f"{server}/pro.json", "ui-source", none_on=(401,)) is None
+    with pytest.raises(AtomError) as raised:
+        web.get_json(f"{server}/pro.json", "ui-source")
+    assert raised.value.code == "unavailable"
+
+
 def test_rejects_a_non_http_url():
     with pytest.raises(AtomError) as raised:
         web.get_json("not-a-url", "ui-source")

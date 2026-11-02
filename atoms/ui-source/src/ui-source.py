@@ -11,6 +11,8 @@ from factory_kit import cli, web
 
 
 def _source(source: str, item) -> dict:
+    if item is None:
+        return {"source": source, "exposed": False, "item": None, "cacheHit": False}
     if not isinstance(item, dict) or not isinstance(item.get("name"), str) or not isinstance(item.get("files"), list):
         raise cli.AtomError("invalid_source", f"Not a shadcn registry item: {source}")
     files = item["files"]
@@ -19,7 +21,8 @@ def _source(source: str, item) -> dict:
 
 
 def registry(url: str) -> dict:
-    return _source(url, web.get_json(url, "ui-source"))
+    # Kobra answers 401 for a Pro item. That is a locked component, not a failed call.
+    return _source(url, web.get_json(url, "ui-source", none_on=(401,)))
 
 
 def parse(path: str) -> dict:

@@ -38,4 +38,25 @@ printf '[]' > "$out/not-item.json"
 if "$bin" parse "$out/not-item.json" --json > "$out/bad.json"; then fail "a JSON list exited 0"; fi
 [ "$(jq -r .error.code "$out/bad.json")" = invalid_source ] || fail "a JSON list did not report invalid_source"
 
+python3 -I -c '
+import http.server, sys
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(401 if self.path == "/pro.json" else 404)
+        self.end_headers()
+    def log_message(self, *a): pass
+s = http.server.HTTPServer(("127.0.0.1", 0), H)
+print(s.server_port, flush=True)
+s.serve_forever()
+' > "$out/port" &
+server=$!
+trap 'kill $server; wait $server 2>/dev/null || :; rm -rf "$TOOL_FACTORY_HOME"' EXIT
+while [ ! -s "$out/port" ]; do sleep 0.05; done
+base="http://127.0.0.1:$(cat "$out/port")"
+"$bin" registry "$base/pro.json" --json > "$out/pro.json" || fail "a 401 item exited non-zero: $(cat "$out/pro.json")"
+"$repo/contracts/check" ui-source "$out/pro.json" || fail "a 401 item does not match ui-source.schema.json"
+[ "$(jq -c '[.exposed, .item]' "$out/pro.json")" = '[false,null]' ] || fail "a 401 item did not come back locked: $(cat "$out/pro.json")"
+if "$bin" registry "$base/gone.json" --json > "$out/gone.json"; then fail "a 404 item exited 0"; fi
+[ "$(jq -r .error.code "$out/gone.json")" = unavailable ] || fail "a 404 item did not report unavailable"
+
 echo "PASS ui-source"

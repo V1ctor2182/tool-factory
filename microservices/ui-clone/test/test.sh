@@ -29,7 +29,7 @@ case "$name $1" in
 "ui-source registry")
 	item=$(basename "$2" .json)
 	case "$item" in
-	pro-card) echo "{\"error\":{\"code\":\"unavailable\",\"message\":\"HTTP 401 from $2\"}}"; exit 1 ;;
+	pro-card) jq -cn --arg s "$2" '{source: $s, exposed: false, item: null, cacheHit: false}' ;;
 	broken) echo "{\"error\":{\"code\":\"network_error\",\"message\":\"stub could not reach $2\"}}"; exit 1 ;;
 	paid-block) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: false, item: {name: $n, files: []}, cacheHit: false}' ;;
 	*) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: true, item: {name: $n, type: "registry:ui", files: [{path: "\($n).tsx", content: "export {}"}], cssVars: {theme: {"--ease-out": "linear", "--otp-gap": "4px"}}}, cacheHit: false}' ;;
