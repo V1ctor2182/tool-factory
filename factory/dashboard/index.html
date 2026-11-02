@@ -26,6 +26,8 @@
   --bad-wash: #fdeeec;
   --warn: #b26a00;
   --warn-wash: #fdf3e2;
+  --ok: #127a4a;
+  --ok-wash: #e3f6ec;
   --shadow: 0 1px 2px #0000000d, 0 12px 32px -8px #0000001f;
   --font: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -48,6 +50,8 @@
     --bad-wash: #2a1513;
     --warn: #f0b154;
     --warn-wash: #2a2010;
+    --ok: #5fd39a;
+    --ok-wash: #11261b;
     --shadow: 0 1px 2px #00000066, 0 12px 32px -8px #000000aa;
   }
 }
@@ -67,6 +71,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .top nav { display: flex; gap: 28px; }
 .top nav a { color: var(--ink); text-decoration: none; font-size: 17px; }
 .top nav a:hover { color: var(--blue); }
+.top nav a[aria-current="page"] { color: var(--blue-ink); font-weight: 500; }
 .top .when { margin-left: auto; font-size: 15px; color: var(--muted); }
 .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--blue-chip); color: var(--blue-ink); border-radius: 10px; padding: 8px 18px; font-size: 16px; font-weight: 500; text-decoration: none; border: 0; cursor: pointer; white-space: nowrap; }
 .pill:hover { background: var(--blue-edge); }
@@ -106,7 +111,7 @@ h2.big { font-size: 48px; }
 .field { display: flex; align-items: center; gap: 10px; background: var(--blue-wash); border-radius: 16px; padding: 10px 10px 10px 14px; }
 .field:focus-within { box-shadow: 0 0 0 3px var(--blue-edge); }
 .token { flex: none; font-family: var(--mono); font-size: 15px; letter-spacing: 0; border-radius: 8px; padding: 3px 9px; background: var(--card); border: 1px solid var(--blue-edge); color: var(--blue-ink); }
-.token.doc-verb { background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 35%, transparent); color: var(--warn); }
+.token.verb { background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 35%, transparent); color: var(--warn); }
 .field input { flex: 1; min-width: 0; border: 0; background: none; font-family: var(--mono); font-size: 18px; letter-spacing: 0; padding: 8px 2px; outline: none; }
 .field input::placeholder { color: var(--muted); opacity: 0.7; }
 .send { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; border-radius: 12px; background: var(--blue); color: #fff; cursor: pointer; }
@@ -210,11 +215,15 @@ h2.big { font-size: 48px; }
   .stage { grid-template-columns: 1fr minmax(200px, 0.8fr); }
   .panel { grid-column: 1 / -1; padding: 28px 0 0; }
   .kpis { grid-template-columns: 1fr 1fr; }
+  .jump { grid-template-columns: 1fr 1fr; }
   .split { grid-template-columns: minmax(0, 1fr); gap: 32px; }
 }
 @media (max-width: 760px) {
-  .top .in { padding: 0 16px; gap: 16px; }
-  .top nav, .top .when { display: none; }
+  .top .in { height: auto; flex-wrap: wrap; padding: 10px 16px 0; gap: 4px 16px; }
+  .top .when { display: none; }
+  .top .pill { margin-left: auto; }
+  .top nav { order: 3; width: 100%; gap: 20px; overflow-x: auto; padding: 6px 0 10px; }
+  .top nav a { font-size: 15px; white-space: nowrap; }
   .brand { margin-right: auto; font-size: 22px; }
   .wrap { padding: 0 16px; }
   .hero { padding-top: 48px; }
@@ -230,35 +239,82 @@ h2.big { font-size: 48px; }
   .atoms { padding: 20px 0 0; }
   .menu .vd { display: none; }
   .pick .group { width: 100%; }
-  .doc { padding: 20px; }
   .reply { padding: 18px; }
   .ask { max-width: 100%; }
 }
-.docs { display: grid; gap: 20px; margin-top: 40px; }
-.doc { background: var(--well); border-radius: 20px; padding: 28px; min-width: 0; scroll-margin-top: 90px; }
-.doc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
-.doc-head h3 { font-size: 26px; letter-spacing: -0.03em; margin: 0; }
-.doc .tag { font-size: 13px; color: var(--muted); background: var(--card); border-radius: 8px; padding: 2px 8px; }
-.doc > p { margin: 8px 0 0; color: var(--muted); max-width: 80ch; }
-.doc-verb { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-top: 16px; min-width: 0; }
-.doc-verb-head { display: flex; align-items: center; gap: 12px; }
-.doc-verb-head .mono { flex: 1; min-width: 0; font-size: 14px; }
-.doc-verb-head .pill { padding: 5px 14px; font-size: 14px; }
-.doc-verb > p { margin: 8px 0 0; }
-.doc-verb h4 { margin: 18px 0 6px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-.doc-verb h4 .mono { text-transform: none; color: var(--ink); }
-.tbl { overflow-x: auto; }
-.tbl table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.tbl th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); }
-.tbl td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-.tbl td.mono { white-space: nowrap; }
-@media (max-width: 760px) {
-  .tbl table, .tbl tbody { display: block; }
-  .tbl thead { display: none; }
-  .tbl tr { display: grid; grid-template-columns: auto auto 1fr; gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .tbl td { border: 0; padding: 0; }
-  .tbl td:nth-child(3) { color: var(--muted); }
-  .tbl td:last-child { grid-column: 1 / -1; }
+
+.wrap > section > h1.big { padding-top: 72px; }
+.jump { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 56px; }
+.jump a { display: grid; gap: 6px; background: var(--well); border-radius: 18px; padding: 20px 22px; text-decoration: none; color: var(--ink); }
+.jump a:hover { background: var(--blue-wash); }
+.jump b { font-size: 20px; font-weight: 600; letter-spacing: -0.03em; }
+.jump span { font-size: 14px; color: var(--muted); }
+
+.docs-shell { max-width: 1440px; margin: 0 auto; padding: 0 32px; display: grid; grid-template-columns: 232px minmax(0, 1fr) minmax(0, 400px); gap: 48px; align-items: start; }
+.side { position: sticky; top: 64px; max-height: calc(100vh - 64px); overflow-y: auto; padding: 28px 8px 40px 0; }
+.side summary { display: none; }
+.side-group { margin-top: 22px; }
+.side-title { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px 10px; }
+.side-link { display: block; text-decoration: none; color: var(--ink); border-radius: 8px; padding: 5px 10px; font-size: 14px; }
+.side-link:hover { background: var(--well); }
+.side-link.tool { font-weight: 500; margin-top: 4px; }
+.side-link.verb { padding-left: 24px; color: var(--muted); font-family: var(--mono); font-size: 13px; letter-spacing: 0; }
+.side-link.on { background: var(--blue-wash); color: var(--blue-ink); }
+.doc-main { padding: 36px 0 64px; min-width: 0; }
+.doc-main.wide { grid-column: span 2; max-width: 860px; }
+.doc-main h1 { font-size: 36px; line-height: 1.1; letter-spacing: -0.04em; margin: 6px 0 0; }
+.doc-main h2 { font-size: 20px; letter-spacing: -0.02em; margin: 40px 0 4px; display: flex; align-items: center; gap: 10px; }
+.doc-main a { color: var(--blue-ink); }
+.doc-main p { margin: 10px 0 0; }
+.doc-main .small { font-size: 14px; }
+.eyebrow { font-size: 14px; font-weight: 500; color: var(--blue-ink); }
+.doc-lede { font-size: 18px; color: var(--muted); line-height: 1.5; }
+.endpoint { display: flex; align-items: center; gap: 12px; margin-top: 24px; border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 8px 10px; }
+.endpoint .mono { flex: 1; min-width: 0; font-size: 14px; }
+.endpoint .pill { padding: 6px 14px; font-size: 14px; }
+.method { flex: none; font: 600 12px var(--mono); letter-spacing: 0.02em; color: var(--ok); background: var(--ok-wash); border-radius: 6px; padding: 3px 8px; }
+.callout { background: var(--warn-wash); color: var(--warn); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.chip { font: 500 13px var(--mono); letter-spacing: 0; color: var(--muted); background: var(--well); border-radius: 6px; padding: 2px 8px; }
+.param { border-bottom: 1px solid var(--line); padding: 16px 0; }
+.param-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.param-name { font: 600 14px var(--mono); letter-spacing: 0; color: var(--blue-ink); }
+.param-meta { font: 13px var(--mono); letter-spacing: 0; color: var(--muted); background: var(--well); border-radius: 6px; padding: 1px 7px; }
+.param-req { font-size: 12px; font-weight: 500; color: var(--bad); background: var(--bad-wash); border-radius: 6px; padding: 1px 7px; }
+.param p { margin: 6px 0 0; font-size: 15px; color: var(--muted); }
+.pager { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 48px; }
+.pager-link { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; text-decoration: none; font: 14px var(--mono); letter-spacing: 0; }
+.pager-link span { font: 13px var(--font); color: var(--muted); }
+.pager-link.next { text-align: right; }
+.pager-link:hover { border-color: var(--blue-edge); }
+.doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+.doc-card { display: block; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; text-decoration: none; color: var(--ink) !important; min-width: 0; }
+.doc-card:hover { border-color: var(--blue-edge); background: var(--blue-wash); }
+.doc-card-name { font-weight: 600; font-size: 16px; }
+.doc-card p { font-size: 14px; color: var(--muted); margin: 6px 0 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.doc-aside { position: sticky; top: 64px; padding: 36px 0; display: grid; gap: 16px; min-width: 0; }
+.code { background: #0f1117; color: #e6e8ee; border-radius: 14px; overflow: hidden; border: 1px solid #23262d; }
+.code-head { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-bottom: 1px solid #23262d; font-size: 13px; }
+.code-title { color: #9aa0ab; }
+.code [role="tablist"] { display: flex; gap: 2px; }
+.code [role="tab"], .code .copy { border: 0; background: none; color: #9aa0ab; border-radius: 6px; padding: 3px 8px; font-size: 13px; cursor: pointer; }
+.code [role="tab"][aria-selected="true"] { color: #fff; background: #23262d; }
+.code .copy { margin-left: auto; }
+.code .copy:hover, .code [role="tab"]:hover { color: #fff; }
+.code pre { margin: 0; padding: 14px 16px; font: 13px/1.6 var(--mono); letter-spacing: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; }
+
+@media (max-width: 1200px) {
+  .docs-shell { grid-template-columns: 220px minmax(0, 1fr); }
+  .doc-aside { grid-column: 2; position: static; padding-top: 0; }
+  .doc-main.wide { grid-column: 2; }
+}
+@media (max-width: 900px) {
+  .docs-shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px; }
+  .side { position: static; max-height: none; padding: 16px 0 0; }
+  .side summary { display: block; cursor: pointer; font-weight: 500; background: var(--well); border-radius: 12px; padding: 10px 14px; }
+  .doc-aside, .doc-main.wide { grid-column: 1; }
+  .doc-main h1 { font-size: 28px; }
+  .jump { grid-template-columns: 1fr 1fr; }
+  .endpoint { flex-wrap: wrap; }
 }
 </style>
 </head>
@@ -420,7 +476,7 @@ function panelFor(name) {
       h('dt', null, 'Linked'), h('dd', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
     service && !unmetered(row) && total(row) ? h('div', { class: 'chart' }, bars(row.perDay)) : null,
     h('div', { class: 'sources' }, h('span', null, `${service ? 'Uses' : 'Used by'} ${plural(near.length, service ? 'atom' : 'microservice')}`)),
-    h('div', { class: 'chips' }, service && row.verbs.length ? h('button', { type: 'button', class: 'go', onclick: () => tryOut(row.name) }, `Try ${row.name}`) : null, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
+    h('div', { class: 'chips' }, service && row.verbs.length ? h('button', { type: 'button', class: 'go', onclick: () => (location.href = tryHref(row.name)) }, `Try ${row.name}`) : null, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
   ];
 }
 
@@ -471,13 +527,7 @@ function result(verb, output) {
   return h('pre', { class: 'raw' }, JSON.stringify(output, null, 2));
 }
 
-function tryOut(name, verbName) {
-  trying.service = runnable.find((s) => s.name === name);
-  trying.verb = trying.service.verbs.find((v) => v.name === verbName) ?? trying.service.verbs[0];
-  drawComposer();
-  document.getElementById('try').scrollIntoView();
-  composer.querySelector('.field input')?.focus({ preventScroll: true });
-}
+const tryHref = (name, verbName) => `/try?${new URLSearchParams({ name, ...(verbName && { verb: verbName }) })}`;
 
 function drawComposer() {
   const { service, verb } = trying;
@@ -566,28 +616,137 @@ async function submit(e) {
   }
 }
 
-function fields(list) {
-  return h('div', { class: 'tbl' }, h('table', null,
-    h('thead', null, h('tr', null, ['Field', 'Type', 'Required', 'Description'].map((t) => h('th', null, t)))),
-    h('tbody', null, list.map((f) => h('tr', null, h('td', { class: 'mono' }, f.name), h('td', { class: 'mono' }, f.type), h('td', null, f.required ? 'yes' : 'no'), h('td', null, f.description ?? ''))))));
+const docRows = rows.filter((r) => r.verbs.length);
+const docPath = (row, verb) => `/docs/${encodeURIComponent(row.name)}${verb ? `/${encodeURIComponent(verb.name)}` : ''}`;
+const docOrder = docRows.flatMap((row) => row.verbs.map((verb) => ({ row, verb })));
+
+function docGroups() {
+  const atoms = docRows.filter((r) => r.type === 'atom');
+  return [['Microservices', docRows.filter((r) => r.type === 'microservice')],
+    ...[...new Set([...KINDS, ...atoms.map((a) => a.kind)])].map((kind) => [`Atoms, ${kind}`, atoms.filter((a) => a.kind === kind)])]
+    .filter(([, list]) => list.length);
 }
 
-function doc(row) {
-  const guard = row.guard === 'confirm' ? 'confirm on every run' : row.guard === 'budget' ? 'spends the model budget' : null;
-  return h('article', { class: 'doc', id: `doc-${row.name}` },
-    h('div', { class: 'doc-head' }, h('h3', null, row.name), h('span', { class: 'tag' }, row.type === 'atom' ? `atom, ${row.kind}` : `microservice, ${row.kind}`), guard ? h('span', { class: 'tag' }, guard) : null),
-    h('p', null, row.description),
-    row.verbs.map((v) => {
-      const { properties, required = [] } = v.input;
-      const out = model.contracts[v.output];
-      return h('div', { class: 'doc-verb' },
-        h('div', { class: 'doc-verb-head' }, h('span', { class: 'mono' }, v.usage), runnable.includes(row) ? h('button', { class: 'pill', type: 'button', onclick: () => tryOut(row.name, v.name) }, 'Try') : null),
-        h('p', null, v.description),
-        h('h4', null, 'Input'),
-        fields(Object.entries(properties).map(([name, p]) => ({ name, type: [p.type].flat().join(' or '), required: required.includes(name), description: p.description }))),
-        h('h4', null, 'Output ', h('span', { class: 'mono' }, v.output)),
-        out ? [out.description ? h('p', null, out.description) : null, fields(out.fields)] : h('p', { class: 'muted' }, `contracts/${v.output}.schema.json is missing.`));
-    }));
+function sidebar(at) {
+  const link = (href, on, cls, ...text) => h('a', { class: `side-link ${cls}${on ? ' on' : ''}`, href, ...(on ? { 'aria-current': 'page' } : {}) }, ...text);
+  return h('details', { class: 'side', ...(matchMedia('(max-width: 900px)').matches ? {} : { open: '' }) },
+    h('summary', null, 'Browse the docs'),
+    h('nav', { 'aria-label': 'Docs' },
+      link('/docs', !at.row, 'intro', 'Introduction'),
+      docGroups().map(([label, list]) => h('div', { class: 'side-group' }, h('div', { class: 'side-title' }, label),
+        list.map((row) => [
+          link(docPath(row), at.row === row && !at.verb, 'tool', row.name),
+          row.verbs.map((v) => link(docPath(row, v), at.verb === v, 'verb', v.name)),
+        ])))));
+}
+
+function param({ name, type, required, cli, fallback, description }) {
+  return h('div', { class: 'param' },
+    h('div', { class: 'param-head' },
+      h('span', { class: 'param-name' }, name),
+      h('span', { class: 'param-meta' }, type),
+      cli ? h('span', { class: 'param-meta' }, cli) : null,
+      fallback !== undefined ? h('span', { class: 'param-meta' }, `default ${JSON.stringify(fallback)}`) : null,
+      required ? h('span', { class: 'param-req' }, 'required') : null),
+    description ? h('p', null, description) : null);
+}
+
+function sample(type) {
+  const first = type.split(' or ')[0];
+  const plain = { string: 'string', boolean: true, integer: 0, number: 0, array: [], object: {}, null: null, any: null };
+  if (first in plain) return plain[first];
+  try {
+    return JSON.parse(first);
+  } catch {
+    return first;
+  }
+}
+
+function codePanel(title, tabs) {
+  const pre = h('pre', null);
+  const buttons = tabs.map(([label], i) => h('button', { type: 'button', role: 'tab', onclick: () => show(i) }, label));
+  const copy = h('button', { type: 'button', class: 'copy', onclick: async () => {
+    await navigator.clipboard?.writeText(pre.textContent).catch(() => {});
+    copy.textContent = 'Copied';
+    setTimeout(() => (copy.textContent = 'Copy'), 1200);
+  } }, 'Copy');
+  function show(i) {
+    pre.textContent = tabs[i][1];
+    buttons.forEach((b, j) => b.setAttribute('aria-selected', String(i === j)));
+  }
+  show(0);
+  return h('div', { class: 'code' }, h('div', { class: 'code-head' }, h('span', { class: 'code-title' }, title), h('div', { role: 'tablist' }, buttons), copy), pre);
+}
+
+function verbPage(row, v) {
+  const { properties, required = [] } = v.input;
+  const out = model.contracts[v.output];
+  const at = docOrder.findIndex((d) => d.verb === v);
+  const [prev, next] = [docOrder[at - 1], docOrder[at + 1]];
+  const placeholders = Object.fromEntries(required.map((name) => [name, `<${name}>`]));
+  const json = (value) => JSON.stringify(value, null, 2);
+  const request = [
+    ['CLI', `${v.usage.replace(/ \[[^\]]*\]/g, '')} --json`],
+    ...(row.adapters.includes('mcp') ? [['MCP', json({ method: 'tools/call', params: { name: `${row.name}_${v.name}`, arguments: placeholders } })]] : []),
+    ['Dashboard', `POST /run/${row.name}/${v.name}\ncontent-type: application/json\n\n${json(placeholders)}`],
+  ];
+  const guard = row.guard === 'confirm' ? 'Asks for confirmation on every run' : row.guard === 'budget' ? 'Spends the daily model budget' : null;
+  const pager = (d, label) => d ? h('a', { class: `pager-link ${label.toLowerCase()}`, href: docPath(d.row, d.verb) }, h('span', null, label), `${d.row.name} ${d.verb.name}`) : h('span');
+  return [
+    h('article', { class: 'doc-main' },
+      h('div', { class: 'eyebrow' }, row.type === 'atom' ? `Atoms, ${row.kind}` : 'Microservices'),
+      h('h1', null, `${row.name} ${v.name}`),
+      h('p', { class: 'doc-lede' }, v.description),
+      h('div', { class: 'endpoint' }, h('span', { class: 'method' }, 'CLI'), h('span', { class: 'mono' }, v.usage),
+        runnable.includes(row) ? h('a', { class: 'pill', href: tryHref(row.name, v.name) }, 'Try it') : null),
+      guard ? h('p', { class: 'callout' }, `${guard}.`) : null,
+      h('h2', null, 'Arguments'),
+      Object.keys(properties).length
+        ? Object.entries(properties).map(([name, p]) => param({ name, type: [p.type].flat().join(' or '), required: required.includes(name), cli: v.cli[name], fallback: p.default, description: p.description }))
+        : h('p', { class: 'muted' }, 'None.'),
+      h('h2', null, 'Response ', h('span', { class: 'chip' }, v.output)),
+      out ? [out.description ? h('p', null, out.description) : null, out.fields.map(param)] : h('p', { class: 'muted' }, `contracts/${v.output}.schema.json is missing.`),
+      h('p', { class: 'muted small' }, 'On failure the CLI exits 1 and prints {"error": {"code", "message"}} instead.'),
+      h('nav', { class: 'pager', 'aria-label': 'Previous and next' }, pager(prev, 'Previous'), pager(next, 'Next'))),
+    h('aside', { class: 'doc-aside' },
+      codePanel('Request', request),
+      out ? codePanel('Response', [[v.output, json(Object.fromEntries(out.fields.map((f) => [f.name, sample(f.type)])))]]) : null),
+  ];
+}
+
+function toolPage(row) {
+  const near = row.type === 'microservice' ? row.uses : row.usedBy;
+  return h('article', { class: 'doc-main wide' },
+    h('div', { class: 'eyebrow' }, row.type === 'atom' ? `Atoms, ${row.kind}` : 'Microservices'),
+    h('h1', null, row.name),
+    h('p', { class: 'doc-lede' }, row.description),
+    h('p', { class: 'muted small' }, `${row.type}, ${row.kind}, ${row.status}. ${row.type === 'microservice' ? 'Calls' : 'Used by'} `,
+      near.length ? near.map((n, i) => [i ? ', ' : '', rows.some((r) => r.name === n && r.verbs.length) ? h('a', { href: `/docs/${encodeURIComponent(n)}` }, n) : n]) : 'nothing', '.'),
+    h('h2', null, 'Verbs'),
+    h('div', { class: 'doc-cards' }, row.verbs.map((v) => h('a', { class: 'doc-card', href: docPath(row, v) }, h('div', { class: 'mono' }, v.usage), h('p', null, v.description)))));
+}
+
+function introPage() {
+  return h('article', { class: 'doc-main wide' },
+    h('div', { class: 'eyebrow' }, 'Docs'),
+    h('h1', null, 'Every verb, one reference'),
+    h('p', { class: 'doc-lede' }, `${plural(model.microservices.length, 'microservice')} and ${plural(model.atoms.length, 'atom')}. Each page comes from the verb's manifest and its output contract, so it matches what the CLI does.`),
+    h('h2', null, 'Call a verb'),
+    h('p', null, 'Run the CLI with --json and read one JSON object from stdout. Progress goes to stderr. An agent can call the same verb through MCP after factory mcp <names>, and the Try page calls it from here. Every call lands in the run log.'),
+    h('h2', null, 'Read an error'),
+    h('p', null, 'A failed call exits 1 and prints {"error": {"code", "message"}}. Each tool\'s SKILL.md lists its codes and what to do about each.'),
+    docGroups().map(([label, list]) => [h('h2', null, label), h('div', { class: 'doc-cards' }, list.map((row) => h('a', { class: 'doc-card', href: docPath(row) }, h('div', { class: 'doc-card-name' }, row.name), h('p', null, row.description))))]));
+}
+
+function docsView() {
+  const [, , name, verbName] = location.pathname.split('/').map(decodeURIComponent);
+  const row = name ? docRows.find((r) => r.name === name) : null;
+  const verb = row && verbName ? row.verbs.find((v) => v.name === verbName) : null;
+  const missing = (name && !row) || (verbName && !verb);
+  return h('div', { class: 'docs-shell' },
+    sidebar({ row, verb }),
+    missing ? h('article', { class: 'doc-main wide' }, h('h1', null, 'No such page'), h('p', null, h('a', { href: '/docs' }, 'Back to the docs.')))
+      : verb ? verbPage(row, verb) : row ? toolPage(row) : introPage());
 }
 
 let selected = null;
@@ -655,18 +814,60 @@ function headline(sick, calls) {
     h('span', { class: `mark${sick ? ' bad' : ''}` }, sick ? `${sick} need a look.` : 'all healthy.'));
 }
 
-function render() {
-  if (!model) {
-    app.append(h('p', { style: 'padding:24px' }, 'No status model. Open this page through factory dashboard.'));
-    return;
-  }
+const PAGES = [['/', 'Overview'], ['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere']];
+const here = location.pathname.replace(/\/+$/, '') || '/';
+const page = here.startsWith('/docs') ? '/docs' : here;
+
+function overviewView() {
   const { capUsd, spentTodayUsd } = model.budget;
   const share = capUsd && spentTodayUsd !== null ? spentTodayUsd / capUsd : 0;
   const sick = rows.length - counts.ok;
   const calls = model.calls;
+  return h('main', { class: 'wrap' },
+    h('section', { class: 'hero' },
+      headline(sick, calls),
+      h('p', { class: 'say' }, 'Spent ', h('b', null, usd(spentTodayUsd)), capUsd === null ? ' today, and the budget is unreadable.' : capUsd === 0 ? ' today, and no model spend is allowed.' : ` of today's $${capUsd.toFixed(2)} budget.`),
+      model.problems.length
+        ? h('div', { class: 'problems', role: 'alert' }, `${plural(model.problems.length, 'problem')} found`,
+          h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
+        : null,
+      h('div', { class: 'kpis' },
+        h('div', { class: 'kpi lead', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
+          meter(share, spentTodayUsd !== null && capUsd !== null && spentTodayUsd >= capUsd),
+          h('div', { class: 's' }, capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), meter(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Microservice runs and direct atom calls')),
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
+          meter(calls?.runs ? calls.failed / calls.runs : 0, calls?.failed), h('div', { class: 's' }, calls?.runs ? `${Math.round((calls.failed / calls.runs) * 100)}% of calls` : 'No calls')),
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Healthy'), h('div', { class: 'v' }, `${counts.ok}/${rows.length}`),
+          meter(rows.length ? counts.ok / rows.length : 0), h('div', { class: 's' }, sick ? `${counts.warn} warning, ${counts.red} broken` : 'Every microservice and atom passes doctor'))),
+      h('div', { class: 'sources' }, h('span', null, `Sources: ${plural(model.log.lines ?? 0, 'log line')}, ${plural(rows.length, 'manifest')}, ${model.days.length}-day window`))),
+    h('div', { class: 'jump' },
+      [['/try', 'Try', 'Run any verb from the browser.'], ['/wiring', 'Wiring', 'See which atoms each microservice calls.'], ['/docs', 'Docs', 'Every verb, its arguments, and its response.'], ['/elsewhere', 'Elsewhere', 'Microservices in other repos.']]
+        .map(([href, title, text]) => h('a', { href }, h('b', null, title), h('span', null, text)))),
+    footer());
+}
+
+function tryView() {
+  const want = new URLSearchParams(location.search);
+  const pick = runnable.find((s) => s.name === want.get('name'));
+  if (pick) {
+    trying.service = pick;
+    trying.verb = pick.verbs.find((v) => v.name === want.get('verb')) ?? pick.verbs[0];
+  }
+  return h('main', { class: 'wrap' },
+    h('section', { id: 'try', 'aria-label': 'Try a verb' },
+      h('div', { class: 'split' },
+        h('div', null,
+          h('h1', { class: 'big' }, 'Try one. ', h('span', { class: 'soft' }, 'Paste a link, get the answer.')),
+          h('p', { class: 'say' }, 'Pick a microservice or an atom, then a verb. Runs go through the same budget and land in the run log.')),
+        composer = h('form', { class: 'composer', onsubmit: submit })),
+      thread = h('div', { class: 'thread', 'aria-live': 'polite' })),
+    footer());
+}
+
+function wiringView() {
   const groups = [...KINDS, ...new Set(model.atoms.map((a) => a.kind).filter((k) => !KINDS.includes(k)))]
     .map((kind) => [kind, model.atoms.filter((a) => a.kind === kind)]).filter(([, list]) => list.length);
-
   wires = document.createElementNS(SVG, 'svg');
   wires.setAttribute('class', 'wires');
   wires.setAttribute('aria-hidden', 'true');
@@ -677,68 +878,54 @@ function render() {
     h('section', { class: 'atoms', 'aria-label': 'Atoms' }, h('div', { class: 'col-title' }, `Atoms, ${model.atoms.length}`),
       groups.map(([kind, list]) => [h('div', { class: 'kind' }, kind), list.map(atomNode)])),
     h('aside', { class: 'panel' }, panel));
-
-  app.append(
-    h('header', { class: 'top' }, h('div', { class: 'in' },
-      h('a', { class: 'brand', href: '#' }, icon(30, LOGO), 'FACTORY'),
-      h('nav', null,
-        runnable.length ? h('a', { href: '#try' }, 'Try') : null,
-        h('a', { href: '#wiring' }, 'Wiring'),
-        h('a', { href: '#docs' }, 'Docs'),
-        h('a', { href: '#elsewhere' }, 'Elsewhere')),
-      h('span', { class: 'when' }, span),
-      h('a', { class: 'pill', href: '' }, 'Reload'))),
-    h('main', { class: 'wrap' },
-      h('section', { class: 'hero' },
-        headline(sick, calls),
-        h('p', { class: 'say' }, 'Spent ', h('b', null, usd(spentTodayUsd)), capUsd === null ? ' today, and the budget is unreadable.' : capUsd === 0 ? ' today, and no model spend is allowed.' : ` of today's $${capUsd.toFixed(2)} budget.`),
-        model.problems.length
-          ? h('div', { class: 'problems', role: 'alert' }, `${plural(model.problems.length, 'problem')} found`,
-            h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
-          : null,
-        h('div', { class: 'kpis' },
-          h('div', { class: 'kpi lead', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
-            meter(share, spentTodayUsd !== null && capUsd !== null && spentTodayUsd >= capUsd),
-            h('div', { class: 's' }, capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
-          h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), meter(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Microservice runs and direct atom calls')),
-          h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
-            meter(calls?.runs ? calls.failed / calls.runs : 0, calls?.failed), h('div', { class: 's' }, calls?.runs ? `${Math.round((calls.failed / calls.runs) * 100)}% of calls` : 'No calls')),
-          h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Healthy'), h('div', { class: 'v' }, `${counts.ok}/${rows.length}`),
-            meter(rows.length ? counts.ok / rows.length : 0), h('div', { class: 's' }, sick ? `${counts.warn} warning, ${counts.red} broken` : 'Every microservice and atom passes doctor'))),
-        h('div', { class: 'sources' }, h('span', null, `Sources: ${plural(model.log.lines ?? 0, 'log line')}, ${plural(rows.length, 'manifest')}, ${model.days.length}-day window`))),
-      runnable.length ? [
-        h('hr', { class: 'divider' }),
-        h('section', { id: 'try', 'aria-label': 'Try a verb' },
-          h('div', { class: 'split' },
-            h('div', null,
-              h('h2', { class: 'big' }, 'Try one. ', h('span', { class: 'soft' }, 'Paste a link, get the answer.')),
-              h('p', { class: 'say' }, 'Pick a microservice or an atom, then a verb. Runs go through the same budget and land in the run log.')),
-            composer = h('form', { class: 'composer', onsubmit: submit })),
-          thread = h('div', { class: 'thread', 'aria-live': 'polite' })),
-      ] : null,
-      h('hr', { class: 'divider' }),
-      h('section', { id: 'wiring', 'aria-label': 'Wiring' },
-        h('h2', { class: 'big', style: 'padding-top:96px' }, 'The wiring. ', h('span', { class: 'soft' }, 'Click a microservice to see what it calls.')),
-        h('div', { class: 'window' }, stage)),
-      h('hr', { class: 'divider' }),
-      h('section', { id: 'docs', 'aria-label': 'Docs' },
-        h('h2', { class: 'big', style: 'padding-top:96px' }, 'The docs. ', h('span', { class: 'soft' }, 'Every verb, its input, and its output, read from the manifests.')),
-        h('div', { class: 'docs' }, rows.filter((r) => r.verbs.length).map(doc))),
-      h('hr', { class: 'divider' }),
-      h('section', { id: 'elsewhere', 'aria-label': 'Microservices in other repos' },
-        h('h2', { class: 'big', style: 'padding-top:96px' }, 'Elsewhere. ', h('span', { class: 'soft' }, 'Microservices that live in other repos.')),
-        model.external.length
-          ? h('div', { class: 'elsewhere' }, model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), h('div', { class: 'mono' }, t.where), h('p', null, t.description))))
-          : h('p', { class: 'say muted' }, 'external.json lists nothing.')),
-      h('footer', { class: 'foot' }, h('span', null, 'Data home ', h('span', { class: 'mono' }, model.home)), h('span', null, `Run log ${logSummary(model.log)}`))));
-
-  new ResizeObserver(draw).observe(stage);
-  if (runnable.length) drawComposer();
-  const start = decodeURIComponent(location.hash.slice(1));
-  select(nodes.has(start) ? start : null);
+  return h('main', { class: 'wrap' },
+    h('section', { id: 'wiring', 'aria-label': 'Wiring' },
+      h('h1', { class: 'big' }, 'The wiring. ', h('span', { class: 'soft' }, 'Click a microservice to see what it calls.')),
+      h('div', { class: 'window' }, stage)),
+    footer());
 }
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected) select(selected); });
+function elsewhereView() {
+  return h('main', { class: 'wrap' },
+    h('section', { id: 'elsewhere', 'aria-label': 'Microservices in other repos' },
+      h('h1', { class: 'big' }, 'Elsewhere. ', h('span', { class: 'soft' }, 'Microservices that live in other repos.')),
+      model.external.length
+        ? h('div', { class: 'elsewhere' }, model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), h('div', { class: 'mono' }, t.where), h('p', null, t.description))))
+        : h('p', { class: 'say muted' }, 'external.json lists nothing.')),
+    footer());
+}
+
+function footer() {
+  return h('footer', { class: 'foot' }, h('span', null, 'Data home ', h('span', { class: 'mono' }, model.home)), h('span', null, `Run log ${logSummary(model.log)}`));
+}
+
+const VIEWS = { '/': overviewView, '/try': tryView, '/wiring': wiringView, '/docs': docsView, '/elsewhere': elsewhereView };
+
+function render() {
+  if (!model) {
+    app.append(h('p', { style: 'padding:24px' }, 'No status model. Open this page through factory dashboard.'));
+    return;
+  }
+  const title = PAGES.find(([path]) => path === page)?.[1];
+  if (title && page !== '/') document.title = `${title} · Factory`;
+  app.append(
+    h('header', { class: 'top' }, h('div', { class: 'in' },
+      h('a', { class: 'brand', href: '/' }, icon(30, LOGO), 'FACTORY'),
+      h('nav', null, PAGES.slice(1).filter(([path]) => path !== '/try' || runnable.length)
+        .map(([path, label]) => h('a', { href: path, ...(path === page ? { 'aria-current': 'page' } : {}) }, label))),
+      h('span', { class: 'when' }, span),
+      h('a', { class: 'pill', href: '' }, 'Reload'))),
+    (VIEWS[page] ?? overviewView)());
+
+  if (page === '/try') drawComposer();
+  if (page === '/wiring') {
+    new ResizeObserver(draw).observe(stage);
+    const start = decodeURIComponent(location.hash.slice(1));
+    select(nodes.has(start) ? start : null);
+  }
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected && panel) select(selected); });
 render();
 performance.mark('rendered');
 </script>

@@ -8,6 +8,8 @@ import { statusModel } from '../lib/status.mjs';
 const HOST = '127.0.0.1';
 const OPEN = '<script id="status" type="application/json">';
 const RUN = /^\/run\/([^/]+)\/([^/]+)$/;
+// Every page is the same HTML. The page picks its view from the path.
+const PAGE = /^\/(?:try|wiring|elsewhere|docs(?:\/[^/]+){0,2})?$/;
 const MAX_BODY = 64 * 1024;
 
 function page(template, root) {
@@ -81,7 +83,7 @@ export function dashboard(root, port) {
       }
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return reply(405, 'text/plain', 'This page is read-only. Verbs run through POST /run/<name>/<verb>.\n', { allow: 'GET, HEAD' });
-    if (path !== '/') return refuse(404, 'Not found. The dashboard has one page, /.\n');
+    if (!PAGE.test(path)) return refuse(404, 'Not found. The pages are /, /try, /wiring, /docs, and /elsewhere.\n');
     try {
       reply(200, 'text/html', page(template, root));
     } catch (e) {

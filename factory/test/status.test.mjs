@@ -174,6 +174,8 @@ test('the dashboard serves the same model on 127.0.0.1 and refuses writes, frami
     assert.deepEqual(embedded.atoms.map((a) => a.usedBy), model.atoms.map((a) => a.usedBy));
     assert.equal((await fetch(url, { method: 'POST' })).status, 405);
     assert.equal((await fetch(new URL('status.json', url))).status, 404);
+    for (const path of ['try', 'wiring', 'docs', 'docs/ui-source', 'docs/ui-source/registry', 'elsewhere']) assert.equal((await fetch(new URL(path, url))).status, 200, path);
+    assert.equal((await fetch(new URL('docs/a/b/c', url))).status, 404);
     const rebound = spawnSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', 'Host: attacker.example', url], { encoding: 'utf8' });
     assert.equal(rebound.stdout, '421');
   } finally {

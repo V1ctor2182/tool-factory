@@ -72,14 +72,21 @@ export function flag(name) {
 // A microservice with one verb takes no verb word.
 const verbWords = (entry, verb) => (entry.type === 'microservice' && entry.manifest.verbs.length === 1 ? [] : [verb.name]);
 
+// How each input appears on the command line: <name> for a positional argument, --flag otherwise.
+export function cliArgs(verb) {
+  const { properties, required = [] } = verb.input;
+  return Object.fromEntries(Object.keys(properties).map((name) => [name, required.includes(name) && !properties[name]['x-flag'] ? `<${name}>` : flag(name)]));
+}
+
 export function usage(entry, verb) {
   const { properties, required = [] } = verb.input;
-  const positional = required.filter((name) => !properties[name]['x-flag']);
-  const flags = Object.keys(properties).filter((name) => !positional.includes(name)).map((name) => {
-    const option = properties[name].type === 'boolean' ? flag(name) : `${flag(name)} <${name}>`;
+  const args = Object.entries(cliArgs(verb));
+  const positional = args.filter(([, cli]) => cli.startsWith('<')).map(([, cli]) => cli);
+  const flags = args.filter(([, cli]) => cli.startsWith('--')).map(([name, cli]) => {
+    const option = properties[name].type === 'boolean' ? cli : `${cli} <${name}>`;
     return required.includes(name) ? option : `[${option}]`;
   });
-  return [entry.name, ...verbWords(entry, verb), ...positional.map((name) => `<${name}>`), ...flags].join(' ');
+  return [entry.name, ...verbWords(entry, verb), ...positional, ...flags].join(' ');
 }
 
 export function argv(entry, verb, input) {

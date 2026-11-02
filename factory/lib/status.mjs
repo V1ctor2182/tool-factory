@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
-import { usage } from './registry.mjs';
+import { cliArgs, usage } from './registry.mjs';
 import { budget, home, lastDays, logPath, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
@@ -93,7 +93,8 @@ export function statusModel(registry) {
       notes,
       links: links && links.filter((l) => l.name === entry.name).map((l) => ({ socket: l.socket, where: linkedTo(l) })),
       guard: entry.info.guard,
-      verbs: (entry.manifest.verbs ?? []).map((verb) => ({ name: verb.name, usage: usage(entry, verb), description: verb.description, input: verb.input, output: verb.output })),
+      adapters: entry.manifest.adapters ?? [],
+      verbs: (entry.manifest.verbs ?? []).map((verb) => ({ name: verb.name, usage: usage(entry, verb), cli: cliArgs(verb), description: verb.description, input: verb.input, output: verb.output })),
       ...(microservice ? { uses: entry.manifest.uses } : { usedBy: microservices.filter((t) => t.manifest.uses.includes(entry.name)).map((t) => t.name) }),
     };
     if (!records) return { ...known, runs: null, failed: null, medianMs: null, lastRunAt: null, spentUsd: null, ...(microservice && { atomCalls: null, atomFailed: null, perDay: null }) };
