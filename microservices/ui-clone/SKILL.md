@@ -28,9 +28,9 @@ With `--json` it prints one report, as `contracts/ui-clone-report.schema.json` d
 
 ## Rebuild a locked component
 
-A `locked` component is rebuilt from how it looks and behaves, never from its code. Do not read the site's source for it: not its registry item, not a code viewer on its page, not its JS bundles. The rendered page, its DOM, and ui-record's recordings are fair to read.
+A `locked` component is rebuilt from how it looks and behaves, never from its code. Do not read the site's source for it: not its registry item, not a code viewer on its page, not its JS bundles. The rendered page, its DOM, and page-record's recordings are fair to read.
 
-1. Open the component's page and write a ui-record steps file for it, as `contracts/ui-steps.schema.json` defines it. Name each state a user reaches, such as idle, hover, focus, typed, error, and success. Add `frames` to a state that animates. Pick a `target` selector that also exists on the rebuild's demo.
+1. Open the component's page and write a page-record steps file for it, as `contracts/page-steps.schema.json` defines it. Name each state a user reaches, such as idle, hover, focus, typed, error, and success. Add `frames` to a state that animates. Pick a `target` selector that also exists on the rebuild's demo.
 2. In victor-ui, add the rebuild as a registry item with `meta.method` set to `rebuild`, plus a demo in `preview/demos/<name>.tsx` that copies the original page's surroundings. Start the preview with `npm run preview:dev`.
 3. Score it, then fix the largest difference and score again:
 
@@ -39,13 +39,13 @@ A `locked` component is rebuilt from how it looks and behaves, never from its co
 <this skill's folder>/run judge steps.json --rebuild http://localhost:5173/<name> --original <earlier recording.json> --json
 ```
 
-`judge` records the original with the steps file and the rebuild at `--rebuild` with the same steps, then prints ui-diff's result, as `contracts/ui-diff.schema.json` defines it. `--original` reuses an earlier recording of the original. Read each state's `styles`, `animations`, `motion`, `image`, and `sheet` to find what differs. The sheet shows every frame of both side by side.
+`judge` records the original with the steps file and the rebuild at `--rebuild` with the same steps, then prints page-diff's result, as `contracts/page-diff.schema.json` defines it. `--original` reuses an earlier recording of the original. Read each state's `styles`, `animations`, `motion`, `image`, and `sheet` to find what differs. The sheet shows every frame of both side by side.
 
 Stop at a score of 0.97 or after five rounds. Measured on Kobra's input-otp on 2026-11-02, with `sites.json`'s Kobra theme in place: two recordings of the original score 0.9999 against each other, Kobra's own code in the preview scores 0.972, and a rebuild from observation scores 0.976. What keeps Kobra's own code from 1 is the licensed font the preview lacks, so 0.97 means as close as the real code gets. When a site's fonts or images are missing from the preview, judge one of its kept components against its page first, and use that score as the bar for the site.
 
 A site's `theme` in `sites.json` holds the CSS variables its stylesheet sets for every component, read from the rendered page. `collect` adds them to each kept item's `cssVars.theme`, under the item's own. Without them Kobra's `ease-out` resolves to Tailwind's default curve, and its own code scored 0.964 before the theme was added.
 
-Main-thread motion, such as motion's `x` springs, never shows up in `animations`, but ui-diff's `motion` lists each element whose transform or opacity moves differently, frame by frame. Ask for `frames` on every state that moves. A state that lasts only between two frames still escapes the recording. Watch the page yourself for those. Make `forMs` cover the slowest reaction. Kobra's error shake starts 1550 ms after the code is typed. A reaction that starts within a few milliseconds of a frame can land one frame later from run to run, so the same element can show up in `motion` even when the original is compared with itself.
+Main-thread motion, such as motion's `x` springs, never shows up in `animations`, but page-diff's `motion` lists each element whose transform or opacity moves differently, frame by frame. Ask for `frames` on every state that moves. A state that lasts only between two frames still escapes the recording. Watch the page yourself for those. Make `forMs` cover the slowest reaction. Kobra's error shake starts 1550 ms after the code is typed. A reaction that starts within a few milliseconds of a frame can land one frame later from run to run, so the same element can show up in `motion` even when the original is compared with itself.
 
 On failure before any component is fetched, the script exits 1. With `--json` it prints `{"error": {"code", "message"}}`, otherwise the code and message go to stderr.
 

@@ -1,22 +1,22 @@
 ---
-name: ui-record
-description: Record what one UI component looks like in each state of a scripted session, deterministically, in headless Chromium. Use to capture a component whose code is not exposed, and to record a rebuild with the same steps file so the two can be compared.
+name: page-record
+description: Record what a web page, or one part of it, looks like in each state of a scripted session, deterministically, in headless Chromium. Use to capture a UI whose code is not exposed, to record a rebuild with the same steps file so the two can be compared, or to record a page before and after a change.
 ---
 
-# ui-record
+# page-record
 
-Write a steps file, then run the CLI. It prints one JSON object with `--json`. `manifest.json` holds the verb's inputs, and `bin/ui-record capture --help` prints them.
+Write a steps file, then run the CLI. It prints one JSON object with `--json`. `manifest.json` holds the verb's inputs, and `bin/page-record capture --help` prints them.
 
 ```sh
-bin/ui-record capture steps.json --json
-bin/ui-record capture steps.json --url http://localhost:3000/preview/input-otp --json
+bin/page-record capture steps.json --json
+bin/page-record capture steps.json --url http://localhost:3000/preview/input-otp --json
 ```
 
 `--url` replaces the steps file's `url`. Record the original and the rebuild with the same steps file, and their states line up one to one.
 
 ## The steps file
 
-`contracts/ui-steps.schema.json` defines it.
+`contracts/page-steps.schema.json` defines it.
 
 ```json
 {
@@ -48,7 +48,7 @@ After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`
 
 ## The recording
 
-`contracts/ui-recording.schema.json` defines it. Every path points into the run folder `dir`, under the data home's `ui-record/`. `dir/recording.json` holds a copy of the result.
+`contracts/page-recording.schema.json` defines it. Every path points into the run folder `dir`, under the data home's `page-record/`. `dir/recording.json` holds a copy of the result.
 
 | Field | Holds |
 |---|---|

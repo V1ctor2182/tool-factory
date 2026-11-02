@@ -34,18 +34,18 @@ case "$name $1" in
 	paid-block) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: false, item: {name: $n, files: []}, cacheHit: false}' ;;
 	*) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: true, item: {name: $n, type: "registry:ui", files: [{path: "\($n).tsx", content: "export {}"}], cssVars: {theme: {"--ease-out": "linear", "--otp-gap": "4px"}}}, cacheHit: false}' ;;
 	esac ;;
-"ui-record capture")
+"page-record capture")
 	case "$*" in
 	*--url\ http://localhost:5173/missing*) echo '{"error":{"code":"invalid_source","message":"stub selector not found"}}'; exit 1 ;;
 	*--url*) echo '{"dir":"/stub/rebuild"}' ;;
 	*) echo '{"dir":"/stub/original"}' ;;
 	esac ;;
-"ui-diff compare")
+"page-diff compare")
 	jq -cn --arg a "$2" --arg b "$3" '{a: $a, b: $b, tolerance: 24, score: 0.95, states: [{name: "idle", score: 0.95}], cacheHit: false}' ;;
 *) echo '{"error":{"code":"internal","message":"stub refused"}}'; exit 1 ;;
 esac
 STUB
-for name in ui-catalog ui-source ui-record ui-diff; do
+for name in ui-catalog ui-source page-record page-diff; do
 	mkdir -p "$fake/atoms/$name/bin"
 	cp "$work/stub" "$fake/atoms/$name/bin/$name"
 	chmod +x "$fake/atoms/$name/bin/$name"
@@ -55,8 +55,9 @@ cat > "$ui/scripts/add.mjs" <<'ADD'
 import { appendFileSync, readFileSync } from 'node:fs'
 const result = JSON.parse(readFileSync(0, 'utf8'))
 const license = process.argv[process.argv.indexOf('--license') + 1]
+const site = process.argv[process.argv.indexOf('--site') + 1]
 if (result.item.name === 'bad-add') { console.error('stub add refused'); process.exit(1) }
-appendFileSync(new URL('../written', import.meta.url), `${result.item.name}\t${license}\t${JSON.stringify(result.item.cssVars.theme)}\n`)
+appendFileSync(new URL('../written', import.meta.url), `${result.item.name}\t${license}\t${JSON.stringify(result.item.cssVars.theme)}\t${site}\n`)
 console.log(`added ${result.item.name}: registry/${result.item.name}/${result.item.name}.tsx`)
 ADD
 
@@ -86,6 +87,7 @@ report "collect kobra"
 [ "$(cut -f2 "$ui/written")" = "$(jq -r .kobra.terms "$test_dir/../sites.json")" ] || fail "add.mjs did not get kobra's terms as --license"
 [ "$(cut -f3 "$ui/written")" = '{"--ease-out":"linear","--ease-in-out":"cubic-bezier(0.77, 0, 0.175, 1)","--otp-gap":"4px"}' ] \
 	|| fail "add.mjs did not get kobra's theme under the item's own: $(cut -f3 "$ui/written")"
+[ "$(cut -f4 "$ui/written")" = kobra ] || fail "add.mjs did not get --site kobra: $(cut -f4 "$ui/written")"
 grep -q '^ui-clone: 1/6 input-otp: kept' "$out/stderr" || fail "collect did not log progress to stderr: $(cat "$out/stderr")"
 
 call collect kobra --into "$ui" --only input-otp --json || fail "collect kobra again failed"
@@ -137,11 +139,11 @@ steps="$work/steps.json"
 echo '{"url":"https://stub.test/components/x","states":[{"name":"idle","actions":[]}]}' > "$steps"
 call judge "$steps" --rebuild http://localhost:5173/x --json || fail "judge exited nonzero: $(cat "$out/stderr")"
 [ "$(jq -c '[.a, .b, .score]' "$out/stdout")" = '["/stub/original/recording.json","/stub/rebuild/recording.json",0.95]' ] \
-	|| fail "judge did not pass ui-diff's result through: $(cat "$out/stdout")"
-[ "$(cut -d' ' -f1-3 "$STUB_LOG" | tr '\n' '|')" = "ui-record capture $steps|ui-record capture $steps|ui-diff compare /stub/original/recording.json|" ] \
+	|| fail "judge did not pass page-diff's result through: $(cat "$out/stdout")"
+[ "$(cut -d' ' -f1-3 "$STUB_LOG" | tr '\n' '|')" = "page-record capture $steps|page-record capture $steps|page-diff compare /stub/original/recording.json|" ] \
 	|| fail "judge did not record the original, then the rebuild, then compare: $(cat "$STUB_LOG")"
 call judge "$steps" --rebuild http://localhost:5173/x --original /kept/recording.json --json || fail "judge --original exited nonzero"
-[ "$(ran 'ui-record capture')" = 1 ] || fail "judge --original recorded the original again: $(cat "$STUB_LOG")"
+[ "$(ran 'page-record capture')" = 1 ] || fail "judge --original recorded the original again: $(cat "$STUB_LOG")"
 [ "$(jq -r .a "$out/stdout")" = /kept/recording.json ] || fail "judge --original did not compare against the kept recording"
 call judge "$steps" --rebuild http://localhost:5173/x --original /kept/recording.json || fail "judge text mode exited nonzero"
 [ "$(cat "$out/stdout")" = "$(printf 'idle  0.9500\nscore 0.9500')" ] || fail "judge text output is $(cat "$out/stdout")"

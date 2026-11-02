@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://victor-tool-factory.local/contracts/ui-steps.schema.json",
-  "title": "UI steps",
-  "description": "A script of states to drive one component page through. Each state's actions run after the previous state's, like one user session, so the same script recorded against an original and a rebuild yields comparable states.",
+  "$id": "https://victor-tool-factory.local/contracts/page-steps.schema.json",
+  "title": "Page steps",
+  "description": "A script of states to drive one page through. Each state's actions run after the previous state's, like one user session, so the same script recorded against an original and a rebuild yields comparable states.",
   "type": "object",
   "properties": {
-    "url": { "type": "string", "pattern": "^(https?|file)://", "description": "The page that shows the component." },
-    "target": { "type": "string", "minLength": 1, "default": "body", "description": "CSS selector of the component root. Screenshots, DOM, and styles cover this element." },
+    "url": { "type": "string", "pattern": "^(https?|file)://", "description": "The page to record." },
+    "target": { "type": "string", "minLength": 1, "default": "body", "description": "CSS selector of the element to record, such as a component root. Screenshots, DOM, and styles cover this element." },
     "viewport": {
       "type": "object",
       "default": { "width": 1280, "height": 800 },

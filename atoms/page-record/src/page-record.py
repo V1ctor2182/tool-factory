@@ -18,7 +18,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
-STEPS_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "ui-steps.schema.json").read_text(encoding="utf-8"))
+STEPS_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "page-steps.schema.json").read_text(encoding="utf-8"))
 PAGE_JS = (HERE / "page.js").read_text(encoding="utf-8")
 
 EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -43,7 +43,7 @@ def _steps(path: str) -> dict:
         raise cli.AtomError("invalid_args", f"Cannot read steps file {path}: {e}") from None
     errors = sorted(Draft202012Validator(STEPS_SCHEMA).iter_errors(steps), key=str)
     if errors:
-        raise cli.AtomError("invalid_args", f"{path} is not a ui-steps file: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors))
+        raise cli.AtomError("invalid_args", f"{path} is not a page-steps file: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors))
     return {"target": "body", "viewport": {"width": 1280, "height": 800}, "colorScheme": "dark", **steps}
 
 
@@ -145,7 +145,7 @@ def _load(s: Session, url: str):
     s.run(LOAD_VIRTUAL_MS)
     reason = _blocked(s.page, response)
     if reason:
-        raise cli.AtomError("blocked", f"{url} shows a bot check ({reason}). ui-record never tries to get past one.")
+        raise cli.AtomError("blocked", f"{url} shows a bot check ({reason}). page-record never tries to get past one.")
     if response and response.status >= 400:
         raise cli.AtomError("unavailable", f"{url} answered HTTP {response.status}")
     if s.page.evaluate("document.readyState") != "complete":
@@ -210,7 +210,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
 def capture(steps: str, url: str | None = None) -> dict:
     plan = _steps(steps)
     source = url or plan["url"]
-    out = paths.atom_dir("ui-record", datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(3))
+    out = paths.atom_dir("page-record", datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(3))
     with sync_playwright() as p:
         try:
             browser = p.chromium.launch(args=CHROMIUM_ARGS)

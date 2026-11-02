@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://victor-tool-factory.local/contracts/ui-recording.schema.json",
-  "title": "UI recording",
-  "description": "What a component looked like in each state of a UI steps script. Rendered results only, never the site's scripts.",
+  "$id": "https://victor-tool-factory.local/contracts/page-recording.schema.json",
+  "title": "Page recording",
+  "description": "What a page, or the part of it the target names, looked like in each state of a page steps script. Rendered results only, never the site's scripts.",
   "type": "object",
   "properties": {
     "source": { "type": "string", "description": "The URL recorded, after any override." },

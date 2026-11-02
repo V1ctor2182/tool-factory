@@ -106,7 +106,7 @@ def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str
     css_vars = fetched["item"].setdefault("cssVars", {})
     css_vars["theme"] = {**site.theme, **css_vars.get("theme", {})}
     added = subprocess.run(
-        ["node", str(into / "scripts" / "add.mjs"), "--license", site.terms],
+        ["node", str(into / "scripts" / "add.mjs"), "--license", site.terms, "--site", site.id],
         input=json.dumps(fetched),
         capture_output=True,
         text=True,
@@ -139,16 +139,16 @@ def text_of(report: dict) -> str:
 
 
 def recording_of(steps: str, url: str | None) -> str:
-    log(f"ui-record capture {steps}{f' --url {url}' if url else ''}")
-    recording = atom("ui-record", "capture", steps, *(["--url", url] if url else []))
+    log(f"page-record capture {steps}{f' --url {url}' if url else ''}")
+    recording = atom("page-record", "capture", steps, *(["--url", url] if url else []))
     return str(Path(recording["dir"]) / "recording.json")
 
 
 def judge(args) -> dict:
     original = args.original or recording_of(args.steps, None)
     rebuild = recording_of(args.steps, args.rebuild)
-    log(f"ui-diff compare {original} {rebuild}")
-    return atom("ui-diff", "compare", original, rebuild)
+    log(f"page-diff compare {original} {rebuild}")
+    return atom("page-diff", "compare", original, rebuild)
 
 
 def text_of_diff(diff: dict) -> str:

@@ -2,7 +2,7 @@
 set -eu
 test_dir=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$test_dir/../../.." && pwd)
-bin="$test_dir/../bin/ui-record"
+bin="$test_dir/../bin/page-record"
 steps="$test_dir/fixtures/steps.json"
 page="file://$test_dir/fixtures/component.html"
 TOOL_FACTORY_HOME=$(mktemp -d)
@@ -11,10 +11,10 @@ trap 'rm -rf "$TOOL_FACTORY_HOME"' EXIT
 out="$TOOL_FACTORY_HOME/out"
 mkdir "$out"
 
-fail() { echo "FAIL ui-record: $1" >&2; exit 1; }
+fail() { echo "FAIL page-record: $1" >&2; exit 1; }
 
 "$bin" capture "$steps" --url "$page" --json > "$out/first.json"
-"$repo/contracts/check" ui-recording "$out/first.json" || fail "capture output does not match ui-recording.schema.json"
+"$repo/contracts/check" page-recording "$out/first.json" || fail "capture output does not match page-recording.schema.json"
 [ "$(jq -r .source "$out/first.json")" = "$page" ] || fail "--url did not override the steps file's url"
 [ "$(jq '.states | length' "$out/first.json")" = 3 ] || fail "the recording does not hold 3 states"
 [ "$(jq '[.states[].frames | length]' -c "$out/first.json")" = '[0,3,0]' ] || fail "frames {everyMs: 100, forMs: 300} did not give 3 frames on the second state only"
@@ -63,4 +63,4 @@ jq '.states[0].actions[0] = {"do": "hover"}' "$steps" > "$out/bad.json"
 if "$bin" capture "$out/bad.json" --json > "$out/bad-out.json"; then fail "a hover with no selector exited 0"; fi
 [ "$(jq -r .error.code "$out/bad-out.json")" = invalid_args ] || fail "a steps file that breaks the schema did not report invalid_args"
 
-echo "PASS ui-record"
+echo "PASS page-record"

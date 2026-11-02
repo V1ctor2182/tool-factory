@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://victor-tool-factory.local/contracts/ui-diff.schema.json",
-  "title": "UI diff",
-  "description": "How close recording b is to recording a, two ui-recordings of the same steps file, and what differs in each state.",
+  "$id": "https://victor-tool-factory.local/contracts/page-diff.schema.json",
+  "title": "Page diff",
+  "description": "How close recording b is to recording a, two page-recordings of the same steps file, and what differs in each state.",
   "type": "object",
   "properties": {
     "a": { "type": "string", "description": "Absolute path of the reference recording.json." },
@@ -20,7 +20,7 @@
           "missing": { "enum": ["a", "b", null], "description": "The recording that lacks this state. A missing state scores 0." },
           "size": {
             "type": "object",
-            "description": "Settled screenshot size in CSS pixels, [width, height], including ui-record's margin. Null for a missing side.",
+            "description": "Settled screenshot size in CSS pixels, [width, height], including page-record's margin. Null for a missing side.",
             "properties": { "a": { "$ref": "#/$defs/size" }, "b": { "$ref": "#/$defs/size" } },
             "required": ["a", "b"],
             "additionalProperties": false
@@ -91,7 +91,7 @@
           "motion": {
             "type": "array",
             "maxItems": 20,
-            "description": "ui-record's computed transform and opacity tracks that differ, root first. Only an element whose value changed across the frames has a track.",
+            "description": "page-record's computed transform and opacity tracks that differ, root first. Only an element whose value changed across the frames has a track.",
             "items": {
               "type": "object",
               "properties": {

@@ -2,7 +2,7 @@
 set -eu
 test_dir=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$test_dir/../../.." && pwd)
-bin="$test_dir/../bin/ui-diff"
+bin="$test_dir/../bin/page-diff"
 a="$test_dir/fixtures/a/recording.json"
 b="$test_dir/fixtures/b/recording.json"
 TOOL_FACTORY_HOME=$(mktemp -d)
@@ -11,10 +11,10 @@ trap 'rm -rf "$TOOL_FACTORY_HOME"' EXIT
 out="$TOOL_FACTORY_HOME/out"
 mkdir "$out"
 
-fail() { echo "FAIL ui-diff: $1" >&2; exit 1; }
+fail() { echo "FAIL page-diff: $1" >&2; exit 1; }
 
 "$bin" compare "$a" "$a" --json > "$out/same.json"
-"$repo/contracts/check" ui-diff "$out/same.json" || fail "compare output does not match ui-diff.schema.json"
+"$repo/contracts/check" page-diff "$out/same.json" || fail "compare output does not match page-diff.schema.json"
 [ "$(jq '.score == 1' "$out/same.json")" = true ] || fail "an identical pair scores $(jq .score "$out/same.json"), not 1"
 [ "$(jq '[.states[] | .score == 1, .pixels.mismatch == 0, (.frames[].mismatch == 0)] | all' "$out/same.json")" = true ] \
 	|| fail "an identical pair has a state score below 1 or a mismatch above 0"
@@ -22,7 +22,7 @@ fail() { echo "FAIL ui-diff: $1" >&2; exit 1; }
 	|| fail "an identical pair lists style, animation, or motion differences"
 
 "$bin" compare "$a" "$b" --json > "$out/first.json"
-"$repo/contracts/check" ui-diff "$out/first.json" || fail "compare output does not match ui-diff.schema.json"
+"$repo/contracts/check" page-diff "$out/first.json" || fail "compare output does not match page-diff.schema.json"
 [ "$(jq .cacheHit "$out/first.json")" = false ] || fail "the first compare reported a cache hit"
 jq 'del(.a, .b, .cacheHit) | .states[] |= del(.image, .sheet)' "$out/first.json" > "$out/first-normal.json"
 diff "$test_dir/fixtures/expected.json" "$out/first-normal.json" > "$out/expected.diff" \
@@ -65,4 +65,4 @@ for source in "$test_dir/fixtures/a/00-idle.styles.json" "$out/no-such.json"; do
 	[ "$(jq -r .error.code "$out/bad.json")" = invalid_source ] || fail "$source did not report invalid_source"
 done
 
-echo "PASS ui-diff"
+echo "PASS page-diff"

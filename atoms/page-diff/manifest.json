@@ -1,12 +1,12 @@
 {
-  "name": "ui-diff",
+  "name": "page-diff",
   "type": "atom",
   "kind": "transform",
-  "description": "How close two ui-recordings of the same steps file are, state by state, and what differs: pixels, frames, computed styles, and animations. Cached by content.",
+  "description": "How close two page-recordings of the same steps file are, state by state, and what differs: pixels, frames, computed styles, and animations. Cached by content.",
   "status": "alpha",
   "runtime": "uv",
-  "entry": "bin/ui-diff",
-  "contract": "ui-diff",
+  "entry": "bin/page-diff",
+  "contract": "page-diff",
   "verbs": [
     {
       "name": "compare",
@@ -20,7 +20,7 @@
         },
         "required": ["a", "b"]
       },
-      "output": "ui-diff"
+      "output": "page-diff"
     }
   ],
   "needs": { "bin": [], "secrets": [], "paid": [] },
