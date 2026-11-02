@@ -1,6 +1,6 @@
 # victor-tool-factory
 
-Tools Victor uses right away, built from small atomic parts he reuses. A tool such as `youtube` lives in `tools/` and chains atoms such as `download`, `transcribe`, and `digest`, which live in `atoms/`. Each has a `manifest.json`, a CLI, and a `SKILL.md`. A generic `factory` CLI reads the manifests and provides linking, MCP, health checks, the run log, and a read-only dashboard. The design and its rules are in [ARCHITECTURE.md](ARCHITECTURE.md).
+Tools Victor uses right away, built from small atomic parts he reuses. A tool such as `youtube` lives in `tools/` and chains atoms such as `download`, `transcribe`, and `digest`, which live in `atoms/`. Each has a `manifest.json`, a CLI, and a `SKILL.md`. A generic `factory` CLI reads the manifests and provides linking, MCP, health checks, the run log, and a dashboard that shows them all and lets Victor try each tool. The design and its rules are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 The first tool comes from an AI video pipeline. The research below is where it started.
 

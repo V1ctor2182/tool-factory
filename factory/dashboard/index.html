@@ -147,6 +147,36 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-o
 .elsewhere p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 h2 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 12px; }
 
+.thread { display: grid; gap: 22px; margin-bottom: 22px; }
+.thread:empty { display: none; }
+.ask { justify-self: end; max-width: 80%; border: 1px solid var(--line); background: var(--surface); padding: 10px 14px; font-size: 13.5px; overflow-wrap: anywhere; }
+.ask b { font-weight: 500; }
+.answer.run { max-width: 860px; }
+.answer.run .body { padding-left: 52px; }
+.answer h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 18px 0 8px; }
+.answer ol, .answer ul { margin: 0; padding-left: 20px; }
+.answer li { margin: 3px 0; }
+.at { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+.segments { max-height: 340px; overflow: auto; border: 1px solid var(--line); background: var(--surface); padding: 10px 12px; font-size: 13px; }
+.segments div { margin: 2px 0; }
+.progress { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; border-left: 1px solid var(--line); padding-left: 12px; margin-top: 12px; }
+.error { border: 1px solid var(--bad); color: var(--bad); padding: 10px 14px; font-size: 13px; overflow-wrap: anywhere; }
+.raw { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--line); background: var(--surface); padding: 12px; max-height: 340px; overflow: auto; }
+.composer .pick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.composer .pick button { border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.composer .pick button:hover { color: var(--ink); border-color: var(--faint); }
+.composer .pick button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.composer .hint { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+.hatch { border: 1px solid var(--line); padding: 14px; background: repeating-linear-gradient(-45deg, var(--line) 0 1px, transparent 1px 9px); }
+.box { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); padding: 10px 10px 10px 16px; }
+.box input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); font: 16px var(--font); padding: 8px 0; outline: none; }
+.box input::placeholder { color: var(--faint); }
+.send { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; background: var(--ink); color: var(--on-ink); cursor: pointer; box-shadow: 0 6px 16px #00000029; }
+.send:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.extras { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.extras label { display: inline-flex; align-items: center; gap: 6px; }
+.extras input[type="number"], .extras input[type="text"] { width: 120px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 13px var(--font); padding: 4px 8px; }
+
 @media (max-width: 1100px) {
   .stage { grid-template-columns: 1fr minmax(200px, 0.9fr); }
   .panel { grid-column: 1 / -1; padding: 28px 0 0; }
@@ -169,6 +199,8 @@ h2 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 12px; }
   .wires, .port, .socket { display: none; }
   .atoms { padding: 18px 0 0; }
   .problems { margin: 16px 16px 0; }
+  .answer.run .body { padding-left: 0; }
+  .ask { max-width: 100%; }
 }
 </style>
 </head>
@@ -186,6 +218,7 @@ const SVG = 'http://www.w3.org/2000/svg';
 function h(tag, props, ...children) {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(props ?? {})) {
+    if (value === null || value === undefined) continue;
     if (key === 'class') el.className = value;
     else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
     else el.setAttribute(key, value);
@@ -221,6 +254,11 @@ const healthTag = (level) => (level === 'ok' ? null : h('span', { class: `tag ${
 const total = (d) => d.runs + (d.atomCalls ?? 0);
 const failed = (d) => d.failed + (d.atomFailed ?? 0);
 const notes = (row) => (row.health === 'ok' ? null : row.notes.map((n) => h('span', { class: 'note' }, n)));
+const clock = (s) => {
+  const t = Math.floor(s);
+  const mmss = `${Math.floor((t % 3600) / 60)}:${String(t % 60).padStart(2, '0')}`;
+  return t >= 3600 ? `${Math.floor(t / 3600)}:${mmss.padStart(5, '0')}` : mmss;
+};
 const ticks = (share, bad) => h('div', { class: `ticks${bad ? ' bad' : ''}`, role: 'img', 'aria-label': `${Math.round(share * 100)}%` }, h('i', { style: `width:${Math.min(1, share) * 100}%` }));
 
 function unmetered(row) {
@@ -311,8 +349,155 @@ function panelFor(name) {
       h('dt', null, 'Linked'), h('dd', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
     tool && !unmetered(row) && total(row) ? h('div', { class: 'chart' }, bars(row.perDay)) : null,
     h('div', { class: 'sources' }, h('span', null, `${tool ? 'Uses' : 'Used by'} ${plural(near.length, tool ? 'atom' : 'tool')}`)),
-    h('div', { class: 'chips' }, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
+    h('div', { class: 'chips' }, tool && row.verbs.length ? h('button', { type: 'button', onclick: () => tryOut(row.name) }, `Try ${row.name}`) : null, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
   ];
+}
+
+const runnable = model ? model.tools.filter((t) => t.verbs.length) : [];
+const trying = { tool: runnable[0], verb: runnable[0]?.verbs[0], busy: false };
+let composer, thread;
+
+function main(verb) {
+  const { properties, required = [] } = verb.input;
+  return required.find((name) => properties[name].type === 'string') ?? Object.keys(properties)[0];
+}
+
+function digest(d) {
+  return [
+    h('p', { class: 'lede' }, d.summary),
+    d.chapters.length ? [h('h3', null, 'Chapters'), h('ol', null, d.chapters.map((c) => h('li', null, h('span', { class: 'at' }, clock(c.start)), c.title)))] : null,
+    d.keyPoints.length ? [h('h3', null, 'Key points'), h('ul', null, d.keyPoints.map((k) => h('li', null, k)))] : null,
+    d.visual ? [h('h3', null, 'On screen'), h('ul', null, d.visual.map((v) => h('li', null, h('span', { class: 'at' }, clock(v.start)), v.note)))] : null,
+    h('div', { class: 'sources' }, h('span', null, `Source ${d.source}`), h('span', null, `${d.model}, ${usd(d.costUsd)}${d.cacheHit ? ', cached' : ''}`)),
+    h('div', { class: 'sources' }, h('span', { class: 'mono' }, d.transcriptPath)),
+  ];
+}
+
+function transcript(t) {
+  return [
+    h('p', { class: 'lede' }, `${plural(t.segments.length, 'segment')} of ${t.language} from ${t.method === 'captions' ? 'the captions' : 'speech recognition'}.`),
+    h('div', { class: 'segments' }, t.segments.map((s) => h('div', null, h('span', { class: 'at' }, clock(s.start)), s.text))),
+    h('div', { class: 'sources' }, h('span', null, `Source ${t.source}`), h('span', null, `${t.model}${t.cacheHit ? ', cached' : ''}`)),
+  ];
+}
+
+function digestList(list) {
+  return [
+    h('p', { class: 'lede' }, `${plural(list.items.length, 'digest')}${list.failed.length ? `, ${list.failed.length} failed` : ''}.`),
+    list.items.map((d) => [h('h3', null, d.source), digest(d)]),
+    list.failed.length ? [h('h3', null, 'Failed'), list.failed.map((f) => h('div', { class: 'error' }, `${f.url}: ${f.error.code}, ${f.error.message}`))] : null,
+  ];
+}
+
+const SHOW = { digest, transcript, 'digest-list': digestList };
+
+function result(verb, output) {
+  if (output?.error) return h('div', { class: 'error' }, `${output.error.code}: ${output.error.message}`);
+  const show = SHOW[verb.output];
+  try {
+    if (show) return h('div', null, show(output));
+  } catch {}
+  return h('pre', { class: 'raw' }, JSON.stringify(output, null, 2));
+}
+
+function tryOut(name) {
+  trying.tool = runnable.find((t) => t.name === name);
+  trying.verb = trying.tool.verbs[0];
+  drawComposer();
+  document.getElementById('try').scrollIntoView({ behavior: 'smooth' });
+  composer.querySelector('.box input')?.focus();
+}
+
+function sendIcon() {
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('width', '20');
+  svg.setAttribute('height', '20');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.innerHTML = '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>';
+  return svg;
+}
+
+function drawComposer() {
+  const { tool, verb } = trying;
+  const lead = main(verb);
+  const { properties, required = [] } = verb.input;
+  const field = (name) => {
+    const p = properties[name];
+    if (p.type === 'boolean') return h('label', { title: p.description }, h('input', { type: 'checkbox', name }), name);
+    return h('label', { title: p.description }, name, h('input', { type: p.type === 'integer' ? 'number' : 'text', name, min: p.type === 'integer' ? '1' : null, ...(required.includes(name) ? { required: '' } : {}) }));
+  };
+  const extras = Object.keys(properties).filter((name) => name !== lead);
+  composer.replaceChildren(
+    h('div', { class: 'pick', role: 'group', 'aria-label': 'Tool' }, runnable.map((t) => h('button', { type: 'button', 'aria-pressed': String(t === tool), onclick: () => { trying.tool = t; trying.verb = t.verbs[0]; drawComposer(); } }, t.name))),
+    h('div', { class: 'pick', role: 'group', 'aria-label': 'Verb' }, tool.verbs.map((v) => h('button', { type: 'button', 'aria-pressed': String(v === verb), onclick: () => { trying.verb = v; drawComposer(); } }, v.name))),
+    h('p', { class: 'hint' }, verb.description),
+    h('div', { class: 'hatch' },
+      h('div', { class: 'box' },
+        h('input', { name: lead, required: '', autocomplete: 'off', placeholder: properties[lead].description, 'aria-label': `${tool.name} ${verb.name} ${lead}` }),
+        h('button', { class: 'send', type: 'submit', 'aria-label': `Run ${tool.name} ${verb.name}`, ...(trying.busy ? { disabled: '' } : {}) },
+          sendIcon()))),
+    extras.length ? h('div', { class: 'extras' }, extras.map(field)) : '');
+}
+
+function inputFrom(form) {
+  const { properties } = trying.verb.input;
+  const input = {};
+  for (const [name, p] of Object.entries(properties)) {
+    const el = form.elements[name];
+    if (!el) continue;
+    if (p.type === 'boolean') {
+      if (el.checked) input[name] = true;
+    } else if (el.value.trim()) {
+      input[name] = p.type === 'integer' ? Number(el.value) : el.value.trim();
+    }
+  }
+  return input;
+}
+
+async function submit(e) {
+  e.preventDefault();
+  if (trying.busy) return;
+  const { tool, verb } = trying;
+  const input = inputFrom(e.target);
+  const lead = input[main(verb)];
+  if (!lead) return;
+  trying.busy = true;
+  drawComposer();
+  const status = h('p', { class: 'lede muted' }, 'Running');
+  const progress = h('div', { class: 'progress' });
+  const body = h('div', { class: 'body' }, status, progress);
+  const flags = Object.entries(input).filter(([name]) => name !== main(verb)).map(([name, v]) => (v === true ? ` --${name}` : ` --${name} ${v}`)).join('');
+  thread.append(
+    h('div', { class: 'ask' }, h('b', null, `${tool.name} ${verb.name}`), ` ${lead}${flags}`),
+    h('div', { class: 'answer run' }, h('div', { class: 'who' }, h('span', { class: 'mark' }, 'F'), h('b', null, tool.name)), body));
+  const began = performance.now();
+  const tick = setInterval(() => (status.textContent = `Running, ${Math.round((performance.now() - began) / 1000)} s`), 1000);
+  try {
+    const res = await fetch(`/run/${encodeURIComponent(tool.name)}/${encodeURIComponent(verb.name)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+    if (!res.ok) throw new Error((await res.text()).trim());
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    let last = null;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines.filter(Boolean).map((l) => JSON.parse(l))) {
+        if ('progress' in line) progress.textContent = (progress.textContent + line.progress).split('\n').slice(-6).join('\n');
+        else last = line;
+      }
+    }
+    const seconds = Math.round((performance.now() - began) / 1000);
+    body.replaceChildren(result(verb, last?.output), h('div', { class: 'sources' }, h('span', null, `${last?.code === 0 ? 'Done' : 'Failed'} in ${seconds} s. Reload to see it in the counts.`)));
+  } catch (err) {
+    body.replaceChildren(h('div', { class: 'error' }, err.message));
+  } finally {
+    clearInterval(tick);
+    trying.busy = false;
+    drawComposer();
+  }
 }
 
 let selected = null;
@@ -400,13 +585,14 @@ function render() {
       h('div', { class: 'brand' }, h('span', { class: 'mark' }, 'F'), 'Factory'),
       h('div', { class: 'label' }, 'Main'),
       h('a', { href: '#', class: 'on', onclick: (e) => { e.preventDefault(); if (selected) select(selected); scrollTo(0, 0); } }, 'Wiring', h('span', { class: 'n' }, rows.length)),
+      runnable.length ? h('a', { href: '#try', onclick: (e) => { e.preventDefault(); tryOut(trying.tool.name); } }, 'Try', h('span', { class: 'n' }, runnable.length)) : null,
       h('a', { href: '#elsewhere', onclick: (e) => { e.preventDefault(); document.getElementById('elsewhere').scrollIntoView(); } }, 'Elsewhere', h('span', { class: 'n' }, model.external.length)),
       h('div', { class: 'foot' }, h('div', null, 'Data home'), h('div', { class: 'mono' }, model.home), h('div', null, `Run log ${logSummary(model.log)}`))),
     h('div', { class: 'main' },
       h('div', { class: 'top' },
         h('span', { class: 'crumb' }, 'Factory', ' › ', h('b', null, 'Wiring')),
         h('span', { class: 'chip push' }, `${short(model.days[0])} to ${short(model.days.at(-1))}`),
-        h('span', { class: 'chip' }, 'Read-only, reload to refresh')),
+        h('span', { class: 'chip' }, 'Reload to refresh')),
       h('div', { class: 'pagehead' }, h('h1', null, 'Wiring'),
         h('span', { class: 'chip' }, `${plural(model.tools.length, 'tool')}, ${plural(model.atoms.length, 'atom')}`),
         h('span', { class: `chip dark${sick ? ' bad' : ''}` }, sick ? `${sick} not healthy` : 'All healthy')),
@@ -427,6 +613,13 @@ function render() {
         h('div', { class: 'sources' }, h('span', null, `Sources: ${plural(model.log.lines ?? 0, 'log line')}, ${plural(rows.length, 'manifest')}, ${model.days.length}-day window`)),
         stage),
       h('div', { class: 'rule' }),
+      runnable.length ? [
+        h('section', { class: 'frame', id: 'try', 'aria-label': 'Try a tool' },
+          h('h2', null, 'Try a tool'),
+          thread = h('div', { class: 'thread', 'aria-live': 'polite' }),
+          composer = h('form', { class: 'composer', onsubmit: submit })),
+        h('div', { class: 'rule' }),
+      ] : null,
       h('section', { class: 'frame', id: 'elsewhere', 'aria-label': 'Tools in other repos' },
         h('h2', null, 'Tools in other repos'),
         model.external.length
@@ -435,6 +628,7 @@ function render() {
       h('div', { class: 'rule' })));
 
   new ResizeObserver(draw).observe(stage);
+  if (runnable.length) drawComposer();
   const start = decodeURIComponent(location.hash.slice(1));
   select(nodes.has(start) ? start : null);
 }
