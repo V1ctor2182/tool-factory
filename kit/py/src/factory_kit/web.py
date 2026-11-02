@@ -21,7 +21,7 @@ def get_json(url: str, atom: str):
         with urllib.request.urlopen(request, timeout=TIMEOUT_SEC) as response:
             body = response.read()
     except urllib.error.HTTPError as e:
-        raise AtomError("unavailable", f"HTTP {e.code} from {url}") from None
+        raise AtomError("rate_limited" if e.code == 429 else "unavailable", f"HTTP {e.code} from {url}") from None
     except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
         raise AtomError("network_error", f"{url}: {getattr(e, 'reason', e)}") from None
     try:

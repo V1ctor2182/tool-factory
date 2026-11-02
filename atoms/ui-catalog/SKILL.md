@@ -29,4 +29,5 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `invalid_args` | An unknown argument, or `parse` on an index with no `homepage` and no `--base` | Check `bin/ui-catalog <verb> --help` |
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site answered with an HTTP error. The status is in the message | Report the message |
+| `rate_limited` | The site answered HTTP 429 | Retry later |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |

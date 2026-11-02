@@ -51,6 +51,7 @@ On failure the script exits 1. With `--json` it prints `{"error": {"code", "mess
 | `no_results` | Only from `search`. The words, playlist, or channel found no videos | Try other words or another list |
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site refused the video, for example a private or removed one | Report the message |
+| `rate_limited` | The site answered HTTP 429 to a search, a list, or an audio or video download. A 429 on captions falls back to speech recognition instead | Retry later |
 | `invalid_args` | A missing or unknown argument, such as `--visual` with `--no-digest` | Check `run --help` |
 | `budget_exceeded` | Only from `get` and `search`. Today's model spend reached the budget | Use `transcript` and summarize yourself |
 | `internal` | A bug in an atom. The traceback is on stderr | Report the message and the traceback |

@@ -38,6 +38,7 @@ On failure the script exits 1. With `--json` it prints `{"error": {"code", "mess
 | `no_results` | Only from `search`. The words found no episodes | Try other words or another `--site` |
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site refused the episode, for example a removed one | Report the message |
+| `rate_limited` | The site answered HTTP 429 | Retry later |
 | `invalid_args` | A missing or unknown argument | Check `run --help` |
 | `budget_exceeded` | Only from `get` and `search`. Today's model spend reached the budget | Use `transcript` and summarize yourself |
 | `internal` | A bug in an atom. The traceback is on stderr | Report the message and the traceback |

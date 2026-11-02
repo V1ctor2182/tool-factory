@@ -9,30 +9,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yt_dlp
-from yt_dlp.networking.exceptions import TransportError
 
 from factory_kit import cli, paths
-
-
-def _next_cause(e: BaseException) -> BaseException | None:
-    if cause := getattr(e, "cause", None):
-        return cause
-    if exc_info := getattr(e, "exc_info", None):
-        return exc_info[1]
-    return e.__context__
-
-
-def _atom_error(e: Exception) -> cli.AtomError:
-    seen, cause = set(), e
-    while cause is not None and id(cause) not in seen:
-        if isinstance(cause, TransportError):
-            return cli.AtomError("network_error", str(cause))
-        seen.add(id(cause))
-        cause = _next_cause(cause)
-    message = str(e).removeprefix("ERROR: ")
-    if "Unsupported URL" in message:
-        return cli.AtomError("invalid_source", message)
-    return cli.AtomError("unavailable", message)
+from factory_kit.ytdlp import atom_error
 
 
 def _clean(text: str | None) -> str | None:
@@ -79,7 +58,7 @@ def _flat(target: str, limit: int | None) -> dict:
         with yt_dlp.YoutubeDL(settings) as ydl:
             return ydl.extract_info(target, download=False)
     except yt_dlp.utils.YoutubeDLError as e:
-        raise _atom_error(e) from None
+        raise atom_error(e) from None
 
 
 def _check_limit(limit: int | None) -> None:

@@ -27,4 +27,5 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `invalid_args` | An unknown argument | Check `bin/ui-source <verb> --help` |
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site answered with an HTTP error. The status is in the message. Kobra answers 401 for a Pro item | Treat 401 as code that is not exposed. Report any other status |
+| `rate_limited` | The site answered HTTP 429 | Retry later |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |

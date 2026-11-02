@@ -50,7 +50,8 @@ On failure before any component is fetched, the script exits 1. With `--json` it
 | Code | Meaning | What to do |
 |---|---|---|
 | `invalid_args` | `--into` has no `scripts/add.mjs`, the site is neither a key nor a URL, `--only` names a component the site lacks, or an argument is missing | Check `run --help` and the path |
-| `unavailable` | The site refused its registry index. rareui.com answered HTTP 403, then 429, on 2026-11-01 | Report the message |
+| `unavailable` | The site refused its registry index. rareui.com answered HTTP 403 on 2026-11-01 | Report the message |
+| `rate_limited` | The site answered HTTP 429 for its registry index. rareui.com did on 2026-11-01 | Retry later |
 | `network_error` | The site could not be reached | Retry later |
 | `invalid_source` | The site has no shadcn registry index at the address tried | Add an `index` and `base` to its `sites.json` entry |
 | `internal` | A bug. The traceback is on stderr | Report the message and the traceback |
