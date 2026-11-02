@@ -225,7 +225,7 @@ The dashboard can also try a microservice. Its form for each verb comes from the
 | Atom | Kind | Takes | Returns | Reuses |
 |---|---|---|---|---|
 | `find-url` | observe | Search words, channel, or playlist | `url-list` | yt-dlp search and playlist listing |
-| `captions` | transform | Video URL | `transcript`, or the error `no_captions` | yt-dlp subtitles |
+| `captions` | transform | Video URL | `transcript`, or the error `no_captions` or `rate_limited` | yt-dlp subtitles |
 | `download` | transform | Video URL | `media`, a local audio or video file | yt-dlp |
 | `transcribe` | transform | Audio or video file | `transcript` | faster-whisper |
 | `frames` | transform | Video file | `frame-set`, key frames with timestamps | ffmpeg scene detection |
@@ -241,7 +241,7 @@ youtube <input> [--visual] [--no-digest]
   input is not a video URL     find-url -> video URLs
   for each video:
     captions get               -> transcript
-      on no_captions           download --audio -> transcribe file -> transcript
+      on no_captions or rate_limited  download --audio -> transcribe file -> transcript
     with --visual              download --video -> frames -> see -> image notes
     unless --no-digest         digest make -> digest
   print the digest, with the transcript path inside

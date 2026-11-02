@@ -22,6 +22,7 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | Code | Meaning | What to do |
 |---|---|---|
 | `no_captions` | The video has no captions in that language | Run `download get <url> --audio`, then `transcribe file <path>` |
+| `rate_limited` | The site answered HTTP 429. YouTube did this for a caption file on 2026-11-01 while the same video's audio still downloaded | Run `download get <url> --audio`, then `transcribe file <path>` |
 | `invalid_source` | Not an http or https URL, an unsupported URL, a playlist, or for `parse` a missing or unreadable file, or JSON that is not json3 captions | Pass one video URL or one json3 file |
 | `network_error` | The site could not be reached | Retry later |
 | `unavailable` | The site refused the video, for example a private or removed one | Report the message |

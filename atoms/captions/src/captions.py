@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import yt_dlp
 from yt_dlp.extractor import gen_extractor_classes
-from yt_dlp.networking.exceptions import TransportError
+from yt_dlp.networking.exceptions import HTTPError, TransportError
 
 from factory_kit import cli, paths
 from factory_kit.cache import Cache
@@ -38,6 +38,8 @@ def _atom_error(e: Exception) -> cli.AtomError:
     while cause is not None and id(cause) not in seen:
         if isinstance(cause, TransportError):
             return cli.AtomError("network_error", str(cause))
+        if isinstance(cause, HTTPError) and cause.status == 429:
+            return cli.AtomError("rate_limited", str(cause))
         seen.add(id(cause))
         cause = _next_cause(cause)
     message = str(e).removeprefix("ERROR: ")

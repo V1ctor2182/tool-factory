@@ -58,9 +58,9 @@ def transcript_of(url: str) -> dict:
     try:
         return atom("captions", "get", url)
     except AtomFailed as e:
-        if e.error["code"] != "no_captions":
+        if e.error["code"] not in ("no_captions", "rate_limited"):
             raise
-    log("no captions, so downloading the audio")
+        log(f"{e.error['message']}, so downloading the audio")
     media = atom("download", "get", url, "--audio")
     log(f"transcribe file {media['path']}")
     return {**atom("transcribe", "file", media["path"]), "source": url}
