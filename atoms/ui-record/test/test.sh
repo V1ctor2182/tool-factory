@@ -23,6 +23,12 @@ fail() { echo "FAIL ui-record: $1" >&2; exit 1; }
 [ "$(jq -c '[.states[1].animations[] | [.type, .name, .duration, .keyframes[0].easing, .target]]' "$out/first.json")" = '[["CSSAnimation","slide",300,"ease-out",":scope > :nth-child(2)"]]' ] \
 	|| fail "the click did not record the 300ms slide animation on the dot"
 [ "$(jq '.states[2].animations | length' "$out/first.json")" = 0 ] || fail "a finished animation was recorded as running"
+motion=$(jq -r '.states[1].motion' "$out/first.json")
+[ "$(jq '.tracks[":scope > :nth-child(6)"].opacity | map(tonumber) | [., [1, 0.6667, 0.3333]] | transpose | map(.[0] - .[1] | fabs < 0.01) | length == 3 and all' "$motion")" = true ] \
+	|| fail "the bar's main-thread fade was not sampled at 0, 100, and 200 ms: $(jq -c '.tracks[":scope > :nth-child(6)"]' "$motion")"
+[ "$(jq '.everyMs' "$motion")" = 100 ] || fail "the motion file does not record everyMs 100"
+[ "$(jq -c . "$(jq -r '.states[0].motion' "$out/first.json")")" = '{"everyMs":null,"tracks":{}}' ] \
+	|| fail "a state without frames has motion tracks"
 for dom in $(jq -r '.states[].dom' "$out/first.json"); do
 	if grep -qi '<script' "$dom"; then fail "$dom keeps a script element"; fi
 done
@@ -38,7 +44,7 @@ for k in 0 1 2; do
 	cmp -s "$(jq -r ".states[1].frames[$k]" "$out/first.json")" "$(jq -r ".states[1].frames[$k]" "$out/second.json")" \
 		|| fail "frame $k differs between two runs"
 done
-if cmp -s "$(jq -r '.states[1].frames[0]' "$out/first.json")" "$(jq -r '.states[1].frames[2]' "$out/first.json")"; then fail "frames 0 and 2 are identical, so the animation did not advance"; fi
+if cmp -s "$(jq -r '.states[1].frames[0]' "$out/first.json")" "$(jq -r '.states[1].frames[2]' "$out/first.json")"; then fail "frames 0 and 2 are identical, so the bar's fade did not advance"; fi
 
 jq '.states[1].frames = {"everyMs": 50, "forMs": 300}' "$steps" > "$out/fine.json"
 "$bin" capture "$out/fine.json" --url "$page" --json > "$out/fine-out.json"

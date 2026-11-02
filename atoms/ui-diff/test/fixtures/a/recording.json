@@ -9,6 +9,7 @@
       "frames": [],
       "dom": "00-idle.dom.html",
       "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
       "animations": []
     },
     {
@@ -22,6 +23,7 @@
       ],
       "dom": "01-hover.dom.html",
       "styles": "01-hover.styles.json",
+      "motion": "01-hover.motion.json",
       "animations": [
         {
           "target": ":scope > :nth-child(2)",
@@ -32,11 +34,13 @@
             {
               "offset": 0,
               "easing": "ease-out",
+              "composite": "auto",
               "opacity": "0"
             },
             {
               "offset": 1,
               "easing": "linear",
+              "composite": "auto",
               "opacity": "1"
             }
           ],
@@ -57,11 +61,13 @@
             {
               "offset": 0,
               "easing": "ease-out",
+              "composite": "auto",
               "opacity": "0"
             },
             {
               "offset": 1,
               "easing": "linear",
+              "composite": "auto",
               "opacity": "0.5"
             }
           ],
@@ -82,11 +88,13 @@
             {
               "offset": 0,
               "easing": "linear",
+              "composite": "auto",
               "opacity": "0"
             },
             {
               "offset": 1,
               "easing": "linear",
+              "composite": "auto",
               "opacity": "1"
             }
           ],
@@ -94,6 +102,60 @@
           "delay": 0,
           "endDelay": 0,
           "easing": "ease",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope > :nth-child(3)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "slide",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "linear",
+              "composite": "auto",
+              "transform": "translateX(0px)"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "transform": "translateX(10px)"
+            }
+          ],
+          "duration": 200,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        },
+        {
+          "target": ":scope > :nth-child(4)",
+          "pseudoElement": null,
+          "type": "CSSAnimation",
+          "name": "fade",
+          "keyframes": [
+            {
+              "offset": 0,
+              "easing": "linear",
+              "composite": "auto",
+              "opacity": "0"
+            },
+            {
+              "offset": 1,
+              "easing": "linear",
+              "composite": "auto",
+              "opacity": "1"
+            }
+          ],
+          "duration": 200,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
           "iterations": 1,
           "direction": "normal",
           "fill": "none"
@@ -106,6 +168,7 @@
       "frames": [],
       "dom": "02-open.dom.html",
       "styles": "02-open.styles.json",
+      "motion": "02-open.motion.json",
       "animations": []
     },
     {
@@ -114,6 +177,7 @@
       "frames": [],
       "dom": "03-closed.dom.html",
       "styles": "03-closed.styles.json",
+      "motion": "03-closed.motion.json",
       "animations": []
     }
   ],

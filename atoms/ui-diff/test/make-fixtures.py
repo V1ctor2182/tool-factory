@@ -36,18 +36,20 @@ def write(side: str, states: list[dict]) -> None:
             frames.append(f"{slug}-f{k:03d}.png")
         (root / f"{slug}.styles.json").write_text(json.dumps(st.get("styles", PLAIN), indent=2) + "\n")
         (root / f"{slug}.dom.html").write_text("<div></div>\n")
+        motion = {"everyMs": 100 if frames else None, "tracks": st.get("motion", {})}
+        (root / f"{slug}.motion.json").write_text(json.dumps(motion, indent=2) + "\n")
         out.append({
-            "name": st["name"], "screenshot": f"{slug}.png", "frames": frames,
-            "dom": f"{slug}.dom.html", "styles": f"{slug}.styles.json", "animations": st.get("animations", []),
+            "name": st["name"], "screenshot": f"{slug}.png", "frames": frames, "dom": f"{slug}.dom.html",
+            "styles": f"{slug}.styles.json", "motion": f"{slug}.motion.json", "animations": st.get("animations", []),
         })
     recording = {"source": f"file:///fixtures/{side}.html", "steps": "/fixtures/steps.json", "dir": f"/fixtures/{side}", "states": out, "cacheHit": False}
     (root / "recording.json").write_text(json.dumps(recording, indent=2) + "\n")
 
 
-def animation(target: str, type_: str, name: str, duration: int, easing: str = "linear", keyframe_easing: str = "linear", to: str = "1") -> dict:
+def animation(target: str, type_: str, name: str, duration: int, easing: str = "linear", keyframe_easing: str = "linear", prop: str = "opacity", start: str = "0", to: str = "1") -> dict:
     return {
         "target": target, "pseudoElement": None, "type": type_, "name": name,
-        "keyframes": [{"offset": 0, "easing": keyframe_easing, "opacity": "0"}, {"offset": 1, "easing": "linear", "opacity": to}],
+        "keyframes": [{"offset": 0, "easing": keyframe_easing, "composite": "auto", prop: start}, {"offset": 1, "easing": "linear", "composite": "auto", prop: to}],
         "duration": duration, "delay": 0, "endDelay": 0, "easing": easing, "iterations": 1, "direction": "normal", "fill": "none",
     }
 
@@ -55,20 +57,33 @@ def animation(target: str, type_: str, name: str, duration: int, easing: str = "
 PLAIN = {":scope": {"width": "50px", "color": "rgb(237, 237, 237)"}}
 
 HOVER_A = {
-    ":scope": {"margin-top": "0px", "color": "rgb(1, 2, 3)", "background-color": "rgb(10, 20, 30)"},
-    ":scope > :nth-child(1)": {"width": "3px"},
-    ":scope > :nth-child(2)": {"width": "10px", "opacity": "1"},
+    ":scope": {"margin-top": "0px", "color": "rgb(1, 2, 3)", "background-color": "rgb(10, 20, 30)", "font-family": "Diatype"},
+    ":scope > :nth-child(1)": {"width": "3px", "font-family": "Diatype"},
+    ":scope > :nth-child(2)": {"width": "10px", "opacity": "1", "font-family": "Diatype"},
     ":scope > :nth-child(3)": {"width": "8px"},
     ":scope > :nth-child(10)": {"width": "4px"},
     ":scope > :nth-child(1) > :nth-child(1)": {"border-top-color": "rgb(0, 0, 0)"},
 }
 HOVER_B = {
-    ":scope": {"margin-top": "0", "color": "rgba(1, 2, 3, 1)", "background-color": "rgb(10, 20, 31)"},
-    ":scope > :nth-child(1)": {"width": "3px"},
-    ":scope > :nth-child(2)": {"width": "12px", "opacity": "1"},
+    ":scope": {"margin-top": "0", "color": "rgba(1, 2, 3, 1)", "background-color": "rgb(10, 20, 31)", "font-family": "Inter"},
+    ":scope > :nth-child(1)": {"width": "3px", "font-family": "Inter"},
+    ":scope > :nth-child(2)": {"width": "12px", "opacity": "1", "font-family": "Inter"},
     ":scope > :nth-child(4)": {"width": "8px"},
     ":scope > :nth-child(10)": {"width": "5px"},
     ":scope > :nth-child(1) > :nth-child(1)": {"border-top-color": "rgb(255, 0, 0)"},
+}
+
+SLIDE = {"prop": "transform", "start": "translateX(0px)", "to": "translateX(10px)"}
+MOTION_A = {
+    ":scope": {"opacity": ["0", "0.5", "1", "1"]},
+    ":scope > :nth-child(1)": {"transform": ["none", "matrix(1, 0, 0, 1, 5, 0)", "matrix(1, 0, 0, 1, 5, 0)", "matrix(1, 0, 0, 1, 5, 0)"]},
+    ":scope > :nth-child(2)": {"transform": ["none", "matrix(1, 0, 0, 1, 10, 0)", "matrix(1, 0, 0, 1, 20, 0)", "matrix(1, 0, 0, 1, 20, 0)"]},
+}
+MOTION_B = {
+    ":scope": {"opacity": ["0", "0.505", "1"]},
+    ":scope > :nth-child(1)": {"transform": ["matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)", "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5.2, 0, 0, 1)", "matrix(1, 0, 0, 1, 5, 0)"]},
+    ":scope > :nth-child(2)": {"transform": ["none", "matrix(1, 0, 0, 1, 10.3, 0)", "matrix(1, 0, 0, 1, 14, 0)"]},
+    ":scope > :nth-child(3)": {"transform": ["none", "matrix(1, 0, 0, 1, 0, 4)", "matrix(1, 0, 0, 1, 0, 8)"]},
 }
 
 block = card()
@@ -83,7 +98,10 @@ write("a", [
             animation(":scope > :nth-child(2)", "CSSAnimation", "pulse", 300, keyframe_easing="ease-out"),
             animation(":scope > :nth-child(2)", "CSSAnimation", "pulse", 300, keyframe_easing="ease-out", to="0.5"),
             animation(":scope", "CSSTransition", "opacity", 150, easing="ease"),
+            animation(":scope > :nth-child(3)", "CSSAnimation", "slide", 200, **SLIDE),
+            animation(":scope > :nth-child(4)", "CSSAnimation", "fade", 200),
         ],
+        "motion": MOTION_A,
     },
     {"name": "open", "screenshot": card()},
     {"name": "closed", "screenshot": card()},
@@ -95,8 +113,11 @@ write("b", [
         "animations": [
             animation(":scope > :nth-child(2)", "CSSAnimation", "pulse", 300, keyframe_easing="ease-out"),
             animation(":scope > :nth-child(2)", "CSSAnimation", "pulse", 450, keyframe_easing="ease-out", to="0.5"),
-            animation(":scope", "CSSTransition", "transform", 150, easing="ease"),
+            animation(":scope", "CSSTransition", "transform", 150, easing="ease", **SLIDE),
+            animation(":scope > :nth-child(3)", "CSSAnimation", "otpr-slide", 200, **SLIDE),
+            animation(":scope > :nth-child(4)", "CSSAnimation", "fade-in", 200, start="0.2"),
         ],
+        "motion": MOTION_B,
     },
     {"name": "open", "screenshot": card(W + 20)},
 ])

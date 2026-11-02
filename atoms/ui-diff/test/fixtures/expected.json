@@ -1,6 +1,6 @@
 {
   "tolerance": 24,
-  "score": 0.648512,
+  "score": 0.643777,
   "states": [
     {
       "name": "idle",
@@ -26,11 +26,12 @@
         "onlyA": [],
         "onlyB": [],
         "changed": []
-      }
+      },
+      "motion": []
     },
     {
       "name": "hover",
-      "score": 0.725,
+      "score": 0.706061,
       "missing": null,
       "size": {
         "a": [
@@ -66,28 +67,51 @@
       ],
       "styles": [
         {
-          "path": ":scope",
           "property": "background-color",
           "a": "rgb(10, 20, 30)",
-          "b": "rgb(10, 20, 31)"
+          "b": "rgb(10, 20, 31)",
+          "count": 1,
+          "paths": [
+            ":scope"
+          ]
         },
         {
-          "path": ":scope > :nth-child(2)",
+          "property": "font-family",
+          "a": "Diatype",
+          "b": "Inter",
+          "count": 3,
+          "paths": [
+            ":scope",
+            ":scope > :nth-child(1)",
+            ":scope > :nth-child(2)"
+          ]
+        },
+        {
           "property": "width",
           "a": "10px",
-          "b": "12px"
+          "b": "12px",
+          "count": 1,
+          "paths": [
+            ":scope > :nth-child(2)"
+          ]
         },
         {
-          "path": ":scope > :nth-child(10)",
           "property": "width",
           "a": "4px",
-          "b": "5px"
+          "b": "5px",
+          "count": 1,
+          "paths": [
+            ":scope > :nth-child(10)"
+          ]
         },
         {
-          "path": ":scope > :nth-child(1) > :nth-child(1)",
           "property": "border-top-color",
           "a": "rgb(0, 0, 0)",
-          "b": "rgb(255, 0, 0)"
+          "b": "rgb(255, 0, 0)",
+          "count": 1,
+          "paths": [
+            ":scope > :nth-child(1) > :nth-child(1)"
+          ]
         }
       ],
       "animations": {
@@ -96,6 +120,9 @@
             "type": "CSSTransition",
             "name": "opacity",
             "target": ":scope",
+            "properties": [
+              "opacity"
+            ],
             "duration": 150,
             "delay": 0,
             "easing": "ease",
@@ -107,6 +134,9 @@
             "type": "CSSTransition",
             "name": "transform",
             "target": ":scope",
+            "properties": [
+              "transform"
+            ],
             "duration": 150,
             "delay": 0,
             "easing": "ease",
@@ -119,6 +149,9 @@
               "type": "CSSAnimation",
               "name": "pulse",
               "target": ":scope > :nth-child(2)",
+              "properties": [
+                "opacity"
+              ],
               "duration": 300,
               "delay": 0,
               "easing": "ease-out",
@@ -127,9 +160,73 @@
             "field": "duration",
             "a": 300,
             "b": 450
+          },
+          {
+            "summary": {
+              "type": "CSSAnimation",
+              "name": "fade",
+              "target": ":scope > :nth-child(4)",
+              "properties": [
+                "opacity"
+              ],
+              "duration": 200,
+              "delay": 0,
+              "easing": "linear",
+              "iterations": 1
+            },
+            "field": "keyframes",
+            "a": [
+              {
+                "offset": 0,
+                "opacity": "0"
+              },
+              {
+                "offset": 1,
+                "opacity": "1"
+              }
+            ],
+            "b": [
+              {
+                "offset": 0,
+                "opacity": "0.2"
+              },
+              {
+                "offset": 1,
+                "opacity": "1"
+              }
+            ]
           }
         ]
-      }
+      },
+      "motion": [
+        {
+          "path": ":scope > :nth-child(2)",
+          "property": "transform",
+          "frame": 2,
+          "a": [
+            "none",
+            "matrix(1, 0, 0, 1, 10, 0)",
+            "matrix(1, 0, 0, 1, 20, 0)",
+            "matrix(1, 0, 0, 1, 20, 0)"
+          ],
+          "b": [
+            "none",
+            "matrix(1, 0, 0, 1, 10.3, 0)",
+            "matrix(1, 0, 0, 1, 14, 0)"
+          ]
+        },
+        {
+          "path": ":scope > :nth-child(3)",
+          "property": "transform",
+          "frame": null,
+          "a": null,
+          "b": [
+            "none",
+            "matrix(1, 0, 0, 1, 0, 4)",
+            "matrix(1, 0, 0, 1, 0, 8)"
+          ]
+        }
+      ]
     },
     {
       "name": "open",
@@ -155,7 +252,8 @@
         "onlyA": [],
         "onlyB": [],
         "changed": []
-      }
+      },
+      "motion": []
     },
     {
       "name": "closed",
@@ -175,7 +273,8 @@
         "onlyA": [],
         "onlyB": [],
         "changed": []
-      }
+      },
+      "motion": []
     }
   ]
 }

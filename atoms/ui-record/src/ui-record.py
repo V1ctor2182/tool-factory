@@ -155,6 +155,17 @@ def _slug(i: int, name: str) -> str:
     return f"{i:02d}-" + (re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "state")
 
 
+def _tracks(samples: list[dict]) -> dict:
+    # Main-thread motion, such as a spring writing style.transform each frame, never appears in getAnimations(), so the computed values are the only record of it.
+    tracks: dict[str, dict] = {}
+    for path in samples[0] if samples else {}:
+        for prop in ("transform", "opacity"):
+            values = [sample.get(path, {}).get(prop) for sample in samples]
+            if len(set(values)) > 1:
+                tracks.setdefault(path, {})[prop] = values
+    return tracks
+
+
 def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
     page.add_init_script(PAGE_JS)
     s = Session(page, steps["target"])
@@ -169,13 +180,15 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
         for j, action in enumerate(state["actions"]):
             ACTIONS[action["do"]](s, action, f"state {state['name']!r} action {j} ({action['do']})")
         s.collect()
-        frames = []
+        frames, samples, every = [], [], None
         if "frames" in state:
             every, total = state["frames"]["everyMs"], state["frames"]["forMs"]
             for k in range(-(-total // every)):
                 if k:
                     s.advance(every)
                 frames.append(s.screenshot(out / f"{slug}-f{k:03d}.png"))
+                samples.append(s.js("motion", s.target))
+        (out / f"{slug}.motion.json").write_text(json.dumps({"everyMs": every, "tracks": _tracks(samples)}, indent=2), encoding="utf-8")
         s.settle()
         s.locate(s.target, f"state {state['name']!r}, after its actions settled, the target")
         (out / f"{slug}.dom.html").write_text(s.js("dom", s.target), encoding="utf-8")
@@ -186,6 +199,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
             "frames": frames,
             "dom": str(out / f"{slug}.dom.html"),
             "styles": str(out / f"{slug}.styles.json"),
+            "motion": str(out / f"{slug}.motion.json"),
             "animations": list(s.seen.values()),
         })
     return states

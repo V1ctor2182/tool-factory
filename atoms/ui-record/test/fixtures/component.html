@@ -11,6 +11,7 @@
   #dot.on { animation: slide 300ms ease-out forwards; }
   @keyframes slide { from { transform: translateX(0); } to { transform: translateX(160px); } }
   #status { margin: 0; color: #aaa; font-size: 12px; }
+  #bar { height: 4px; background: rgb(74, 222, 128); }
   #name { padding: 6px 8px; border: 1px solid #555; border-radius: 6px; background: #000; color: #eee; font-size: 14px; }
 </style>
 </head>
@@ -21,11 +22,18 @@
   <input id="name" placeholder="Name">
   <p id="status">idle</p>
   <script>
+    const fade = (start) => {
+      const t = Math.min(1, (performance.now() - start) / 300);
+      document.getElementById('bar').style.opacity = String(1 - t);
+      if (t < 1) requestAnimationFrame(() => fade(start));
+    };
     document.getElementById('go').addEventListener('click', () => {
       document.getElementById('dot').classList.toggle('on');
+      fade(performance.now());
       setTimeout(() => { document.getElementById('status').textContent = 'saved'; }, 1000);
     });
   </script>
+  <div id="bar"></div>
 </div>
 </body>
 </html>

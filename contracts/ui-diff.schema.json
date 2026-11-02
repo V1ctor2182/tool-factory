@@ -50,22 +50,23 @@
           "styles": {
             "type": "array",
             "maxItems": 50,
-            "description": "Computed properties that differ after normalizing, on element paths both recordings have, root first.",
+            "description": "Computed properties that differ after normalizing, on element paths both recordings have, grouped by property and the two values. Groups follow their first path, root first.",
             "items": {
               "type": "object",
               "properties": {
-                "path": { "type": "string" },
                 "property": { "type": "string" },
                 "a": { "type": ["string", "null"] },
-                "b": { "type": ["string", "null"] }
+                "b": { "type": ["string", "null"] },
+                "count": { "type": "integer", "minimum": 1, "description": "How many elements differ this way." },
+                "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 5, "description": "The first element paths that differ this way, root first." }
               },
-              "required": ["path", "property", "a", "b"],
+              "required": ["property", "a", "b", "count", "paths"],
               "additionalProperties": false
             }
           },
           "animations": {
             "type": "object",
-            "description": "Animations matched by element path and name or property.",
+            "description": "Animations on the same element path, paired by equal keyframes first and then by the same animated properties, never by name.",
             "properties": {
               "onlyA": { "type": "array", "items": { "$ref": "#/$defs/summary" } },
               "onlyB": { "type": "array", "items": { "$ref": "#/$defs/summary" } },
@@ -75,8 +76,8 @@
                   "type": "object",
                   "properties": {
                     "summary": { "$ref": "#/$defs/summary" },
-                    "field": { "enum": ["type", "duration", "delay", "easing", "iterations"] },
-                    "a": {},
+                    "field": { "enum": ["type", "duration", "delay", "easing", "iterations", "keyframes"] },
+                    "a": { "description": "a's value. For keyframes, each keyframe's offset and normalized property values, without timing." },
                     "b": {}
                   },
                   "required": ["summary", "field", "a", "b"],
@@ -87,9 +88,27 @@
             "required": ["onlyA", "onlyB", "changed"],
             "additionalProperties": false
           },
-          "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side. Null for a missing state." }
+          "motion": {
+            "type": "array",
+            "maxItems": 20,
+            "description": "ui-record's computed transform and opacity tracks that differ, root first. Only an element whose value changed across the frames has a track.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "property": { "enum": ["transform", "opacity"] },
+                "frame": { "type": ["integer", "null"], "minimum": 0, "description": "The frame where the tracks are furthest apart. Null when only one recording moves the element." },
+                "a": { "type": ["array", "null"], "items": { "type": "string" }, "description": "The value at every frame, or null when the element holds still in a." },
+                "b": { "type": ["array", "null"], "items": { "type": "string" } }
+              },
+              "required": ["path", "property", "frame", "a", "b"],
+              "additionalProperties": false
+            }
+          },
+          "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side. Null for a missing state." },
+          "sheet": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A contact sheet of the frames both recordings have, one column per frame index, with a, b, and the heatmap stacked top to bottom. Null when no frame index is shared." }
         },
-        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "image"],
+        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "image", "sheet"],
         "additionalProperties": false
       }
     },
@@ -110,12 +129,13 @@
         "type": { "enum": ["CSSAnimation", "CSSTransition", "Animation"] },
         "name": { "type": "string" },
         "target": { "type": "string", "description": "Element path, with the pseudo-element appended when there is one." },
+        "properties": { "type": "array", "items": { "type": "string" }, "description": "The properties its keyframes animate, sorted." },
         "duration": { "type": "number" },
         "delay": { "type": "number" },
         "easing": { "type": "string", "description": "The animation's easing, or the keyframes' shared easing when the animation's own reads linear." },
         "iterations": { "oneOf": [{ "type": "number" }, { "const": "infinite" }] }
       },
-      "required": ["type", "name", "target", "duration", "delay", "easing", "iterations"],
+      "required": ["type", "name", "target", "properties", "duration", "delay", "easing", "iterations"],
       "additionalProperties": false
     }
   }

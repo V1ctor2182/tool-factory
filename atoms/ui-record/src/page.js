@@ -87,6 +87,17 @@
       return out;
     },
 
+    motion(selector) {
+      const top = root(selector);
+      const out = {};
+      for (const el of [top, ...top.querySelectorAll('*')]) {
+        if (el.tagName === 'SCRIPT') continue;
+        const cs = getComputedStyle(el);
+        out[path(el, top)] = { transform: cs.transform, opacity: cs.opacity };
+      }
+      return out;
+    },
+
     box(selector, margin) {
       const r = root(selector).getBoundingClientRect();
       const x = Math.max(0, Math.floor(r.left - margin));

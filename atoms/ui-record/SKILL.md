@@ -54,15 +54,20 @@ After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`
 | `frames` | One PNG per frame, clipped the same way |
 | `dom` | An HTML file with the target's settled `outerHTML`, script elements removed |
 | `styles` | A JSON file mapping each element path to its computed box model, colors, borders, radii, shadow, font, opacity, transform, transition, and flex or grid properties |
+| `motion` | A JSON file `{everyMs, tracks}`. `tracks` maps each element path whose computed `transform` or `opacity` changed across the frames to the value at every frame, for the properties that changed. Empty for a state without frames |
 | `animations` | Every distinct running animation seen on the target or inside it during the state, with keyframes, duration, delay, easing, iterations, direction, and fill |
 
 An element path is a selector relative to the target, such as `:scope > :nth-child(2) > :nth-child(1)`. The target itself is `:scope`. A CSS animation's timing function sits on each keyframe's `easing`, and the animation's own `easing` reads `linear`.
+
+`motion` catches what `animations` cannot. A library such as motion moves a spring by writing `style.transform` on every animation frame, which `getAnimations()` never lists, so the computed values at each frame are the only record of it. Ask for `frames` on any state that moves.
+
+Known gap: under the virtual clock the CSS and Web Animations timeline does not advance between frames. A CSS animation or transition holds its first keyframe in every frame and its `motion` track, and reaches its end only in the settled state. Its `animations` entry is still complete. Main-thread motion, and anything driven from `requestAnimationFrame` or timers, is sampled correctly.
 
 The atom records rendered results only. It never saves the site's scripts or bundles.
 
 ## Determinism
 
-Two runs of the same steps file give byte-identical settled screenshots. Frames during CSS animations are byte-identical as well. Frames during animations a library drives from JavaScript, such as motion, can differ by a few levels per channel at the edges, so compare frames with a small tolerance.
+Two runs of the same steps file give byte-identical settled screenshots. Frames are byte-identical as well. Frames during animations a library drives from JavaScript, such as motion, can differ by a few levels per channel at the edges, so compare frames with a small tolerance.
 
 ## Setup
 

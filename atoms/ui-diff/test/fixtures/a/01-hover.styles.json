@@ -2,14 +2,17 @@
   ":scope": {
     "margin-top": "0px",
     "color": "rgb(1, 2, 3)",
-    "background-color": "rgb(10, 20, 30)"
+    "background-color": "rgb(10, 20, 30)",
+    "font-family": "Diatype"
   },
   ":scope > :nth-child(1)": {
-    "width": "3px"
+    "width": "3px",
+    "font-family": "Diatype"
   },
   ":scope > :nth-child(2)": {
     "width": "10px",
-    "opacity": "1"
+    "opacity": "1",
+    "font-family": "Diatype"
   },
   ":scope > :nth-child(3)": {
     "width": "8px"

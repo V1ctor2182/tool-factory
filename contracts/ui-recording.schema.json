@@ -18,9 +18,10 @@
           "frames": { "type": "array", "items": { "type": "string", "pattern": "\\.png$" }, "description": "Frame i was taken at i * everyMs of page time after the actions." },
           "dom": { "type": "string", "description": "An HTML file holding the target's settled outerHTML with every script element removed." },
           "styles": { "type": "string", "description": "A JSON file mapping each element path under the target to its curated computed styles, settled." },
+          "motion": { "type": "string", "description": "A JSON file {everyMs, tracks}. tracks maps each element path whose computed transform or opacity changed across the frames to {transform, opacity}, each a list of the computed value at every frame, holding only the properties that changed. everyMs is null and tracks empty for a state without frames." },
           "animations": { "type": "array", "items": { "$ref": "#/$defs/animation" }, "description": "Every distinct animation seen on the target or inside it while the state ran." }
         },
-        "required": ["name", "screenshot", "frames", "dom", "styles", "animations"],
+        "required": ["name", "screenshot", "frames", "dom", "styles", "motion", "animations"],
         "additionalProperties": false
       }
     },

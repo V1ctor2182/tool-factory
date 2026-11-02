@@ -22,11 +22,18 @@ HERE = Path(__file__).resolve().parent
 RECORDING_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "ui-recording.schema.json").read_text(encoding="utf-8"))
 
 # Bump when the comparison or the score changes, so cached diffs from the old formula stop matching.
-VERSION = 1
+VERSION = 2
 SCALE = 2
 STYLE_CAP = 50
+PATH_CAP = 5
+MOTION_CAP = 20
+SHEET_MAX = 4096
 WEIGHTS = {"pixels": 0.5, "frames": 0.2, "styles": 0.2, "animations": 0.1}
 TIMING = ("type", "duration", "delay", "easing", "iterations")
+KEYFRAME_TIMING = {"offset", "easing", "composite"}
+# Largest difference per matrix3d component that still counts as the same motion: translation in CSS pixels, the rest unitless.
+MOVE_PX, MATRIX_EPS, OPACITY_EPS = 0.5, 0.01, 0.01
+TRANSLATE = {12, 13, 14}
 GAP = 4
 BACKGROUND = (40, 40, 40, 255)
 OUTSIDE = (255, 0, 255, 255)
@@ -34,6 +41,7 @@ OUTSIDE = (255, 0, 255, 255)
 ZERO = re.compile(r"(?<![\w.#-])-?0(?:\.0+)?(?:px|em|rem|%|s|ms|deg|vh|vw)?(?![\w.%])")
 OPAQUE = re.compile(r"rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*1(?:\.0+)?\s*\)")
 NTH = re.compile(r"nth-child\((\d+)\)")
+NUMBER = re.compile(r"-?\d*\.?\d+(?:e-?\d+)?")
 
 
 def _r(x: float) -> float:
@@ -53,8 +61,8 @@ def _load(path: str) -> dict:
     for st in recording["states"]:
         if st["name"] in states:
             raise cli.AtomError("invalid_source", f"{path} has two states named {st['name']!r}")
-        state = {**st, "screenshot": file.parent / st["screenshot"], "frames": [file.parent / f for f in st["frames"]], "styles": file.parent / st["styles"]}
-        for f in [state["screenshot"], *state["frames"], state["styles"]]:
+        state = {**st, **{k: file.parent / st[k] for k in ("screenshot", "styles", "motion")}, "frames": [file.parent / f for f in st["frames"]]}
+        for f in [state["screenshot"], *state["frames"], state["styles"], state["motion"]]:
             if not f.is_file():
                 raise cli.AtomError("invalid_source", f"{path}: state {st['name']!r} points at {f}, which is not a file")
         states[st["name"]] = state
@@ -63,7 +71,7 @@ def _load(path: str) -> dict:
 
 def _fingerprint(recording: dict) -> list:
     return [
-        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "animations": s["animations"]}
+        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"]}
         for name, s in recording["states"].items()
     ]
 
@@ -93,13 +101,12 @@ def _compare(x: np.ndarray, y: np.ndarray, tolerance: int) -> dict:
     return {"delta": delta, "mismatch": mismatch, "meanDelta": float(delta.mean()), "similarity": (1 - mismatch) * overlap / union}
 
 
-def _diff_image(x: np.ndarray, y: np.ndarray, delta: np.ndarray, tolerance: int, out: Path) -> str:
+def _panels(x: np.ndarray, y: np.ndarray, delta: np.ndarray, tolerance: int) -> list[np.ndarray]:
+    """a, b, and the heatmap, each padded to the larger screenshot's size."""
     h, w = max(x.shape[0], y.shape[0]), max(x.shape[1], y.shape[1])
-    canvas = np.empty((h, 3 * w + 2 * GAP, 4), dtype=np.uint8)
-    canvas[:] = BACKGROUND
-    canvas[: x.shape[0], : x.shape[1]] = x
-    canvas[: y.shape[0], w + GAP : w + GAP + y.shape[1]] = y
-    heat = canvas[:, 2 * (w + GAP) :]
+    pa, pb, heat = (np.full((h, w, 4), BACKGROUND, dtype=np.uint8) for _ in range(3))
+    pa[: x.shape[0], : x.shape[1]] = x
+    pb[: y.shape[0], : y.shape[1]] = y
     heat[: x.shape[0], : x.shape[1]] = OUTSIDE
     heat[: y.shape[0], : y.shape[1]] = OUTSIDE
     oh, ow = delta.shape
@@ -108,7 +115,20 @@ def _diff_image(x: np.ndarray, y: np.ndarray, delta: np.ndarray, tolerance: int,
     heat[:oh, :ow, 1] = np.where(delta > tolerance, 0, gray)
     heat[:oh, :ow, 2] = np.where(delta > tolerance, 0, gray)
     heat[:oh, :ow, 3] = 255
-    Image.fromarray(canvas, "RGBA").save(out)
+    return [pa, pb, heat]
+
+
+def _join(images: list[np.ndarray], axis: int) -> np.ndarray:
+    shape = list(images[0].shape)
+    shape[axis] = GAP
+    gap = np.full(shape, BACKGROUND, dtype=np.uint8)
+    return np.concatenate([part for im in images for part in (gap, im)][1:], axis=axis)
+
+
+def _save(canvas: np.ndarray, out: Path) -> str:
+    im = Image.fromarray(canvas, "RGBA")
+    im.thumbnail((SHEET_MAX, SHEET_MAX))
+    im.save(out)
     return str(out)
 
 
@@ -128,48 +148,102 @@ def _styles(path_a: Path, path_b: Path) -> tuple[list, float]:
     a = json.loads(path_a.read_text(encoding="utf-8"))
     b = json.loads(path_b.read_text(encoding="utf-8"))
     shared = sorted(set(a) & set(b), key=_path_key)
-    diffs, compared = [], 0
+    # One cause, such as a missing font, changes the same property the same way on every element, so diffs group by property and values.
+    groups: dict[tuple, dict] = {}
+    differing = compared = 0
     for path in shared:
         for prop in sorted(set(a[path]) | set(b[path])):
             compared += 1
             va, vb = a[path].get(prop), b[path].get(prop)
             if _normalize(va) != _normalize(vb):
-                diffs.append({"path": path, "property": prop, "a": va, "b": vb})
+                differing += 1
+                group = groups.setdefault((prop, _normalize(va), _normalize(vb)), {"property": prop, "a": va, "b": vb, "count": 0, "paths": []})
+                group["count"] += 1
+                group["paths"] += [path][: PATH_CAP - len(group["paths"])]
     if not compared:
         return [], 1.0 if not a and not b else 0.0
-    return diffs[:STYLE_CAP], 1 - len(diffs) / compared
+    return list(groups.values())[:STYLE_CAP], 1 - differing / compared
 
 
 def _summary(a: dict) -> dict:
     easings = {k.get("easing") for k in a["keyframes"][:-1]}
     easing = easings.pop() if a["easing"] == "linear" and len(easings) == 1 and None not in easings else a["easing"]
     target = a["target"] + (a["pseudoElement"] or "")
-    return {"type": a["type"], "name": a["name"], "target": target, "duration": a["duration"], "delay": a["delay"], "easing": easing, "iterations": a["iterations"]}
+    keyframes = [{"offset": k.get("offset"), **{p: _normalize(v) for p, v in sorted(k.items()) if p not in KEYFRAME_TIMING}} for k in a["keyframes"]]
+    properties = sorted({p for k in keyframes for p in k if p != "offset"})
+    return {
+        "type": a["type"], "name": a["name"], "target": target, "properties": properties,
+        "duration": a["duration"], "delay": a["delay"], "easing": easing, "iterations": a["iterations"], "keyframes": keyframes,
+    }
 
 
-def _grouped(animations: list) -> dict:
-    # ui-record keeps animations whose keyframes differ, so equal summaries repeat. Keeping the repeats lets a changed duration pair with the one it replaced.
-    groups: dict[tuple, list] = {}
-    for a in map(_summary, animations):
-        groups.setdefault((a["target"], a["name"]), []).append(a)
+def _by_target(animations: list) -> dict:
+    groups: dict[str, list] = {}
     order = lambda a: (a["type"], a["duration"], a["delay"], a["easing"], str(a["iterations"]))
-    return {key: sorted(g, key=order) for key, g in groups.items()}
+    for a in sorted(map(_summary, animations), key=order):
+        groups.setdefault(a["target"], []).append(a)
+    return groups
+
+
+def _pair(xa: list, xb: list) -> list[tuple]:
+    # Names are the author's choice, so a rebuild's renamed keyframes pair by what they animate: equal keyframes first, then the same animated properties.
+    pairs = []
+    for alike in (lambda p, q: p["keyframes"] == q["keyframes"], lambda p, q: p["properties"] == q["properties"]):
+        for p in list(xa):
+            q = next((q for q in xb if alike(p, q)), None)
+            if q is not None:
+                pairs.append((p, q))
+                xa.remove(p)
+                xb.remove(q)
+    return pairs
 
 
 def _animations(list_a: list, list_b: list) -> tuple[dict, float | None]:
-    ga, gb = _grouped(list_a), _grouped(list_b)
+    ga, gb = _by_target(list_a), _by_target(list_b)
     only_a, only_b, changed = [], [], []
     same = total = 0
-    for key in sorted(set(ga) | set(gb), key=lambda k: (_path_key(k[0]), k[1])):
-        xa, xb = ga.get(key, []), gb.get(key, [])
-        for sa, sb in zip(xa, xb):
-            fields = [f for f in TIMING if sa[f] != sb[f]]
-            changed += [{"summary": sa, "field": f, "a": sa[f], "b": sb[f]} for f in fields]
+    public = lambda a: {k: v for k, v in a.items() if k != "keyframes"}
+    for target in sorted(set(ga) | set(gb), key=_path_key):
+        xa, xb = ga.get(target, []), gb.get(target, [])
+        for sa, sb in _pair(xa, xb):
+            fields = [f for f in (*TIMING, "keyframes") if sa[f] != sb[f]]
+            changed += [{"summary": public(sa), "field": f, "a": sa[f], "b": sb[f]} for f in fields]
             same += not fields
-        only_a += xa[len(xb) :]
-        only_b += xb[len(xa) :]
-        total += max(len(xa), len(xb))
+            total += 1
+        only_a += map(public, xa)
+        only_b += map(public, xb)
+        total += len(xa) + len(xb)
     return {"onlyA": only_a, "onlyB": only_b, "changed": changed}, (same / total if total else None)
+
+
+def _matrix(prop: str, value: str | None) -> list[float]:
+    if prop == "opacity":
+        return [float(value)]
+    n = [float(v) for v in NUMBER.findall(value.partition("(")[2])] if value and value != "none" else [1, 0, 0, 1, 0, 0]
+    return n if len(n) == 16 else [n[0], n[1], 0, 0, n[2], n[3], 0, 0, 0, 0, 1, 0, n[4], n[5], 0, 1]
+
+
+def _distance(prop: str, va: str, vb: str) -> float:
+    """How far apart two computed values are, in multiples of what still counts as the same. Above 1 they differ."""
+    eps = lambda i: OPACITY_EPS if prop == "opacity" else MOVE_PX if i in TRANSLATE else MATRIX_EPS
+    return max(abs(x - y) / eps(i) for i, (x, y) in enumerate(zip(_matrix(prop, va), _matrix(prop, vb))))
+
+
+def _motion(path_a: Path, path_b: Path) -> list:
+    ta = json.loads(path_a.read_text(encoding="utf-8"))["tracks"]
+    tb = json.loads(path_b.read_text(encoding="utf-8"))["tracks"]
+    out = []
+    for path in sorted(set(ta) | set(tb), key=_path_key):
+        for prop in sorted(set(ta.get(path, {})) | set(tb.get(path, {}))):
+            va, vb = ta.get(path, {}).get(prop), tb.get(path, {}).get(prop)
+            frame = None
+            if va and vb:
+                gaps = [_distance(prop, x, y) for x, y in zip(va, vb)]
+                if max(gaps, default=0) <= 1:
+                    continue
+                frame = gaps.index(max(gaps))
+            out.append({"path": path, "property": prop, "frame": frame, "a": va, "b": vb})
+    return out[:MOTION_CAP]
 
 
 def _missing(name: str, sa: dict | None, sb: dict | None) -> dict:
@@ -177,7 +251,7 @@ def _missing(name: str, sa: dict | None, sb: dict | None) -> dict:
     return {
         "name": name, "score": 0.0, "missing": "a" if sa is None else "b",
         "size": {"a": size(sa), "b": size(sb)}, "pixels": None, "frames": [], "styles": [],
-        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "image": None,
+        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "image": None, "sheet": None,
     }
 
 
@@ -185,18 +259,27 @@ def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path)
     x, y = _rgba(sa["screenshot"]), _rgba(sb["screenshot"])
     settled = _compare(x, y, tolerance)
     slug = f"{index:02d}-" + (re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "state")
-    image = _diff_image(x, y, settled["delta"], tolerance, out / f"{slug}.png")
+    image = _save(_join(_panels(x, y, settled["delta"], tolerance), axis=1), out / f"{slug}.png")
 
-    frames, frame_scores = [], []
+    frames, frame_scores, columns = [], [], []
     for i in range(max(len(sa["frames"]), len(sb["frames"]))):
         if i < len(sa["frames"]) and i < len(sb["frames"]):
-            c = _compare(_rgba(sa["frames"][i]), _rgba(sb["frames"][i]), tolerance)
+            fx, fy = _rgba(sa["frames"][i]), _rgba(sb["frames"][i])
+            c = _compare(fx, fy, tolerance)
             frames.append({"index": i, "mismatch": _r(c["mismatch"])})
             frame_scores.append(c["similarity"])
+            columns.append(_join(_panels(fx, fy, c["delta"], tolerance), axis=0))
         else:
             frames.append({"index": i, "mismatch": None})
             frame_scores.append(0.0)
 
+    sheet = None
+    if columns:
+        h, w = max(c.shape[0] for c in columns), max(c.shape[1] for c in columns)
+        padded = [np.full((h, w, 4), BACKGROUND, dtype=np.uint8) for _ in columns]
+        for canvas, c in zip(padded, columns):
+            canvas[: c.shape[0], : c.shape[1]] = c
+        sheet = _save(_join(padded, axis=1), out / f"{slug}.sheet.png")
     styles, styles_term = _styles(sa["styles"], sb["styles"])
     animations, animations_term = _animations(sa["animations"], sb["animations"])
     terms = {
@@ -211,7 +294,8 @@ def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path)
         "name": name, "score": _r(score), "missing": None,
         "size": {"a": _size(x), "b": _size(y)},
         "pixels": {"mismatch": _r(settled["mismatch"]), "meanDelta": _r(settled["meanDelta"])},
-        "frames": frames, "styles": styles, "animations": animations, "image": image,
+        "frames": frames, "styles": styles, "animations": animations, "motion": _motion(sa["motion"], sb["motion"]),
+        "image": image, "sheet": sheet,
     }
 
 
@@ -222,7 +306,7 @@ def compare(a: str, b: str, tolerance: int) -> dict:
     fingerprint = {"v": VERSION, "tolerance": tolerance, "a": _fingerprint(ra), "b": _fingerprint(rb)}
     key = hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
     cache = Cache("ui-diff")
-    if (cached := cache.get(key)) and all(Path(s["image"]).is_file() for s in cached["states"] if s["image"]):
+    if (cached := cache.get(key)) and all(Path(f).is_file() for s in cached["states"] for f in (s["image"], s["sheet"]) if f):
         return {**cached, "a": ra["path"], "b": rb["path"]}
 
     names = list(ra["states"]) + [n for n in rb["states"] if n not in ra["states"]]
@@ -238,8 +322,9 @@ def compare(a: str, b: str, tolerance: int) -> dict:
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     for s in states:
-        if s["image"]:
-            s["image"] = str(final / Path(s["image"]).name)
+        for f in ("image", "sheet"):
+            if s[f]:
+                s[f] = str(final / Path(s[f]).name)
     result = {"a": ra["path"], "b": rb["path"], "tolerance": tolerance, "score": _r(sum(s["score"] for s in states) / len(states)), "states": states}
     cache.put(key, result)
     return result
