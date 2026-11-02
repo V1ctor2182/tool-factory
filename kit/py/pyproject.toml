@@ -12,3 +12,6 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 addopts = "-p no:cacheprovider"
+
+[dependency-groups]
+dev = ["pytest", "yt-dlp"]
