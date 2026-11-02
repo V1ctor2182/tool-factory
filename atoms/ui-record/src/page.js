@@ -24,8 +24,38 @@
     return [':scope', ...steps].join(' > ');
   };
 
-  const running = (a) => a.playState === 'running';
   const finite = (a) => Number.isFinite(a.effect?.getComputedTiming().endTime);
+
+  // Under the virtual clock document.timeline only moves when Chromium happens to draw a main frame, and it can stall for
+  // hundreds of milliseconds after an animation starts. So every animation is paused when first seen and its currentTime
+  // set from performance.now(), which virtual time moves exactly. Reaching its end, it is finished, so finish and
+  // animationend fire as usual. Virtual time moves in whole milliseconds, and rounding drops the jitter Chromium adds to
+  // performance.now(), which would otherwise shift edges by a fraction of a pixel from run to run.
+  const DRIVE_MS = 4;
+  const driven = new Map();
+  const running = (a) => a.playState === 'running' || driven.has(a);
+  const drive = () => {
+    const now = Math.round(performance.now());
+    for (const a of document.getAnimations()) {
+      if (a.playState !== 'running' || driven.has(a)) continue;
+      driven.set(a, now);
+      a.pause();
+    }
+    for (const [a, start] of driven) {
+      if (a.playState !== 'paused') {
+        driven.delete(a);
+        continue;
+      }
+      const t = (now - start) * a.playbackRate;
+      if (t >= a.effect.getComputedTiming().endTime) {
+        driven.delete(a);
+        a.finish();
+      } else {
+        a.currentTime = t;
+      }
+    }
+  };
+  setInterval(drive, DRIVE_MS);
 
   const timeouts = new Set();
   const { setTimeout: set, clearTimeout: clear } = window;
@@ -44,6 +74,8 @@
   };
 
   window.__uiRecord = {
+    drive,
+
     unsettled: () => timeouts.size > 0 || document.getAnimations().some((a) => running(a) && finite(a)),
 
     animations(selector) {

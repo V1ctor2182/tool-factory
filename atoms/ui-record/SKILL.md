@@ -40,7 +40,9 @@ Actions are `hover`, `click`, `focus`, `scroll` (each needs `selector`), `type` 
 
 ## Time
 
-The page runs on Chromium's virtual clock from the first byte. Timers, animation frames, `performance.now()`, `Date` (which starts at 2026-01-01T00:00:00Z), and CSS and Web Animations move only when the atom advances them. Virtual time also stands still while a request is in flight, so network speed never changes a frame. The page gets 10 s of page time to load.
+The page runs on Chromium's virtual clock from the first byte. Timers, animation frames, `performance.now()`, `Date` (which starts at 2026-01-01T00:00:00Z), and CSS and Web Animations move only when the atom advances them.
+
+Chromium's own animation timeline does not follow the virtual clock. It moves only when a main frame happens to be drawn, and can stall for hundreds of milliseconds after an animation starts. So the atom drives every animation itself. It pauses each running animation within 4 ms of page time of its start, sets its `currentTime` from page time to the millisecond, and calls `finish()` at its end, so `finish` and `animationend` fire as usual. The page sees a driven animation as paused. A page that pauses or resumes one itself takes it back. An animation already paused by the page, or by `animation-play-state`, stays where the page put it. Virtual time also stands still while a request is in flight, so network speed never changes a frame. The page gets 10 s of page time to load.
 
 After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`. Frame i is at exactly i × `everyMs` after the actions, so frame 0 is the instant the actions finish. Then the atom advances 100 ms at a time until no finite animation runs and no `setTimeout` is pending, for at most 5 s, and records the settled state. A page that keeps a timer pending always settles for the full 5 s.
 
@@ -60,8 +62,6 @@ After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`
 An element path is a selector relative to the target, such as `:scope > :nth-child(2) > :nth-child(1)`. The target itself is `:scope`. A CSS animation's timing function sits on each keyframe's `easing`, and the animation's own `easing` reads `linear`.
 
 `motion` catches what `animations` cannot. A library such as motion moves a spring by writing `style.transform` on every animation frame, which `getAnimations()` never lists, so the computed values at each frame are the only record of it. Ask for `frames` on any state that moves.
-
-Known gap: under the virtual clock the CSS and Web Animations timeline does not advance between frames. A CSS animation or transition holds its first keyframe in every frame and its `motion` track, and reaches its end only in the settled state. Its `animations` entry is still complete. Main-thread motion, and anything driven from `requestAnimationFrame` or timers, is sampled correctly.
 
 The atom records rendered results only. It never saves the site's scripts or bundles.
 

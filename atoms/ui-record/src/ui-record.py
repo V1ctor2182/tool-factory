@@ -74,6 +74,7 @@ class Session:
     def advance(self, ms: int):
         self.collect()
         self.run(ms)
+        self.js("drive")
         self.collect()
 
     def settle(self):
@@ -179,6 +180,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
         s.seen = {}
         for j, action in enumerate(state["actions"]):
             ACTIONS[action["do"]](s, action, f"state {state['name']!r} action {j} ({action['do']})")
+        s.js("drive")
         s.collect()
         frames, samples, every = [], [], None
         if "frames" in state:

@@ -26,6 +26,8 @@ fail() { echo "FAIL ui-record: $1" >&2; exit 1; }
 motion=$(jq -r '.states[1].motion' "$out/first.json")
 [ "$(jq '.tracks[":scope > :nth-child(6)"].opacity | map(tonumber) | [., [1, 0.6667, 0.3333]] | transpose | map(.[0] - .[1] | fabs < 0.01) | length == 3 and all' "$motion")" = true ] \
 	|| fail "the bar's main-thread fade was not sampled at 0, 100, and 200 ms: $(jq -c '.tracks[":scope > :nth-child(6)"]' "$motion")"
+[ "$(jq -c '.tracks[":scope > :nth-child(2)"].transform | map(split(", ")[4] | tonumber | round)' "$motion")" = '[0,78,135]' ] \
+	|| fail "the dot's 300ms ease-out slide to 160px is not at 0, 78, and 135px at 0, 100, and 200 ms: $(jq -c '.tracks[":scope > :nth-child(2)"].transform' "$motion")"
 [ "$(jq '.everyMs' "$motion")" = 100 ] || fail "the motion file does not record everyMs 100"
 [ "$(jq -c . "$(jq -r '.states[0].motion' "$out/first.json")")" = '{"everyMs":null,"tracks":{}}' ] \
 	|| fail "a state without frames has motion tracks"

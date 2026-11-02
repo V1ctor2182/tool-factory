@@ -41,9 +41,9 @@ A `locked` component is rebuilt from how it looks and behaves, never from its co
 
 `judge` records the original with the steps file and the rebuild at `--rebuild` with the same steps, then prints ui-diff's result, as `contracts/ui-diff.schema.json` defines it. `--original` reuses an earlier recording of the original. Read each state's `styles`, `animations`, `motion`, `image`, and `sheet` to find what differs. The sheet shows every frame of both side by side.
 
-Stop at a score of 0.94 or after five rounds. Measured on Kobra's input-otp on 2026-11-01: Kobra's own code in the preview scores 0.960, because the preview lacks Kobra's licensed font, and a rebuild from observation scored 0.963 after two rounds. A site whose font the preview has can reach higher.
+Stop at a score of 0.94 or after five rounds. Measured on Kobra's input-otp on 2026-11-02: two recordings of the original score 0.99997 against each other, Kobra's own code in the preview scores 0.964, and a rebuild from observation scores 0.976. Kobra's code loses to the rebuild because the preview lacks Kobra's licensed font and resolves its `ease-out` to Tailwind's default rather than the site's `cubic-bezier(0.23, 1, 0.32, 1)`, which the rebuild copied from the page. A site whose font and theme the preview has can reach higher.
 
-Main-thread motion, such as motion's `x` springs, never shows up in `animations`, but ui-diff's `motion` lists each element whose transform or opacity moves differently, frame by frame. Ask for `frames` on every state that moves. CSS animations hold still in frames under ui-record's clock, so judge their timing from `animations`. A state that lasts only between two frames still escapes the recording. Watch the page yourself for those.
+Main-thread motion, such as motion's `x` springs, never shows up in `animations`, but ui-diff's `motion` lists each element whose transform or opacity moves differently, frame by frame. Ask for `frames` on every state that moves. A state that lasts only between two frames still escapes the recording. Watch the page yourself for those.
 
 On failure before any component is fetched, the script exits 1. With `--json` it prints `{"error": {"code", "message"}}`, otherwise the code and message go to stderr.
 
