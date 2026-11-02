@@ -476,7 +476,7 @@ function panelFor(name) {
       h('dt', null, 'Linked'), h('dd', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
     service && !unmetered(row) && total(row) ? h('div', { class: 'chart' }, bars(row.perDay)) : null,
     h('div', { class: 'sources' }, h('span', null, `${service ? 'Uses' : 'Used by'} ${plural(near.length, service ? 'atom' : 'microservice')}`)),
-    h('div', { class: 'chips' }, service && row.verbs.length ? h('button', { type: 'button', class: 'go', onclick: () => (location.href = tryHref(row.name)) }, `Try ${row.name}`) : null, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
+    h('div', { class: 'chips' }, service && row.verbs.length ? h('button', { type: 'button', class: 'go', onclick: () => { history.pushState(null, '', tryHref(row.name)); show(); } }, `Try ${row.name}`) : null, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
   ];
 }
 
@@ -815,8 +815,12 @@ function headline(sick, calls) {
 }
 
 const PAGES = [['/', 'Overview'], ['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere']];
-const here = location.pathname.replace(/\/+$/, '') || '/';
-const page = here.startsWith('/docs') ? '/docs' : here;
+// The server serves these paths, so a link to one is handled here without reloading.
+const PAGE_PATH = /^\/(?:try|wiring|elsewhere|docs(?:\/[^/]+){0,2})?$/;
+const pageOf = (path) => {
+  const trimmed = path.replace(/\/+$/, '') || '/';
+  return trimmed.startsWith('/docs') ? '/docs' : trimmed;
+};
 
 function overviewView() {
   const { capUsd, spentTodayUsd } = model.budget;
@@ -847,13 +851,15 @@ function overviewView() {
     footer());
 }
 
-function tryView() {
+function pickFromQuery() {
   const want = new URLSearchParams(location.search);
   const pick = runnable.find((s) => s.name === want.get('name'));
-  if (pick) {
-    trying.service = pick;
-    trying.verb = pick.verbs.find((v) => v.name === want.get('verb')) ?? pick.verbs[0];
-  }
+  if (!pick || trying.busy) return;
+  trying.service = pick;
+  trying.verb = pick.verbs.find((v) => v.name === want.get('verb')) ?? pick.verbs[0];
+}
+
+function tryView() {
   return h('main', { class: 'wrap' },
     h('section', { id: 'try', 'aria-label': 'Try a verb' },
       h('div', { class: 'split' },
@@ -900,32 +906,68 @@ function footer() {
 }
 
 const VIEWS = { '/': overviewView, '/try': tryView, '/wiring': wiringView, '/docs': docsView, '/elsewhere': elsewhereView };
+// Try keeps its thread and a run in flight, and Wiring keeps its selection, so each is built once.
+const KEPT = new Set(['/try', '/wiring']);
+const built = new Map();
+let content, navLinks;
+
+function show() {
+  const page = VIEWS[pageOf(location.pathname)] ? pageOf(location.pathname) : '/';
+  const sideScroll = content.querySelector('.side')?.scrollTop;
+  const fresh = !built.has(page);
+  const view = KEPT.has(page) && !fresh ? built.get(page) : VIEWS[page]();
+  if (KEPT.has(page)) built.set(page, view);
+  content.replaceChildren(view);
+  for (const a of navLinks) {
+    if (a.getAttribute('href') === page) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
+  document.title = page === '/' ? 'Factory' : `${PAGES.find(([path]) => path === page)[1]} · Factory`;
+
+  if (page === '/try') {
+    pickFromQuery();
+    drawComposer();
+  }
+  if (page === '/wiring') {
+    if (fresh) new ResizeObserver(draw).observe(stage);
+    const start = decodeURIComponent(location.hash.slice(1));
+    if (fresh) select(nodes.has(start) ? start : null);
+    else if (nodes.has(start) && start !== selected) select(start);
+    draw();
+  }
+  const side = content.querySelector('.side');
+  if (side && sideScroll !== undefined) side.scrollTop = sideScroll;
+  window.scrollTo(0, 0);
+}
 
 function render() {
   if (!model) {
     app.append(h('p', { style: 'padding:24px' }, 'No status model. Open this page through factory dashboard.'));
     return;
   }
-  const title = PAGES.find(([path]) => path === page)?.[1];
-  if (title && page !== '/') document.title = `${title} · Factory`;
+  const nav = h('nav', null, PAGES.slice(1).filter(([path]) => path !== '/try' || runnable.length).map(([path, label]) => h('a', { href: path }, label)));
+  navLinks = [...nav.querySelectorAll('a')];
   app.append(
     h('header', { class: 'top' }, h('div', { class: 'in' },
       h('a', { class: 'brand', href: '/' }, icon(30, LOGO), 'FACTORY'),
-      h('nav', null, PAGES.slice(1).filter(([path]) => path !== '/try' || runnable.length)
-        .map(([path, label]) => h('a', { href: path, ...(path === page ? { 'aria-current': 'page' } : {}) }, label))),
+      nav,
       h('span', { class: 'when' }, span),
-      h('a', { class: 'pill', href: '' }, 'Reload'))),
-    (VIEWS[page] ?? overviewView)());
-
-  if (page === '/try') drawComposer();
-  if (page === '/wiring') {
-    new ResizeObserver(draw).observe(stage);
-    const start = decodeURIComponent(location.hash.slice(1));
-    select(nodes.has(start) ? start : null);
-  }
+      h('a', { class: 'pill', href: '', 'data-reload': '' }, 'Reload'))),
+    content = h('div', null));
+  show();
 }
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected && panel) select(selected); });
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]');
+  if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target || a.hasAttribute('data-reload')) return;
+  const url = new URL(a.href);
+  if (url.origin !== location.origin || !PAGE_PATH.test(url.pathname)) return;
+  e.preventDefault();
+  if (url.href !== location.href) history.pushState(null, '', url);
+  show();
+});
+addEventListener('popstate', show);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selected && panel?.isConnected) select(selected); });
 render();
 performance.mark('rendered');
 </script>
