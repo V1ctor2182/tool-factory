@@ -306,11 +306,14 @@ site_report "site"
 	|| fail "site decided $(site_rows)"
 [ "$(jq '.costUsd * 1' "$out/stdout")" = 1 ] || fail "the total cost is not the sum of ui-steps and the rebuilds: $(jq .costUsd "$out/stdout")"
 [ "$(cut -f1 "$ui/written" | tr '\n' ' ')" = "button card-x " ] || fail "site did not keep the exposed code: $(cat "$ui/written")"
-[ "$(jq -c . "$site_dir/page-only/survey.json")" = '{"url":"https://stub.test/components/page-only","target":"[data-stage]","states":[{"name":"idle","actions":[]}]}' ] \
-	|| fail "the survey did not record the page's stage idle: $(cat "$site_dir/page-only/survey.json")"
+[ "$(jq -c . "$site_dir/page-only/survey.json")" = '{"url":"https://stub.test/components/page-only","target":"[data-stage] > *","states":[{"name":"idle","actions":[]}]}' ] \
+	|| fail "the survey did not record the demo inside the page's stage idle: $(cat "$site_dir/page-only/survey.json")"
 [ "$(ran 'ui-steps write /stub/survey/page-only/recording.json --json')" = 1 ] || fail "ui-steps did not get the survey: $(cat "$STUB_LOG")"
 [ "$(jq -r '.items[1].stepsFile' "$out/stdout")" = "$site_dir/pro-card/steps.json" ] && [ "$(jq -r '.states[1].actions[0].selector' "$site_dir/pro-card/steps.json")" = '[data-stage] button' ] \
 	|| fail "pro-card's working steps were not saved in the data home"
+[ "$(jq -c '[.target, .states[1].actions[0].selector]' "$site_dir/pro-card/rebuild-steps.json")" = '["[data-slot=\"preview-stage\"]","[data-slot=\"preview-stage\"] button"]' ] \
+	|| fail "the rebuild's steps do not swap the site's stage for the preview's: $(cat "$site_dir/pro-card/rebuild-steps.json")"
+[ "$(ran "page-record capture $site_dir/pro-card/rebuild-steps.json --url")" = 1 ] || fail "the rebuild was not recorded with the preview's stage: $(grep page-record "$STUB_LOG")"
 [ "$(ran "ui-steps write /stub/survey/pro-card/recording.json --problem page-record: state 'hover' action 0 (hover): no element matches '#bad' --json")" = 1 ] \
 	|| fail "steps that failed to record were not revised with page-record's message: $(grep ui-steps "$STUB_LOG")"
 [ "$(ran 'ui-steps write /stub/survey/secret/')" = 2 ] && [ "$(jq -r '.items[5].detail' "$out/stdout")" = "the steps failed 2 times, last with page-record: state 'hover' action 0 (hover): no element matches '#bad'" ] \
