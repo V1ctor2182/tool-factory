@@ -1,0 +1,32 @@
+{
+  "name": "ui-draft",
+  "type": "atom",
+  "kind": "model",
+  "description": "A shadcn component and its demo page, written from a page-record recording of the original, and revised from a page-diff of the last draft. Never sees the original's code.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/ui-draft",
+  "contract": "ui-draft",
+  "model": { "backend": "claude-cli", "default": "sonnet", "prompt": "prompts/write.md" },
+  "verbs": [
+    {
+      "name": "write",
+      "description": "Write one draft of a component from how the original looks and moves in a recording, in one model call. Pass the last draft, its page-diff, and any install or typecheck error to revise it. Cached by every input's content, the model, and the prompt hash. Refuses with budget_exceeded once today's model spend reaches the daily budget.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "recording": { "type": "string", "description": "recording.json of a page-record capture of the original. Its steps file is read too." },
+          "name": { "type": "string", "x-flag": true, "description": "The registry item's name, such as input-otp-rebuild. The component goes to components/ui/<name>.tsx." },
+          "previous": { "type": "string", "description": "A ui-draft JSON file from the last round, to revise." },
+          "diff": { "type": "string", "description": "A page-diff JSON file comparing the original to the last round's rebuild." },
+          "problem": { "type": "string", "description": "Free text, such as the install or typecheck error the last draft hit." },
+          "packages": { "type": "string", "description": "Comma-separated npm packages the target project already has. The draft depends only on these." }
+        },
+        "required": ["recording", "name"]
+      },
+      "output": "ui-draft"
+    }
+  ],
+  "needs": { "bin": ["claude"], "secrets": [], "paid": ["claude"] },
+  "adapters": ["cli", "skill", "mcp"]
+}
