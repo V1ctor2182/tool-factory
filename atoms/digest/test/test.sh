@@ -71,7 +71,7 @@ export STUB_ARGS
 stub_call() {
 	rm -f "$STUB_ARGS"
 	jq --arg t "$2" '.segments[0].text = $t' "$fixture" > "$out/stubbed.json"
-	if env STUB_REPLY="$1" PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" TOOL_FACTORY_BUDGET_USD="${3:-3}" \
+	if env -u TOOL_FACTORY_CALL_BUDGET_USD STUB_REPLY="$1" PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" TOOL_FACTORY_BUDGET_USD="${3:-3}" \
 		${4:+TOOL_FACTORY_CALL_BUDGET_USD=$4} "$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out"; then
 		fail "$1 reply exited 0"
 	fi
@@ -98,7 +98,7 @@ stubbed cost "Reply with a cost."
 
 rm -rf "$out/stub-home"
 jq '.segments[0].text = "A reply with a negative cost."' "$fixture" > "$out/stubbed.json"
-env STUB_REPLY=negative PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" "$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out" \
+env -u TOOL_FACTORY_CALL_BUDGET_USD STUB_REPLY=negative PATH="$stub:$PATH" TOOL_FACTORY_HOME="$out/stub-home" "$bin" make --transcript "$out/stubbed.json" --json > "$out/stubbed.out" \
 	|| fail "a reply with a negative cost failed: $(cat "$out/stubbed.out")"
 "$repo/contracts/check" digest "$out/stubbed.out" \
 	|| fail "a reply with a negative cost broke digest.schema.json: $(jq -c .costUsd "$out/stubbed.out")"
