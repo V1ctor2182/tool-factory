@@ -1,0 +1,28 @@
+{
+  "name": "ui-steps",
+  "type": "atom",
+  "kind": "model",
+  "description": "A page-record steps file that drives a component through its interactions, written from a recording of the component's idle state. Never sees the component's code.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/ui-steps",
+  "contract": "ui-steps",
+  "model": { "backend": "claude-cli", "default": "sonnet", "prompt": "prompts/write.md" },
+  "verbs": [
+    {
+      "name": "write",
+      "description": "Write the states to drive a component through, in one model call, from a page-record recording of its idle state. Keeps the recording's url, target, viewport, and colorScheme, puts idle first, and adds 2 to 4 interaction states. Pass the error the last steps hit to revise them. Cached by every input's content, the model, and the prompt hash.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "recording": { "type": "string", "description": "recording.json of a page-record capture of the component's idle state. Its steps file is read too." },
+          "problem": { "type": "string", "description": "Free text, such as the page-record error the last steps hit." }
+        },
+        "required": ["recording"]
+      },
+      "output": "ui-steps"
+    }
+  ],
+  "needs": { "bin": ["claude"], "secrets": [], "paid": ["claude"] },
+  "adapters": ["cli", "skill", "mcp"]
+}
