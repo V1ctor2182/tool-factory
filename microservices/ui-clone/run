@@ -21,6 +21,9 @@ SITES = json.loads((ROOT / "sites.json").read_text(encoding="utf-8"))
 OUTCOMES = ("kept", "locked", "skipped", "needs-terms", "failed")
 CODE_TYPES = ("registry:ui", "registry:block", "registry:component")
 ENV = {**os.environ, "TOOL_FACTORY_CALLER": "ui-clone"}
+HOME = Path(os.environ.get("TOOL_FACTORY_HOME") or "~/.local/share/tool-factory").expanduser().absolute()
+REBUILD_LICENSE = "Rebuilt from observation; no source code copied"
+PROBLEM_CHARS = 4000
 
 
 class AtomFailed(Exception):
@@ -116,10 +119,15 @@ def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str
     return "kept", added.stdout.strip()
 
 
-def collect(args) -> dict:
-    into = Path(args.into).expanduser().absolute()
+def victor_ui(path: str) -> Path:
+    into = Path(path).expanduser().absolute()
     if not (into / "scripts" / "add.mjs").is_file():
         raise AtomFailed({"code": "invalid_args", "message": f"{into} has no scripts/add.mjs, so it is not a victor-ui repo"})
+    return into
+
+
+def collect(args) -> dict:
+    into = victor_ui(args.into)
     site = site_of(args.site)
     items = components_of(site, args.only, args.limit)
     rows = []
@@ -144,11 +152,121 @@ def recording_of(steps: str, url: str | None) -> str:
     return str(Path(recording["dir"]) / "recording.json")
 
 
+def diff_of(steps: str, original: str, url: str) -> dict:
+    recorded = recording_of(steps, url)
+    log(f"page-diff compare {original} {recorded}")
+    return atom("page-diff", "compare", original, recorded)
+
+
 def judge(args) -> dict:
-    original = args.original or recording_of(args.steps, None)
-    rebuild = recording_of(args.steps, args.rebuild)
-    log(f"page-diff compare {original} {rebuild}")
-    return atom("page-diff", "compare", original, rebuild)
+    return diff_of(args.steps, args.original or recording_of(args.steps, None), args.rebuild)
+
+
+def install(into: Path, source: str, draft: dict, meta: dict) -> None:
+    piped = {"source": source, "exposed": True, "item": draft["item"], "demo": draft["demo"], "meta": meta}
+    added = subprocess.run(
+        ["node", str(into / "scripts" / "add.mjs"), "--license", REBUILD_LICENSE, "--rebuild"],
+        input=json.dumps(piped),
+        capture_output=True,
+        text=True,
+    )
+    if added.returncode:
+        raise AtomFailed({"code": "internal", "message": f"add.mjs exited {added.returncode}: {added.stderr.strip()}"})
+    log(added.stdout.strip())
+
+
+def typecheck(into: Path) -> str | None:
+    checked = subprocess.run(["npm", "run", "--silent", "typecheck"], cwd=into, capture_output=True, text=True)
+    output = (checked.stdout + checked.stderr).strip()
+    return None if checked.returncode == 0 else output[:PROBLEM_CHARS] or f"npm run typecheck exited {checked.returncode}"
+
+
+def saved(path: Path, result: dict) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    return str(path)
+
+
+def rebuild(args) -> dict:
+    into = victor_ui(args.into)
+    if args.rounds < 1 or not 0 < args.target <= 1:
+        raise AtomFailed({"code": "invalid_args", "message": "--rounds must be 1 or more and --target between 0 and 1"})
+    try:
+        source = json.loads(Path(args.steps).read_text(encoding="utf-8"))["url"]
+        packages = ",".join(sorted(json.loads((into / "package.json").read_text(encoding="utf-8")).get("dependencies", {})))
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        raise AtomFailed({"code": "invalid_args", "message": f"Cannot read the steps file's url or victor-ui's package.json: {e}"}) from None
+    folder = HOME / "microservices" / "ui-clone" / "rebuild" / args.name
+    page = f"{args.preview.rstrip('/')}/{args.name}"
+    original = recording_of(args.steps, None)
+    rounds: list[dict] = []
+    previous = diff = problem = None
+    for n in range(1, args.rounds + 1):
+        row = {"round": n, "draft": None, "diff": None, "score": None, "error": None, "costUsd": 0.0}
+        rounds.append(row)
+        revise = [*(["--previous", previous] if previous else []), *(["--diff", diff] if diff else []), *(["--problem", problem] if problem else [])]
+        log(f"round {n}: ui-draft write {args.name}{' revising' if previous else ''}")
+        try:
+            draft = atom("ui-draft", "write", original, "--name", args.name, "--packages", packages, *revise)
+            row["costUsd"] = draft["costUsd"]
+            previous = row["draft"] = saved(folder / f"round-{n}" / "draft.json", draft)
+            diff = problem = None
+            install(into, source, draft, {"rebuild": {"round": n, "score": None, "costUsd": draft["costUsd"]}})
+        except AtomFailed as e:
+            row["error"] = f"{e.error['code']}: {e.error['message']}"
+            break
+        problem = typecheck(into)
+        if problem is None:
+            try:
+                result = diff_of(args.steps, original, page)
+            except AtomFailed as e:
+                if e.error["code"] != "invalid_source":
+                    row["error"] = f"{e.error['code']}: {e.error['message']}"
+                    break
+                problem = f"The judge could not record the demo at {page}: {e.error['message']}"
+        if problem:
+            row["error"] = problem
+            log(f"round {n}: {headline(problem)}")
+            continue
+        diff = row["diff"] = saved(folder / f"round-{n}" / "diff.json", result)
+        row["score"] = result["score"]
+        log(f"round {n}: score {result['score']:.4f}")
+        if result["score"] >= args.target:
+            break
+    cost = sum(row["costUsd"] for row in rounds)
+    best = max((row for row in rounds if row["score"] is not None), key=lambda row: row["score"], default=None)
+    if best:
+        summary = [{"round": row["round"], "score": row["score"], "costUsd": row["costUsd"]} for row in rounds]
+        meta = {"rebuild": {"round": best["round"], "score": best["score"], "costUsd": cost, "rounds": summary}}
+        install(into, source, json.loads(Path(best["draft"]).read_text(encoding="utf-8")), meta)
+        if failed := typecheck(into):
+            raise AtomFailed({"code": "internal", "message": f"Round {best['round']} passed its typecheck before, but not when reinstalled: {failed}"})
+    return {
+        "name": args.name,
+        "source": source,
+        "into": str(into),
+        "target": args.target,
+        "passed": bool(best and best["score"] >= args.target),
+        "best": best and {"round": best["round"], "score": best["score"]},
+        "costUsd": cost,
+        "rounds": rounds,
+    }
+
+
+def headline(error: str) -> str:
+    lines = error.splitlines()
+    return next((line for line in lines if "error" in line.lower()), lines[0])
+
+
+def text_of_rebuild(report: dict) -> str:
+    lines = []
+    for row in report["rounds"]:
+        result = f"{row['score']:.4f}" if row["score"] is not None else "error "
+        detail = f"  {headline(row['error'])}" if row["error"] else ""
+        lines.append(f"round {row['round']}  {result}  ${row['costUsd']:.2f}{detail}")
+    best = report["best"]
+    verdict = f"best round {best['round']} at {best['score']:.4f}, {'passed' if report['passed'] else 'below'} {report['target']}" if best else "no round was judged"
+    return "\n".join([*lines, f"total    ${report['costUsd']:.2f}  {verdict}"])
 
 
 def text_of_diff(diff: dict) -> str:
@@ -157,7 +275,7 @@ def text_of_diff(diff: dict) -> str:
     return "\n".join([*lines, f"score {diff['score']:.4f}"])
 
 
-RUN = {"collect": (collect, text_of), "judge": (judge, text_of_diff)}
+RUN = {"collect": (collect, text_of), "judge": (judge, text_of_diff), "rebuild": (rebuild, text_of_rebuild)}
 
 
 class Parser(argparse.ArgumentParser):
@@ -182,8 +300,8 @@ def parser() -> Parser:
             elif prop["type"] == "boolean":
                 v.add_argument(flag_of(name), dest=name, action="store_true", help=prop["description"])
             else:
-                kind = int if prop["type"] == "integer" else str
-                v.add_argument(flag_of(name), dest=name, type=kind, required=required, help=prop["description"])
+                kind = {"integer": int, "number": float}.get(prop["type"], str)
+                v.add_argument(flag_of(name), dest=name, type=kind, required=required, default=prop.get("default"), help=prop["description"])
         v.add_argument("--json", action="store_true", help="Print one JSON object.")
     return p
 

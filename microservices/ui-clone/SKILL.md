@@ -1,6 +1,6 @@
 ---
 name: ui-clone
-description: Copy a site's UI components into Victor's private shadcn registry, victor-ui. Use when Victor wants the components of kobra.systems, rareui.com, ui.aceternity.com, or another site with a shadcn registry. Keeps the components whose code the site exposes and whose terms allow keeping, lists the locked ones, and scores a rebuild of a locked one against its original.
+description: Copy a site's UI components into Victor's private shadcn registry, victor-ui. Use when Victor wants the components of kobra.systems, rareui.com, ui.aceternity.com, or another site with a shadcn registry. Keeps the components whose code the site exposes and whose terms allow keeping, lists the locked ones, and rebuilds a locked one from how it looks and moves, scored against its original.
 allowed-tools: Bash(*ui-clone/run *)
 ---
 
@@ -30,9 +30,37 @@ With `--json` it prints one report, as `contracts/ui-clone-report.schema.json` d
 
 A `locked` component is rebuilt from how it looks and behaves, never from its code. Do not read the site's source for it: not its registry item, not a code viewer on its page, not its JS bundles. The rendered page, its DOM, and page-record's recordings are fair to read.
 
-1. Open the component's page and write a page-record steps file for it, as `contracts/page-steps.schema.json` defines it. Name each state a user reaches, such as idle, hover, focus, typed, error, and success. Add `frames` to a state that animates. Pick a `target` selector that also exists on the rebuild's demo.
-2. In victor-ui, add the rebuild as a registry item with `meta.method` set to `rebuild`, plus a demo in `preview/demos/<name>.tsx` that copies the original page's surroundings. Start the preview with `npm run preview:dev`.
-3. Score it, then fix the largest difference and score again:
+1. Open the component's page and write a page-record steps file for it by hand, as `contracts/page-steps.schema.json` defines it. Each component needs its own. Name each state a user reaches, such as idle, hover, focus, typed, error, and success. Add `frames` to a state that animates. Pick a `target` selector and action selectors that a rebuilt demo can also carry, such as `[data-preview-root]` and `input`.
+2. In victor-ui, start the preview with `npm run preview:dev`.
+3. Run `rebuild`. It loops until a round scores the target or the rounds run out:
+
+```sh
+TOOL_FACTORY_CALL_BUDGET_USD=1 <this skill's folder>/run rebuild steps.json --into ~/victor/victor-ui --name input-otp-rebuild
+<this skill's folder>/run rebuild steps.json --into ~/victor/victor-ui --name input-otp-rebuild --rounds 3 --target 0.95 --json
+```
+
+`rebuild` records the original once with page-record. Each round then:
+
+1. `ui-draft write` writes the component and its demo from the recording, with victor-ui's `package.json` dependencies as `--packages`. From round 2 on it also gets the last round's draft, and either that round's page-diff or the error that stopped it.
+2. `add.mjs --rebuild` installs the item with `meta.method` `rebuild` and the demo at `preview/demos/<name>.tsx`. Items match on source and method, so a rebuild never replaces the collected original.
+3. `npm run typecheck` in victor-ui lays out the preview and runs `tsc`. A failure becomes the round's `error` and the next round's `--problem`, and the round is not judged.
+4. `judge` records `<preview>/<name>` with the same steps and compares it to the original with page-diff. A demo that lacks a steps selector also becomes the next round's problem.
+
+Each round's `draft.json` and `diff.json` stay in the data home under `microservices/ui-clone/rebuild/<name>/round-<n>/`. At the end the best round is installed again, and its item's `meta.rebuild` holds the best round, its score, the total cost, and each round's score and cost. A ui-draft failure, such as `budget_exceeded`, or an install or recording failure that no draft can fix, ends the loop early as that round's error, and the best round so far stays installed. When no round was judged, the last draft stays installed and `best` is null.
+
+The rebuild stays blind. ui-draft sees only page-record's output, the steps file, its own earlier draft, page-diff's output, and the error text. `rebuild` never calls ui-source.
+
+With `--json` it prints the report, as `contracts/ui-rebuild.schema.json` defines it. Without it, it prints one line per round, its score or `error`, and its model cost, then the total:
+
+```
+round 1  0.9612  $0.41
+round 2  0.9724  $0.38
+total    $0.79  best round 2 at 0.9724, passed 0.97
+```
+
+Cost per round is ui-draft's `costUsd`, 0 on a cache hit. The total is their sum. The run log also records each call. Each ui-draft call has the kit's ceiling of $0.25 unless `TOOL_FACTORY_CALL_BUDGET_USD` says more, and five rounds of a large component can pass it, so raise the ceiling for a rebuild. The daily budget still applies.
+
+To judge a rebuild by hand, score it, then fix the largest difference and score again:
 
 ```sh
 <this skill's folder>/run judge steps.json --rebuild http://localhost:5173/<name> --json
