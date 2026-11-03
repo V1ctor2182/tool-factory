@@ -91,6 +91,7 @@ test('each atom lists the microservices whose uses name it', () => {
     'page-read': ['site-clone'],
     'page-sweep': ['site-clone'],
     'page-diff': ['ui-clone'],
+    'page-links': [],
     'page-record': ['ui-clone'],
     'ui-draft': ['ui-clone'],
     'ui-source': ['ui-clone'],

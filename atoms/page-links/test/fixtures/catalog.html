@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Catalog</title></head>
+<body>
+<nav><a href="/pricing">Pricing</a></nav>
+<ul id="list"></ul>
+<script>
+const list = document.getElementById('list')
+const add = (href, html) => {
+  const li = document.createElement('li')
+  li.innerHTML = `<a href="${href}">${html}</a>`
+  list.append(li)
+}
+add('/components/button', 'Button')
+add('/components/input-otp/', 'Input\n   OTP')
+add('https://elsewhere.test/components/card', 'Card elsewhere')
+add('/components/button#demo', 'Button again')
+add('/components/button/code', 'Button code')
+setTimeout(() => add('/components/icon', '<svg width="8" height="8"></svg>'), 200)
+</script>
+</body>
+</html>

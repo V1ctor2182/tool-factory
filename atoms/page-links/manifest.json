@@ -1,0 +1,27 @@
+{
+  "name": "page-links",
+  "type": "atom",
+  "kind": "observe",
+  "description": "The same-origin links a web page shows once it has rendered in headless Chromium, in document order. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/page-links",
+  "contract": "page-links",
+  "verbs": [
+    {
+      "name": "list",
+      "description": "Load a page, wait for its network to go idle, and list each same-origin link once, in document order, with its text. Prints one URL per line, or the list with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "The page to read, such as a site's component catalog." },
+          "match": { "type": "string", "description": "A regular expression a link's path must match, such as ^/components/[^/]+/?$." }
+        },
+        "required": ["url"]
+      },
+      "output": "page-links"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
