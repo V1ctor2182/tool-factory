@@ -6,7 +6,10 @@
     "theme": {
       "--ease-out": "cubic-bezier(0.23, 1, 0.32, 1)",
       "--ease-in-out": "cubic-bezier(0.77, 0, 0.175, 1)"
-    }
+    },
+    "catalog": "https://kobra.systems/components",
+    "page": "https://kobra.systems/components/{name}",
+    "stage": "[data-slot=\"preview-stage\"]"
   },
   "rareui": {
     "url": "https://www.rareui.com",
@@ -18,6 +21,33 @@
     "index": "https://ui.aceternity.com/registry.json",
     "base": "https://ui.aceternity.com/registry/",
     "keepCode": true,
-    "terms": "Aceternity licence: use in your own end products; never redistribute source (ui.aceternity.com/licence). victor-ui stays private."
+    "terms": "Aceternity licence: use in your own end products; never redistribute source (ui.aceternity.com/licence). victor-ui stays private.",
+    "catalog": "https://ui.aceternity.com/components",
+    "stage": ".preview",
+    "aliases": {
+      "3d-card-effect": "3d-card",
+      "cards-free": "cards-demo-1",
+      "container-cover": "cover",
+      "expandable-card": "expandable-card-demo-standard",
+      "feature-sections-free": "features-section-demo-1",
+      "github-globe": "globe",
+      "glowing-stars-effect": "glowing-stars",
+      "grid-and-dot-backgrounds": "grid-background-demo",
+      "hero-sections-free": "hero-section-demo-1",
+      "lamp-effect": "lamp",
+      "shooting-stars-and-stars-background": "shooting-stars",
+      "signup-form": "signup-form-demo"
+    }
+  },
+  "easyui": {
+    "url": "https://easyui.site",
+    "catalog": "https://easyui.site/components",
+    "keepCode": false,
+    "terms": null
+  },
+  "pinui": {
+    "url": "https://pinui.xyz",
+    "keepCode": false,
+    "terms": null
   }
 }
