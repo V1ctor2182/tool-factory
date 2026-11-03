@@ -30,6 +30,8 @@ REBUILD_LICENSE = "Rebuilt from observation; no source code copied"
 PROBLEM_CHARS = 4000
 
 
+PREVIEW_STAGE = '[data-slot="preview-stage"]'
+
 class AtomFailed(Exception):
     def __init__(self, error: dict):
         super().__init__(error["message"])
@@ -278,8 +280,8 @@ def rebuild(args) -> dict:
     return rebuilt(into, args.steps, args.name, args)
 
 
-def rebuilt(into: Path, steps: str, name: str, args, original: str | None = None) -> dict:
-    """The judged loop both rebuild and site run. original is a recording of steps already made, so it is not recorded again."""
+def rebuilt(into: Path, steps: str, name: str, args, original: str | None = None, judged: str | None = None) -> dict:
+    """The judged loop both rebuild and site run. original is a recording of steps already made, so it is not recorded again. judged is the steps the rebuild is recorded with, when its selectors differ from the original's."""
     try:
         source = json.loads(Path(steps).read_text(encoding="utf-8"))["url"]
         packages = ",".join(sorted(json.loads((into / "package.json").read_text(encoding="utf-8")).get("dependencies", {})))
@@ -307,7 +309,7 @@ def rebuilt(into: Path, steps: str, name: str, args, original: str | None = None
         problem = typecheck(into)
         if problem is None:
             try:
-                result = diff_of(steps, original, page)
+                result = diff_of(judged or steps, original, page)
             except AtomFailed as e:
                 if e.error["code"] != "invalid_source":
                     row["error"] = f"{e.error['code']}: {e.error['message']}"
@@ -352,10 +354,11 @@ def in_victor_ui(into: Path) -> tuple[dict[str, str], set[str]]:
     return sources, {item["name"] for item in items}
 
 
-def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str] | None:
-    """Survey the page's idle state, have ui-steps write the states, and record the original with them. Returns the steps file and that recording, or None after setting row's outcome."""
+def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str, str] | None:
+    """Survey the page's idle state, have ui-steps write the states, and record the original with them. Returns the steps file, that recording, and the steps the rebuild is judged with, or None after setting row's outcome."""
     folder = HOME / "microservices" / "ui-clone" / "site" / site.id / c.name
-    survey = saved(folder / "survey.json", {"url": c.pageUrl, "target": site.stage, "states": [{"name": "idle", "actions": []}]})
+    # The target is the demo inside the stage. A site's stage and victor-ui's are sized by their pages, so recording the stage compares two page layouts.
+    survey = saved(folder / "survey.json", {"url": c.pageUrl, "target": f"{site.stage} > *", "states": [{"name": "idle", "actions": []}]})
     try:
         idle = recording_of(survey, None)
     except AtomFailed as e:
@@ -374,7 +377,9 @@ def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str] | None:
         row["costUsd"] += written["costUsd"]
         row["stepsFile"] = saved(folder / "steps.json", written["steps"])
         try:
-            return row["stepsFile"], recording_of(row["stepsFile"], None)
+            recording = recording_of(row["stepsFile"], None)
+            judged = saved(folder / "rebuild-steps.json", json.loads(Path(row["stepsFile"]).read_text(encoding="utf-8").replace(json.dumps(site.stage)[1:-1], json.dumps(PREVIEW_STAGE)[1:-1])))
+            return row["stepsFile"], recording, judged
         except AtomFailed as e:
             if halts(e.error):
                 raise
@@ -420,7 +425,7 @@ def site(args) -> dict:
             return
         name = rebuild_name(where, c.name, names)
         try:
-            report = rebuilt(into, found[0], name, args, found[1])
+            report = rebuilt(into, found[0], name, args, found[1], found[2])
         except AtomFailed as e:
             if halts(e.error):
                 raise
