@@ -50,12 +50,12 @@ Each round's `draft.json` and `diff.json` stay in the data home under `microserv
 
 The rebuild stays blind. ui-draft sees only page-record's output, the steps file, its own earlier draft, page-diff's output, and the error text. `rebuild` never calls ui-source.
 
-With `--json` it prints the report, as `contracts/ui-rebuild.schema.json` defines it. Without it, it prints one line per round, its score or `error`, and its model cost, then the total:
+With `--json` it prints the report, as `contracts/ui-rebuild.schema.json` defines it. Without it, it prints one line per round, its score or `error`, and its model cost, then the total. The first two rounds of Kobra's input-otp on 2026-11-02, where the 0.9 bar stops:
 
 ```
-round 1  0.9612  $0.41
-round 2  0.9724  $0.38
-total    $0.79  best round 2 at 0.9724, passed 0.97
+round 1  error   $0.26  The judge could not record the demo at http://localhost:5173/input-otp-auto: target: no element matches '[data-slot="preview-stage"] .t-input-wrap'
+round 2  0.9094  $0.14
+total    $0.40  best round 2 at 0.9094, passed 0.9
 ```
 
 Cost per round is ui-draft's `costUsd`, 0 on a cache hit. The total is their sum. The run log also records each call. Each ui-draft call has the kit's ceiling of $0.25 unless `TOOL_FACTORY_CALL_BUDGET_USD` says more, and five rounds of a large component can pass it, so raise the ceiling for a rebuild. The daily budget still applies.
@@ -69,7 +69,7 @@ To judge a rebuild by hand, score it, then fix the largest difference and score 
 
 `judge` records the original with the steps file and the rebuild at `--rebuild` with the same steps, then prints page-diff's result, as `contracts/page-diff.schema.json` defines it. `--original` reuses an earlier recording of the original. Read each state's `styles`, `animations`, `motion`, `image`, and `sheet` to find what differs. The sheet shows every frame of both side by side.
 
-Stop at a score of 0.97 or after five rounds. Measured on Kobra's input-otp on 2026-11-02, with `sites.json`'s Kobra theme in place: two recordings of the original score 0.9999 against each other, Kobra's own code in the preview scores 0.972, and a rebuild from observation scores 0.976. What keeps Kobra's own code from 1 is the licensed font the preview lacks, so 0.97 means as close as the real code gets. When a site's fonts or images are missing from the preview, judge one of its kept components against its page first, and use that score as the bar for the site.
+`rebuild` stops at a score of 0.9 or after five rounds. Victor then looks at the rebuild and decides whether it needs more work. Pass `--target` to push one further. The score is mechanical and strict, so a rebuild can score well below 1 and still look the same. Measured on Kobra's input-otp on 2026-11-02, with `sites.json`'s Kobra theme in place: two recordings of the original score 0.9999 against each other, Kobra's own code in the preview scores 0.972, a hand-made rebuild from observation scores 0.976, and `rebuild`'s round 5 scores 0.942. Victor could not tell the four apart. What keeps Kobra's own code from 1 is the licensed font the preview lacks, and the rest of the gap is motion a frame early or late. When a site's fonts or images are missing from the preview, judge one of its kept components against its page first, to see how high the real code scores there.
 
 A site's `theme` in `sites.json` holds the CSS variables its stylesheet sets for every component, read from the rendered page. `collect` adds them to each kept item's `cssVars.theme`, under the item's own. Without them Kobra's `ease-out` resolves to Tailwind's default curve, and its own code scored 0.964 before the theme was added.
 

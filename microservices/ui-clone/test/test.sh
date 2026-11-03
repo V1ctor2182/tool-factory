@@ -191,7 +191,7 @@ last_install() { tail -n 1 "$ui/rebuilt" | jq -c "$1"; }
 drafted() { grep '^ui-draft' "$STUB_LOG" | sed -n "${1}p"; }
 rounds_dir="$TOOL_FACTORY_HOME/microservices/ui-clone/rebuild/otp"
 
-rebuild "0.9 0.98" "" 0 --name otp --preview http://127.0.0.1:9999/ --json || fail "rebuild exited nonzero: $(cat "$out/stdout") $(cat "$out/stderr")"
+rebuild "0.9 0.98" "" 0 --name otp --target 0.97 --preview http://127.0.0.1:9999/ --json || fail "rebuild exited nonzero: $(cat "$out/stdout") $(cat "$out/stderr")"
 "$repo/contracts/check" ui-rebuild "$out/stdout" || fail "rebuild does not match the ui-rebuild contract"
 [ "$(rounds)" = '[[1,0.9,0.25,false],[2,0.98,0.5,false]]' ] || fail "a rebuild that reaches 0.98 in round 2 ran $(rounds)"
 [ "$(jq -c '[.passed, .best, .costUsd, .source, .target]' "$out/stdout")" = '[true,{"round":2,"score":0.98},0.75,"https://stub.test/components/x",0.97]' ] \
@@ -209,20 +209,24 @@ case "$(drafted 2)" in *"--previous $rounds_dir/round-1/draft.json --diff $round
 	|| fail "the final install did not carry the best round and the costs: $(tail -n 1 "$ui/rebuilt")"
 [ "$(tail -n 1 "$ui/checks")" = "install round 2" ] || fail "the preview was not reinstalled after the final install: $(cat "$ui/checks")"
 
-rebuild "0.9 0.93" "round 2" 0 --name otp --rounds 3
+rebuild "0.85 0.91 0.99" "" 0 --name otp --json
+[ "$(jq -c '[.target, .passed, .best]' "$out/stdout")" = '[0.9,true,{"round":2,"score":0.91}]' ] \
+	|| fail "by default rebuild did not stop at the first round of 0.9 or more: $(jq -c '[.target, .passed, .best]' "$out/stdout")"
+
+rebuild "0.9 0.93" "round 2" 0 --name otp --target 0.97 --rounds 3
 [ "$(cat "$out/stdout")" = "$(printf 'round 1  0.9000  $0.25\nround 2  error   $0.50  components/ui/otp.tsx(1,1): error TS2322: stub type error in round 2\nround 3  0.9300  $0.75\ntotal    $1.50  best round 3 at 0.9300, below 0.97')" ] \
 	|| fail "a rebuild whose round 2 fails its typecheck printed $(cat "$out/stdout")"
 [ "$(ran 'page-record capture')" = 3 ] || fail "a round that failed its typecheck was judged: $(cat "$STUB_LOG")"
 case "$(drafted 3)" in *"--previous $rounds_dir/round-2/draft.json --problem installed into preview/generated") ;; *) fail "round 3 did not get round 2's typecheck output as its problem: $(drafted 3)" ;; esac
 grep -qx 'components/ui/otp.tsx(1,1): error TS2322: stub type error in round 2 --json' "$STUB_LOG" || fail "round 3's problem lost the type error: $(cat "$STUB_LOG")"
 
-rebuild "0.95 0.9" "" 0 --name otp --rounds 2 --json
+rebuild "0.95 0.9" "" 0 --name otp --target 0.97 --rounds 2 --json
 [ "$(jq -c '[.passed, .best, .costUsd]' "$out/stdout")" = '[false,{"round":1,"score":0.95},0.75]' ] || fail "a rebuild whose best round is 1 reported $(jq -c '[.passed, .best, .costUsd]' "$out/stdout")"
 [ "$(last_install '[.content, .demo, .meta.rebuild.round, .meta.rebuild.score, .meta.rebuild.costUsd]')" = '["round 1","demo 1",1,0.95,0.75]' ] \
 	|| fail "the best round was not reinstalled last: $(tail -n 1 "$ui/rebuilt")"
 [ "$(tail -n 1 "$ui/checks")" = "install round 1" ] || fail "the preview was not reinstalled with the best round: $(cat "$ui/checks")"
 
-rebuild "0.9" "" 2 --name otp --json
+rebuild "0.9" "" 2 --name otp --target 0.97 --json
 "$repo/contracts/check" ui-rebuild "$out/stdout" || fail "a rebuild that ui-draft stopped does not match the ui-rebuild contract"
 [ "$(jq -c '[.rounds[1].draft, .rounds[1].error, .rounds[1].costUsd == 0, .best.round, (.rounds | length)]' "$out/stdout")" = '[null,"budget_exceeded: stub budget",true,1,2]' ] \
 	|| fail "a failed ui-draft did not end the loop as its round's error: $(jq -c .rounds "$out/stdout")"

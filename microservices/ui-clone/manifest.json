@@ -50,7 +50,7 @@
           "name": { "type": "string", "x-flag": true, "description": "The registry item's name, such as input-otp-rebuild. The demo is judged at <preview>/<name>." },
           "preview": { "type": "string", "default": "http://localhost:5173", "description": "Base URL of the running victor-ui preview, from npm run preview:dev." },
           "rounds": { "type": "integer", "default": 5, "description": "Most rounds to run." },
-          "target": { "type": "number", "default": 0.97, "description": "Stop once a round scores this or more." }
+          "target": { "type": "number", "default": 0.9, "description": "Stop once a round scores this or more. At 0.9 a rebuild looks like the original to Victor, who decides whether to push it further." }
         },
         "required": ["steps", "into", "name"]
       },
