@@ -10,15 +10,19 @@ import re
 import subprocess
 import sys
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 ROOT = Path(__file__).resolve().parent
 ATOMS = ROOT.parent.parent / "atoms"
 MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
 SITES = json.loads((ROOT / "sites.json").read_text(encoding="utf-8"))
 OUTCOMES = ("kept", "locked", "skipped", "needs-terms", "failed")
+SITE_OUTCOMES = ("kept", "exists", "rebuilt", "below-target", "would-rebuild", "no-steps", "rebuild-failed", "needs-terms", "skipped", "failed")
+HALTS = ("rate_limited", "blocked")
+DEFAULT_MATCH = r"^/components/[^/]+/?$"
+STEPS_TRIES = 2
 CODE_TYPES = ("registry:ui", "registry:block", "registry:component")
 ENV = {**os.environ, "TOOL_FACTORY_CALLER": "ui-clone"}
 HOME = Path(os.environ.get("TOOL_FACTORY_HOME") or "~/.local/share/tool-factory").expanduser().absolute()
@@ -41,6 +45,19 @@ class Site:
     keep_code: bool
     terms: str | None
     theme: dict
+    catalog: str | None = None
+    match: str = DEFAULT_MATCH
+    page: str | None = None
+    stage: str | None = None
+    aliases: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Component:
+    name: str
+    type: str | None
+    itemUrl: str | None
+    pageUrl: str | None
 
 
 def log(message: str) -> None:
@@ -75,30 +92,93 @@ def site_of(text: str) -> Site:
     else:
         raise AtomFailed({"code": "invalid_args", "message": f"{text} is neither a site in sites.json ({', '.join(SITES)}) nor an http or https URL"})
     entry = SITES[key]
-    return Site(key, entry["url"], entry.get("index"), entry.get("base"), entry["keepCode"], entry["terms"], entry.get("theme", {}))
+    return Site(
+        key, entry["url"], entry.get("index"), entry.get("base"), entry["keepCode"], entry["terms"], entry.get("theme", {}),
+        entry.get("catalog"), entry.get("match", DEFAULT_MATCH), entry.get("page"), entry.get("stage"), entry.get("aliases", {}),
+    )
 
 
-def components_of(site: Site, only: str | None, limit: int | None) -> list[dict]:
+def halts(error: dict) -> bool:
+    return error["code"] in HALTS or error["message"].endswith("HTTP 429")
+
+
+def one_by_one(items: list, blank, decide) -> list[dict]:
+    """Stops the site at the first 429 or bot check: that item fails and the rest are skipped, never retried."""
+    rows, stopped = [], None
+    for n, item in enumerate(items, 1):
+        row = blank(item)
+        if stopped:
+            row.update(outcome="skipped", detail=f"not tried after {stopped}")
+        else:
+            try:
+                decide(item, row)
+            except AtomFailed as e:
+                if not halts(e.error):
+                    raise
+                stopped = f"{e.error['code']}: {e.error['message']}"
+                row.update(outcome="failed", detail=stopped)
+        log(f"{n}/{len(items)} {row['name']}: {row['outcome']}{f' ({row['detail']})' if row['detail'] else ''}")
+        rows.append(row)
+    return rows
+
+
+def catalog_of(site: Site) -> dict:
     args = ["registry", site.index or site.url, *(["--base", site.base] if site.base else [])]
     log(f"ui-catalog {' '.join(args)}")
-    items = atom("ui-catalog", *args)["items"]
+    return atom("ui-catalog", *args)
+
+
+def chosen(site: Site, items: list, only: str | None, limit: int | None, name=lambda item: item["name"]) -> list:
     if only:
-        wanted = [name.strip() for name in only.split(",") if name.strip()]
-        missing = sorted(set(wanted) - {item["name"] for item in items})
+        wanted = [n.strip() for n in only.split(",") if n.strip()]
+        missing = sorted(set(wanted) - {name(item) for item in items})
         if missing:
             raise AtomFailed({"code": "invalid_args", "message": f"{site.id} lists no component named {', '.join(missing)}"})
-        items = [item for item in items if item["name"] in wanted]
+        items = [item for item in items if name(item) in wanted]
     return items if limit is None else items[:limit]
 
 
+def components_of(site: Site, only: str | None, limit: int | None) -> list[dict]:
+    return chosen(site, catalog_of(site)["items"], only, limit)
+
+
+def slug_of(url: str) -> str:
+    return urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def inventory(site: Site, only: str | None, limit: int | None) -> list[Component]:
+    """The site's registry items in its order, then catalog pages no item covers, in page order. A page and an item share a row when the page's slug, or its alias in sites.json, is the item's name."""
+    try:
+        catalog = catalog_of(site)
+    except AtomFailed as e:
+        if e.error["code"] != "invalid_source" and not e.error["message"].startswith("HTTP 404"):
+            raise
+        log(f"{site.id} has no shadcn registry: {e.error['message']}")
+        catalog = {"items": [], "index": None}
+    pages: dict[str, str] = {}
+    if site.catalog:
+        log(f"page-links list {site.catalog} --match {site.match}")
+        for link in atom("page-links", "list", site.catalog, "--match", site.match)["items"]:
+            pages.setdefault(site.aliases.get(slug_of(link["url"]), slug_of(link["url"])), link["url"])
+    template = lambda name: site.page.replace("{name}", name) if site.page else None
+    rows = {item["name"]: Component(item["name"], item["type"], item["itemUrl"], pages.get(item["name"]) or template(item["name"])) for item in catalog["items"]}
+    base = site.base or (catalog["index"] and urljoin(catalog["index"], "."))
+    for name, url in pages.items():
+        if name not in rows:
+            rows[name] = Component(name, None, urljoin(base, f"{name}.json") if base and name in site.aliases.values() else None, url)
+    return chosen(site, list(rows.values()), only, limit, lambda c: c.name)
+
+
 def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str | None]:
-    if item["type"] not in CODE_TYPES:
+    if item["type"] is not None and item["type"] not in CODE_TYPES:
         return "skipped", f"type {item['type']}"
     if not site.keep_code:
         return "needs-terms", f"sites.json has no terms for {site.id}" if site.terms is None else f"the terms do not allow keeping code: {site.terms}"
     try:
         fetched = atom("ui-source", "registry", item["itemUrl"])
     except AtomFailed as e:
+        if halts(e.error):
+            raise
         return "failed", f"{e.error['code']}: {e.error['message']}"
     if fetched["item"] is None:
         return "locked", f"HTTP 401 from {item['itemUrl']}"
@@ -130,11 +210,11 @@ def collect(args) -> dict:
     into = victor_ui(args.into)
     site = site_of(args.site)
     items = components_of(site, args.only, args.limit)
-    rows = []
-    for n, item in enumerate(items, 1):
-        outcome, detail = by_code(site, item, into, args.dryRun)
-        log(f"{n}/{len(items)} {item['name']}: {outcome}{f' ({detail})' if detail else ''}")
-        rows.append({"name": item["name"], "itemUrl": item["itemUrl"], "outcome": outcome, "detail": detail})
+
+    def decide(item: dict, row: dict) -> None:
+        row["outcome"], row["detail"] = by_code(site, item, into, args.dryRun)
+
+    rows = one_by_one(items, lambda item: {"name": item["name"], "itemUrl": item["itemUrl"], "outcome": None, "detail": None}, decide)
     counts = {outcome: sum(row["outcome"] == outcome for row in rows) for outcome in OUTCOMES}
     return {"site": site.id, "into": str(into), "dryRun": args.dryRun, "items": rows, "counts": counts}
 
@@ -187,27 +267,36 @@ def saved(path: Path, result: dict) -> str:
     return str(path)
 
 
-def rebuild(args) -> dict:
-    into = victor_ui(args.into)
+def check_loop(args) -> None:
     if args.rounds < 1 or not 0 < args.target <= 1:
         raise AtomFailed({"code": "invalid_args", "message": "--rounds must be 1 or more and --target between 0 and 1"})
+
+
+def rebuild(args) -> dict:
+    into = victor_ui(args.into)
+    check_loop(args)
+    return rebuilt(into, args.steps, args.name, args)
+
+
+def rebuilt(into: Path, steps: str, name: str, args, original: str | None = None) -> dict:
+    """The judged loop both rebuild and site run. original is a recording of steps already made, so it is not recorded again."""
     try:
-        source = json.loads(Path(args.steps).read_text(encoding="utf-8"))["url"]
+        source = json.loads(Path(steps).read_text(encoding="utf-8"))["url"]
         packages = ",".join(sorted(json.loads((into / "package.json").read_text(encoding="utf-8")).get("dependencies", {})))
     except (OSError, ValueError, KeyError, TypeError) as e:
         raise AtomFailed({"code": "invalid_args", "message": f"Cannot read the steps file's url or victor-ui's package.json: {e}"}) from None
-    folder = HOME / "microservices" / "ui-clone" / "rebuild" / args.name
-    page = f"{args.preview.rstrip('/')}/{args.name}"
-    original = recording_of(args.steps, None)
+    folder = HOME / "microservices" / "ui-clone" / "rebuild" / name
+    page = f"{args.preview.rstrip('/')}/{name}"
+    original = original or recording_of(steps, None)
     rounds: list[dict] = []
     previous = diff = problem = None
     for n in range(1, args.rounds + 1):
         row = {"round": n, "draft": None, "diff": None, "score": None, "error": None, "costUsd": 0.0}
         rounds.append(row)
         revise = [*(["--previous", previous] if previous else []), *(["--diff", diff] if diff else []), *(["--problem", problem] if problem else [])]
-        log(f"round {n}: ui-draft write {args.name}{' revising' if previous else ''}")
+        log(f"round {n}: ui-draft write {name}{' revising' if previous else ''}")
         try:
-            draft = atom("ui-draft", "write", original, "--name", args.name, "--packages", packages, *revise)
+            draft = atom("ui-draft", "write", original, "--name", name, "--packages", packages, *revise)
             row["costUsd"] = draft["costUsd"]
             previous = row["draft"] = saved(folder / f"round-{n}" / "draft.json", draft)
             diff = problem = None
@@ -218,7 +307,7 @@ def rebuild(args) -> dict:
         problem = typecheck(into)
         if problem is None:
             try:
-                result = diff_of(args.steps, original, page)
+                result = diff_of(steps, original, page)
             except AtomFailed as e:
                 if e.error["code"] != "invalid_source":
                     row["error"] = f"{e.error['code']}: {e.error['message']}"
@@ -242,7 +331,7 @@ def rebuild(args) -> dict:
         if failed := typecheck(into):
             raise AtomFailed({"code": "internal", "message": f"Round {best['round']} passed its typecheck before, but not when reinstalled: {failed}"})
     return {
-        "name": args.name,
+        "name": name,
         "source": source,
         "into": str(into),
         "target": args.target,
@@ -251,6 +340,114 @@ def rebuild(args) -> dict:
         "costUsd": cost,
         "rounds": rounds,
     }
+
+
+def in_victor_ui(into: Path) -> tuple[dict[str, str], set[str]]:
+    """Each registry item's name by its meta.source, the itemUrl it was collected from or the page it was rebuilt from, and every name."""
+    try:
+        items = json.loads((into / "registry.json").read_text(encoding="utf-8"))["items"]
+    except FileNotFoundError:
+        items = []
+    sources = {item["meta"]["source"]: item["name"] for item in items if item.get("meta", {}).get("source")}
+    return sources, {item["name"] for item in items}
+
+
+def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str] | None:
+    """Survey the page's idle state, have ui-steps write the states, and record the original with them. Returns the steps file and that recording, or None after setting row's outcome."""
+    folder = HOME / "microservices" / "ui-clone" / "site" / site.id / c.name
+    survey = saved(folder / "survey.json", {"url": c.pageUrl, "target": site.stage, "states": [{"name": "idle", "actions": []}]})
+    try:
+        idle = recording_of(survey, None)
+    except AtomFailed as e:
+        if halts(e.error):
+            raise
+        row.update(outcome="no-steps", detail=f"page-record could not survey {c.pageUrl}: {e.error['code']}: {e.error['message']}")
+        return None
+    problem = None
+    for _ in range(STEPS_TRIES):
+        log(f"ui-steps write {idle}{' with the last problem' if problem else ''}")
+        try:
+            written = atom("ui-steps", "write", idle, *(["--problem", problem] if problem else []))
+        except AtomFailed as e:
+            row.update(outcome="no-steps", detail=f"ui-steps: {e.error['code']}: {e.error['message']}")
+            return None
+        row["costUsd"] += written["costUsd"]
+        row["stepsFile"] = saved(folder / "steps.json", written["steps"])
+        try:
+            return row["stepsFile"], recording_of(row["stepsFile"], None)
+        except AtomFailed as e:
+            if halts(e.error):
+                raise
+            if e.error["code"] != "invalid_source":
+                row.update(outcome="no-steps", detail=f"page-record could not record with the steps: {e.error['code']}: {e.error['message']}")
+                return None
+            problem = f"page-record: {e.error['message']}"
+    row.update(outcome="no-steps", detail=f"the steps failed {STEPS_TRIES} times, last with {problem}")
+    return None
+
+
+def rebuild_name(site: Site, slug: str, taken: set[str]) -> str:
+    name = f"{slug}-rebuild"
+    return f"{site.id}-{name}" if name in taken else name
+
+
+def site(args) -> dict:
+    into = victor_ui(args.into)
+    check_loop(args)
+    where = site_of(args.site)
+    components = inventory(where, args.only, args.limit)
+    sources, names = in_victor_ui(into)
+
+    def decide(c: Component, row: dict) -> None:
+        if known := sources.get(c.itemUrl or "") or sources.get(c.pageUrl or ""):
+            row.update(outcome="exists", detail=f"in victor-ui as {known}")
+            return
+        why = "no registry item"
+        if c.itemUrl:
+            outcome, detail = by_code(where, {"type": c.type, "itemUrl": c.itemUrl}, into, args.dryRun)
+            if outcome != "locked":
+                row.update(outcome=outcome, detail=detail)
+                return
+            why = f"locked, {detail}"
+        if not c.pageUrl or not where.stage:
+            row.update(outcome="skipped", detail=f"{why}, and {'no page to record' if not c.pageUrl else f'sites.json has no stage for {where.id}'}")
+            return
+        if args.dryRun:
+            row.update(outcome="would-rebuild", detail=f"{why}, from {c.pageUrl}")
+            return
+        found = steps_for(where, c, row)
+        if found is None:
+            return
+        name = rebuild_name(where, c.name, names)
+        try:
+            report = rebuilt(into, found[0], name, args, found[1])
+        except AtomFailed as e:
+            if halts(e.error):
+                raise
+            row.update(outcome="rebuild-failed", detail=f"{e.error['code']}: {e.error['message']}")
+            return
+        row["costUsd"] += report["costUsd"]
+        if report["best"] is None:
+            row.update(outcome="rebuild-failed", detail=f"{name}: no round was judged, last {headline(report['rounds'][-1]['error'] or 'error unknown')}")
+            return
+        row["score"] = report["best"]["score"]
+        row.update(outcome="rebuilt" if report["passed"] else "below-target", detail=f"{name}, best round {report['best']['round']} of {len(report['rounds'])}")
+
+    blank = lambda c: {"name": c.name, "itemUrl": c.itemUrl, "pageUrl": c.pageUrl, "outcome": None, "detail": None, "score": None, "costUsd": 0.0, "stepsFile": None}
+    rows = one_by_one(components, blank, decide)
+    counts = {outcome: sum(row["outcome"] == outcome for row in rows) for outcome in SITE_OUTCOMES}
+    cost = round(sum(row["costUsd"] for row in rows), 6)
+    return {"site": where.id, "into": str(into), "target": args.target, "dryRun": args.dryRun, "items": rows, "counts": counts, "costUsd": cost}
+
+
+def text_of_site(report: dict) -> str:
+    width = max((len(row["name"]) for row in report["items"]), default=0)
+    lines = [
+        f"{row['outcome']:<14} {row['name']:<{width}}  {'' if row['score'] is None else f'{row['score']:.4f}':>6}  ${row['costUsd']:.2f}  {row['detail'] or ''}".rstrip()
+        for row in report["items"]
+    ]
+    counts = ", ".join(f"{n} {outcome}" for outcome, n in report["counts"].items() if n)
+    return "\n".join([*lines, f"{report['site']}: {counts or 'no components'}, ${report['costUsd']:.2f} in all{' (dry run)' if report['dryRun'] else ''}"])
 
 
 def headline(error: str) -> str:
@@ -275,7 +472,7 @@ def text_of_diff(diff: dict) -> str:
     return "\n".join([*lines, f"score {diff['score']:.4f}"])
 
 
-RUN = {"collect": (collect, text_of), "judge": (judge, text_of_diff), "rebuild": (rebuild, text_of_rebuild)}
+RUN = {"collect": (collect, text_of), "judge": (judge, text_of_diff), "rebuild": (rebuild, text_of_rebuild), "site": (site, text_of_site)}
 
 
 class Parser(argparse.ArgumentParser):

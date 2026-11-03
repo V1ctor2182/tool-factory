@@ -11,7 +11,11 @@ export TOOL_FACTORY_HOME STUB_LOG
 out="$work/out"
 ui="$work/victor-ui"
 mkdir -p "$fake/microservices/ui-clone" "$out" "$ui/scripts"
-cp "$test_dir/../run" "$test_dir/../manifest.json" "$test_dir/../sites.json" "$fake/microservices/ui-clone/"
+cp "$test_dir/../run" "$test_dir/../manifest.json" "$fake/microservices/ui-clone/"
+jq '. + {
+	stubsite: {url: "https://stub.test", keepCode: true, terms: "stub terms", catalog: "https://stub.test/components", page: "https://stub.test/components/{name}", stage: "[data-stage]", aliases: {"fancy-card": "card-x"}},
+	pagesite: {url: "https://pages.test", catalog: "https://pages.test/components", keepCode: false, terms: null}
+}' "$test_dir/../sites.json" > "$fake/microservices/ui-clone/sites.json"
 run="$fake/microservices/ui-clone/run"
 
 fail() { echo "FAIL ui-clone: $1" >&2; exit 1; }
@@ -22,14 +26,21 @@ name=$(basename "$0")
 printf '%s %s\n' "$name" "$*" >> "$STUB_LOG"
 case "$name $1" in
 "ui-catalog registry")
+	case "$2" in
+	https://pages.test) echo '{"error":{"code":"unavailable","message":"HTTP 404 from https://pages.test/r/registry.json"}}'; exit 1 ;;
+	https://stub.test) jq -cn '{source: "https://stub.test", index: "https://stub.test/r/registry.json", cacheHit: false, items: [
+		["button", "registry:ui"], ["pro-card", "registry:ui"], ["kept-before", "registry:ui"], ["utils", "registry:lib"], ["card-x", "registry:ui"], ["secret", "registry:ui"]
+	] | map({name: .[0], type: .[1], title: null, description: null, itemUrl: "https://stub.test/r/\(.[0]).json"})}'; exit 0 ;;
+	esac
 	jq -cn --arg s "$2" '{source: $s, index: $s, cacheHit: false, items: [
 		["input-otp", "registry:ui"], ["pro-card", "registry:ui"], ["paid-block", "registry:block"],
 		["utils", "registry:lib"], ["broken", "registry:ui"], ["bad-add", "registry:ui"]
 	] | map({name: .[0], type: .[1], title: null, description: null, itemUrl: "https://stub.test/r/\(.[0]).json"})}' ;;
 "ui-source registry")
 	item=$(basename "$2" .json)
+	if [ "$item" = "${STUB_RATE_LIMITED:-}" ]; then echo "{\"error\":{\"code\":\"rate_limited\",\"message\":\"HTTP 429 from $2\"}}"; exit 1; fi
 	case "$item" in
-	pro-card) jq -cn --arg s "$2" '{source: $s, exposed: false, item: null, cacheHit: false}' ;;
+	pro-card|secret) jq -cn --arg s "$2" '{source: $s, exposed: false, item: null, cacheHit: false}' ;;
 	broken) echo "{\"error\":{\"code\":\"network_error\",\"message\":\"stub could not reach $2\"}}"; exit 1 ;;
 	paid-block) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: false, item: {name: $n, files: []}, cacheHit: false}' ;;
 	*) jq -cn --arg s "$2" --arg n "$item" '{source: $s, exposed: true, item: {name: $n, type: "registry:ui", files: [{path: "\($n).tsx", content: "export {}"}], cssVars: {theme: {"--ease-out": "linear", "--otp-gap": "4px"}}}, cacheHit: false}' ;;
@@ -38,8 +49,24 @@ case "$name $1" in
 	case "$*" in
 	*--url\ http://localhost:5173/missing*) echo '{"error":{"code":"invalid_source","message":"stub selector not found"}}'; exit 1 ;;
 	*--url*) echo '{"dir":"/stub/rebuild"}' ;;
+	*/survey.json*) echo "{\"dir\":\"/stub/survey/$(jq -r .url "$2" | xargs basename)\"}" ;;
+	*/site/*/steps.json*)
+		if [ -n "${STUB_CHECK_DOWN:-}" ]; then echo '{"error":{"code":"network_error","message":"stub site down"}}'; exit 1; fi
+		if grep -q '#bad' "$2"; then echo '{"error":{"code":"invalid_source","message":"state '"'hover'"' action 0 (hover): no element matches '"'#bad'"'"}}'; exit 1; fi
+		echo "{\"dir\":\"/stub/checked/$(basename "$(dirname "$2")")\"}" ;;
 	*) echo '{"dir":"/stub/original"}' ;;
 	esac ;;
+"page-links list")
+	jq -cn --arg s "$2" '{source: $s, cacheHit: false, items: (["button", "pro-card", "fancy-card", "page-only", "rebuilt-before"] | map({url: "https://\($s | split("/")[2])/components/\(.)", text: .}))}' ;;
+"ui-steps write")
+	slug=$(basename "$(dirname "$2")")
+	selector='[data-stage] button'
+	case "$slug" in
+	secret) selector='#bad' ;;
+	pro-card) case "$*" in *--problem*) ;; *) selector='#bad' ;; esac ;;
+	esac
+	jq -cn --arg s "$selector" --arg slug "$slug" '{model: "stub", steps: {url: "https://stub.test/components/\($slug)", target: "[data-stage]",
+		states: [{name: "idle", actions: []}, {name: "hover", actions: [{do: "hover", selector: $s}]}]}, notes: "n", costUsd: 0.05, cacheHit: false}' ;;
 "page-diff compare")
 	n=$(grep -c '^page-diff' "$STUB_LOG")
 	score=$(echo "${STUB_SCORES:-0.95}" | cut -d' ' -f"$n")
@@ -54,7 +81,7 @@ case "$name $1" in
 *) echo '{"error":{"code":"internal","message":"stub refused"}}'; exit 1 ;;
 esac
 STUB
-for name in ui-catalog ui-source page-record page-diff ui-draft; do
+for name in ui-catalog ui-source page-record page-diff ui-draft page-links ui-steps; do
 	mkdir -p "$fake/atoms/$name/bin"
 	cp "$work/stub" "$fake/atoms/$name/bin/$name"
 	chmod +x "$fake/atoms/$name/bin/$name"
@@ -240,5 +267,79 @@ case "$(drafted 2)" in *"--problem The judge could not record the demo at http:/
 if call rebuild "$steps" --into "$ui" --name otp --target 2 --json; then fail "--target 2 exited 0"; fi
 [ "$(jq -r .error.code "$out/stdout")" = invalid_args ] || fail "--target 2 did not report invalid_args"
 [ ! -s "$STUB_LOG" ] || fail "an invalid --target called an atom"
+
+STUB_RATE_LIMITED=pro-card call collect kobra --into "$ui" --dry-run --json || fail "collect stopped by a 429 exited nonzero: $(cat "$out/stdout")"
+report "collect stopped by a 429"
+[ "$(outcomes)" = '[["input-otp","kept"],["pro-card","failed"],["paid-block","skipped"],["utils","skipped"],["broken","skipped"],["bad-add","skipped"]]' ] \
+	|| fail "collect did not stop at the 429: $(outcomes)"
+[ "$(ran ui-source)" = 2 ] || fail "collect kept fetching after a 429: $(cat "$STUB_LOG")"
+[ "$(jq -r '.items[2].detail' "$out/stdout")" = "not tried after rate_limited: HTTP 429 from https://stub.test/r/pro-card.json" ] || fail "a skipped item did not say why: $(jq -r '.items[2].detail' "$out/stdout")"
+unset STUB_RATE_LIMITED
+
+STUB_SCORES="0.95 0.5" STUB_TSC_FAIL="" STUB_DRAFT_FAIL=0
+export STUB_SCORES STUB_TSC_FAIL STUB_DRAFT_FAIL
+rm -f "$ui/written" "$ui/rebuilt"
+jq -n '{items: [
+	{name: "kept-before", meta: {source: "https://stub.test/r/kept-before.json", method: "registry"}},
+	{name: "rebuilt-before-rebuild", meta: {source: "https://stub.test/components/rebuilt-before", method: "rebuild"}},
+	{name: "page-only-rebuild", meta: {source: "https://elsewhere.test/page-only", method: "rebuild"}}
+]}' > "$ui/registry.json"
+site_rows() { jq -c '[.items[] | [.name, .outcome, .score, .costUsd * 1]]' "$out/stdout"; }
+site_report() { "$repo/contracts/check" ui-site-report "$out/stdout" || fail "$1 does not match the ui-site-report contract"; }
+site_dir="$TOOL_FACTORY_HOME/microservices/ui-clone/site/stubsite"
+
+call site stubsite --into "$ui" --dry-run --json || fail "site --dry-run failed: $(cat "$out/stdout") $(cat "$out/stderr")"
+site_report "site --dry-run"
+[ "$(jq -c '[.items[] | [.name, .itemUrl, .pageUrl]]' "$out/stdout")" = '[["button","https://stub.test/r/button.json","https://stub.test/components/button"],["pro-card","https://stub.test/r/pro-card.json","https://stub.test/components/pro-card"],["kept-before","https://stub.test/r/kept-before.json","https://stub.test/components/kept-before"],["utils","https://stub.test/r/utils.json","https://stub.test/components/utils"],["card-x","https://stub.test/r/card-x.json","https://stub.test/components/fancy-card"],["secret","https://stub.test/r/secret.json","https://stub.test/components/secret"],["page-only",null,"https://stub.test/components/page-only"],["rebuilt-before",null,"https://stub.test/components/rebuilt-before"]]' ] \
+	|| fail "the inventory is not the registry in its order, then pages no item or alias covers: $(jq -c '[.items[] | [.name, .itemUrl, .pageUrl]]' "$out/stdout")"
+[ "$(jq -c '[.items[] | [.name, .outcome]]' "$out/stdout")" = '[["button","kept"],["pro-card","would-rebuild"],["kept-before","exists"],["utils","skipped"],["card-x","kept"],["secret","would-rebuild"],["page-only","would-rebuild"],["rebuilt-before","exists"]]' ] \
+	|| fail "site --dry-run decided $(jq -c '[.items[] | [.name, .outcome]]' "$out/stdout")"
+grep -qxF 'page-links list https://stub.test/components --match ^/components/[^/]+/?$ --json' "$STUB_LOG" || fail "the catalog was not listed with the default match: $(cat "$STUB_LOG")"
+[ "$(ran ui-steps)$(ran ui-draft)$(ran page-record)" = 000 ] || fail "site --dry-run surveyed a page or called a model: $(cat "$STUB_LOG")"
+[ "$(ran 'ui-source registry https://stub.test/r/kept-before.json')" = 0 ] || fail "site fetched an item victor-ui already has"
+[ ! -e "$ui/written" ] && [ ! -e "$site_dir" ] || fail "site --dry-run wrote something"
+[ "$(jq -c '[.dryRun, .target, .costUsd == 0, .counts["would-rebuild"]]' "$out/stdout")" = '[true,0.9,true,3]' ] || fail "site --dry-run reported $(jq -c '[.dryRun, .target, .costUsd, .counts]' "$out/stdout")"
+
+call site stubsite --into "$ui" --rounds 1 --json || fail "site failed: $(cat "$out/stdout") $(cat "$out/stderr")"
+site_report "site"
+[ "$(site_rows)" = '[["button","kept",null,0],["pro-card","rebuilt",0.95,0.35],["kept-before","exists",null,0],["utils","skipped",null,0],["card-x","kept",null,0],["secret","no-steps",null,0.1],["page-only","below-target",0.5,0.55],["rebuilt-before","exists",null,0]]' ] \
+	|| fail "site decided $(site_rows)"
+[ "$(jq '.costUsd * 1' "$out/stdout")" = 1 ] || fail "the total cost is not the sum of ui-steps and the rebuilds: $(jq .costUsd "$out/stdout")"
+[ "$(cut -f1 "$ui/written" | tr '\n' ' ')" = "button card-x " ] || fail "site did not keep the exposed code: $(cat "$ui/written")"
+[ "$(jq -c . "$site_dir/page-only/survey.json")" = '{"url":"https://stub.test/components/page-only","target":"[data-stage]","states":[{"name":"idle","actions":[]}]}' ] \
+	|| fail "the survey did not record the page's stage idle: $(cat "$site_dir/page-only/survey.json")"
+[ "$(ran 'ui-steps write /stub/survey/page-only/recording.json --json')" = 1 ] || fail "ui-steps did not get the survey: $(cat "$STUB_LOG")"
+[ "$(jq -r '.items[1].stepsFile' "$out/stdout")" = "$site_dir/pro-card/steps.json" ] && [ "$(jq -r '.states[1].actions[0].selector' "$site_dir/pro-card/steps.json")" = '[data-stage] button' ] \
+	|| fail "pro-card's working steps were not saved in the data home"
+[ "$(ran "ui-steps write /stub/survey/pro-card/recording.json --problem page-record: state 'hover' action 0 (hover): no element matches '#bad' --json")" = 1 ] \
+	|| fail "steps that failed to record were not revised with page-record's message: $(grep ui-steps "$STUB_LOG")"
+[ "$(ran 'ui-steps write /stub/survey/secret/')" = 2 ] && [ "$(jq -r '.items[5].detail' "$out/stdout")" = "the steps failed 2 times, last with page-record: state 'hover' action 0 (hover): no element matches '#bad'" ] \
+	|| fail "steps that fail twice did not end as no-steps after 2 tries: $(jq -r '.items[5].detail' "$out/stdout")"
+[ "$(drafted 1)" = "ui-draft write /stub/checked/pro-card/recording.json --name pro-card-rebuild --packages clsx,motion --json" ] \
+	|| fail "the rebuild did not reuse the recording that checked its steps: $(drafted 1)"
+case "$(drafted 2)" in "ui-draft write /stub/checked/page-only/recording.json --name stubsite-page-only-rebuild "*) ;; *) fail "a taken rebuild name was not prefixed with the site: $(drafted 2)" ;; esac
+[ "$(ran 'page-record capture') $(ran 'page-record capture /stub')" = "10 0" ] || fail "site recorded more than 3 surveys, 5 checks, and 2 judged rounds: $(grep page-record "$STUB_LOG")"
+[ "$(jq -c '[.items[1].detail, .items[6].detail]' "$out/stdout")" = '["pro-card-rebuild, best round 1 of 1","stubsite-page-only-rebuild, best round 1 of 1"]' ] \
+	|| fail "the rebuilt rows did not name the item and round: $(jq -c '[.items[1].detail, .items[6].detail]' "$out/stdout")"
+
+call site stubsite --into "$ui" --rounds 1 --only secret || fail "text site failed"
+[ "$(tail -n 1 "$out/stdout")" = 'stubsite: 1 no-steps, $0.10 in all' ] || fail "text site ended with $(tail -n 1 "$out/stdout")"
+
+STUB_CHECK_DOWN=1 call site stubsite --into "$ui" --only page-only,button --json || fail "site with a check that cannot reach the page exited nonzero: $(cat "$out/stdout")"
+unset STUB_CHECK_DOWN
+[ "$(jq -c '[.items[] | [.name, .outcome]]' "$out/stdout")" = '[["button","kept"],["page-only","no-steps"]]' ] && [ "$(jq -r '.items[1].detail' "$out/stdout")" = "page-record could not record with the steps: network_error: stub site down" ] \
+	|| fail "a check that cannot reach the page did not end that component as no-steps: $(jq -c .items "$out/stdout")"
+
+STUB_RATE_LIMITED=pro-card call site stubsite --into "$ui" --dry-run --json || fail "site stopped by a 429 exited nonzero"
+[ "$(jq -c '[.items[] | .outcome]' "$out/stdout")" = '["kept","failed","skipped","skipped","skipped","skipped","skipped","skipped"]' ] && [ "$(ran ui-source)" = 2 ] \
+	|| fail "site did not stop at the 429: $(jq -c '[.items[] | .outcome]' "$out/stdout") $(cat "$STUB_LOG")"
+unset STUB_RATE_LIMITED
+
+call site pagesite --into "$ui" --dry-run --json || fail "site on a site without a registry failed: $(cat "$out/stdout")"
+site_report "site without a registry"
+[ "$(jq -c '[([.items[].itemUrl] | unique), .counts.skipped, .items[0].detail]' "$out/stdout")" = '[[null],5,"no registry item, and sites.json has no stage for pagesite"]' ] \
+	|| fail "a site without a registry or stage decided $(jq -c '[.items[] | [.name, .outcome, .detail]]' "$out/stdout")"
+if call site stubsite --into "$ui" --target 0 --json; then fail "site --target 0 exited 0"; fi
+[ ! -s "$STUB_LOG" ] || fail "an invalid --target made site call an atom"
 
 echo "PASS ui-clone"

@@ -42,11 +42,13 @@ The kind decides how the factory caches, tests, and guards an atom. It is one fi
 | Kind | Example | Cached | Tests assert | Cost | Guard |
 |---|---|---|---|---|---|
 | `transform` | `download`, `transcribe`, `frames` | By content, forever | A literal expected output | Free | None |
-| `model` | `see`, `digest`, `ui-draft` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
-| `observe` | `find-url`, `screenshot` | Never, or for a day | Schema only, on a recorded fixture | Free | None |
+| `model` | `see`, `digest`, `ui-draft`, `ui-steps` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
+| `observe` | `find-url`, `page-links`, `screenshot` | Never, or for a day | Schema only, on a recorded fixture | Free | None |
 | `act` | `click`, `type` | Never | A dry run returns the planned action | Varies | Confirmation on every run, enforced by a hook |
 
 `ui-draft` writes a component from a page recording, and `ui-clone rebuild` loops it with `page-record` and `page-diff`. Its cost stays per call in the run log, and the loop also sums it per round into the rebuilt item's `meta`. The kit's budget caps each call as for any `model` atom.
+
+`ui-clone site` goes through every component of one site. `page-links` finds the component pages on the site's catalog. `ui-steps` writes the page-record steps for each one it rebuilds, from a recording of the page's idle state. The report holds each component's `ui-steps` and `ui-draft` spend and their total.
 
 `transcribe` runs a local model but counts as `transform`. It is free, and with temperature zero its output is stable enough to assert after normalizing case and punctuation.
 

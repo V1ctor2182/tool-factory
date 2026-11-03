@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-site-report.schema.json",
+  "title": "UI site report",
+  "description": "What happened to each component of one site when ui-clone went through it into victor-ui: registry items in the registry's order, then catalog pages no item covers.",
+  "type": "object",
+  "properties": {
+    "site": { "type": "string", "description": "The sites.json key, or the URL's host when the site has no entry." },
+    "into": { "type": "string", "description": "Absolute path of the victor-ui repo." },
+    "target": { "type": "number", "minimum": 0, "maximum": 1, "description": "The score that ends each rebuild." },
+    "dryRun": { "type": "boolean", "description": "True when nothing was written and no model was called." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "The registry item's name, or the page's last path segment." },
+          "itemUrl": { "type": ["string", "null"], "description": "The registry item URL. Null for a page no registry item covers." },
+          "pageUrl": { "type": ["string", "null"], "description": "The component's page, from the catalog or the site's page template. Null when the site has neither." },
+          "outcome": {
+            "enum": ["kept", "exists", "rebuilt", "below-target", "would-rebuild", "no-steps", "rebuild-failed", "needs-terms", "skipped", "failed"],
+            "description": "kept: code written into victor-ui, or would be on a dry run. exists: victor-ui already has an item from this itemUrl or pageUrl. rebuilt: the best round reached the target. below-target: the best round did not. would-rebuild: a dry run would rebuild it. no-steps: the survey, ui-steps, or both tries at recording with its steps failed. rebuild-failed: the rebuild loop judged no round or stopped with an error. needs-terms: no written terms allow keeping code from this site. skipped: not a component type, nothing to rebuild from, or not tried after the site answered 429 or a bot check. failed: any other error, or the 429 or bot check that stopped the site."
+          },
+          "detail": { "type": ["string", "null"], "description": "What add.mjs printed, why it is locked or skipped, the rebuild's name and best round, or the error code and message." },
+          "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "The rebuild's best score. Null when nothing was judged." },
+          "costUsd": { "type": "number", "minimum": 0, "description": "Model spend on this component: ui-steps plus the rebuild's ui-draft rounds." },
+          "stepsFile": { "type": ["string", "null"], "description": "The page-record steps file ui-steps wrote, in the data home. Null when none was written." }
+        },
+        "required": ["name", "itemUrl", "pageUrl", "outcome", "detail", "score", "costUsd", "stepsFile"],
+        "additionalProperties": false
+      }
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "kept": { "type": "integer", "minimum": 0 },
+        "exists": { "type": "integer", "minimum": 0 },
+        "rebuilt": { "type": "integer", "minimum": 0 },
+        "below-target": { "type": "integer", "minimum": 0 },
+        "would-rebuild": { "type": "integer", "minimum": 0 },
+        "no-steps": { "type": "integer", "minimum": 0 },
+        "rebuild-failed": { "type": "integer", "minimum": 0 },
+        "needs-terms": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["kept", "exists", "rebuilt", "below-target", "would-rebuild", "no-steps", "rebuild-failed", "needs-terms", "skipped", "failed"],
+      "additionalProperties": false
+    },
+    "costUsd": { "type": "number", "minimum": 0, "description": "The sum of every item's costUsd." }
+  },
+  "required": ["site", "into", "target", "dryRun", "items", "counts", "costUsd"],
+  "additionalProperties": false
+}

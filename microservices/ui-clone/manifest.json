@@ -2,12 +2,20 @@
   "name": "ui-clone",
   "type": "microservice",
   "kind": "pipeline",
-  "description": "Copy a site's UI components into Victor's private shadcn registry. Keeps each component whose code the site exposes and whose written terms allow keeping, reports the rest as locked, and rebuilds a locked one from how it looks and moves.",
+  "description": "Copy a site's UI components into Victor's private shadcn registry. Keeps each component whose code the site exposes and whose written terms allow keeping, and rebuilds the rest from how they look and move, one component after another.",
   "status": "alpha",
   "runtime": "uv",
   "entry": "run",
   "contract": "ui-clone-report",
-  "uses": ["ui-catalog", "ui-source", "page-record", "page-diff", "ui-draft"],
+  "uses": [
+    "ui-catalog",
+    "ui-source",
+    "page-links",
+    "page-record",
+    "page-diff",
+    "ui-steps",
+    "ui-draft"
+  ],
   "verbs": [
     {
       "name": "collect",
@@ -15,13 +23,32 @@
       "input": {
         "type": "object",
         "properties": {
-          "site": { "type": "string", "description": "A site key from sites.json, such as kobra, or a site URL. A URL whose host matches a key uses that key's entry. Any other URL runs without terms, so nothing is kept." },
-          "into": { "type": "string", "x-flag": true, "description": "Path of the victor-ui repo. It must hold scripts/add.mjs." },
-          "limit": { "type": "integer", "description": "Take only the first this many components, in the registry's order." },
-          "only": { "type": "string", "description": "Comma-separated component names to take, such as input-otp,button." },
-          "dryRun": { "type": "boolean", "description": "Fetch and decide every outcome, but write nothing into victor-ui." }
+          "site": {
+            "type": "string",
+            "description": "A site key from sites.json, such as kobra, or a site URL. A URL whose host matches a key uses that key's entry. Any other URL runs without terms, so nothing is kept."
+          },
+          "into": {
+            "type": "string",
+            "x-flag": true,
+            "description": "Path of the victor-ui repo. It must hold scripts/add.mjs."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Take only the first this many components, in the registry's order."
+          },
+          "only": {
+            "type": "string",
+            "description": "Comma-separated component names to take, such as input-otp,button."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "Fetch and decide every outcome, but write nothing into victor-ui."
+          }
         },
-        "required": ["site", "into"]
+        "required": [
+          "site",
+          "into"
+        ]
       },
       "output": "ui-clone-report"
     },
@@ -31,11 +58,24 @@
       "input": {
         "type": "object",
         "properties": {
-          "steps": { "type": "string", "description": "A page-record steps file, as contracts/page-steps.schema.json defines it. Its url is the original page." },
-          "rebuild": { "type": "string", "x-flag": true, "description": "URL of the rebuild in the victor-ui preview, such as http://localhost:5173/input-otp-rebuild." },
-          "original": { "type": "string", "description": "recording.json of an earlier page-record capture of the original, to skip recording it again." }
+          "steps": {
+            "type": "string",
+            "description": "A page-record steps file, as contracts/page-steps.schema.json defines it. Its url is the original page."
+          },
+          "rebuild": {
+            "type": "string",
+            "x-flag": true,
+            "description": "URL of the rebuild in the victor-ui preview, such as http://localhost:5173/input-otp-rebuild."
+          },
+          "original": {
+            "type": "string",
+            "description": "recording.json of an earlier page-record capture of the original, to skip recording it again."
+          }
         },
-        "required": ["steps", "rebuild"]
+        "required": [
+          "steps",
+          "rebuild"
+        ]
       },
       "output": "page-diff"
     },
@@ -45,18 +85,106 @@
       "input": {
         "type": "object",
         "properties": {
-          "steps": { "type": "string", "description": "A page-record steps file for the original, written by hand per component. Its target and action selectors must also work on the demo." },
-          "into": { "type": "string", "x-flag": true, "description": "Path of the victor-ui repo. It must hold scripts/add.mjs." },
-          "name": { "type": "string", "x-flag": true, "description": "The registry item's name, such as input-otp-rebuild. The demo is judged at <preview>/<name>." },
-          "preview": { "type": "string", "default": "http://localhost:5173", "description": "Base URL of the running victor-ui preview, from npm run preview:dev." },
-          "rounds": { "type": "integer", "default": 5, "description": "Most rounds to run." },
-          "target": { "type": "number", "default": 0.9, "description": "Stop once a round scores this or more. At 0.9 a rebuild looks like the original to Victor, who decides whether to push it further." }
+          "steps": {
+            "type": "string",
+            "description": "A page-record steps file for the original, written by hand per component. Its target and action selectors must also work on the demo."
+          },
+          "into": {
+            "type": "string",
+            "x-flag": true,
+            "description": "Path of the victor-ui repo. It must hold scripts/add.mjs."
+          },
+          "name": {
+            "type": "string",
+            "x-flag": true,
+            "description": "The registry item's name, such as input-otp-rebuild. The demo is judged at <preview>/<name>."
+          },
+          "preview": {
+            "type": "string",
+            "default": "http://localhost:5173",
+            "description": "Base URL of the running victor-ui preview, from npm run preview:dev."
+          },
+          "rounds": {
+            "type": "integer",
+            "default": 5,
+            "description": "Most rounds to run."
+          },
+          "target": {
+            "type": "number",
+            "default": 0.9,
+            "description": "Stop once a round scores this or more. At 0.9 a rebuild looks like the original to Victor, who decides whether to push it further."
+          }
         },
-        "required": ["steps", "into", "name"]
+        "required": [
+          "steps",
+          "into",
+          "name"
+        ]
       },
       "output": "ui-rebuild"
+    },
+    {
+      "name": "site",
+      "description": "Go through every component of one site, one after another, into victor-ui. Lists the site's shadcn registry and the component pages its catalog links to, skips each component victor-ui already has, keeps the code of each one collect would keep, and rebuilds each locked or registry-less one from its page: page-record surveys the page's demo, ui-steps writes the states to drive, and the rebuild loop runs. Stops the site at a 429 or a bot check. Paid: one ui-steps call, or two when its first steps fail, plus the rebuild's ui-draft calls, per rebuilt component.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "description": "A site key from sites.json, such as kobra, or a site URL. A URL whose host matches a key uses that key's entry."
+          },
+          "into": {
+            "type": "string",
+            "x-flag": true,
+            "description": "Path of the victor-ui repo. It must hold scripts/add.mjs."
+          },
+          "only": {
+            "type": "string",
+            "description": "Comma-separated component names to take, such as input-otp,button."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Take only the first this many components: registry items in its order, then pages no item covers."
+          },
+          "target": {
+            "type": "number",
+            "default": 0.9,
+            "description": "A rebuild stops once a round scores this or more."
+          },
+          "rounds": {
+            "type": "integer",
+            "default": 5,
+            "description": "Most rounds per rebuild."
+          },
+          "preview": {
+            "type": "string",
+            "default": "http://localhost:5173",
+            "description": "Base URL of the running victor-ui preview, from npm run preview:dev. Rebuilds need it."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "List the components and decide code or rebuild for each, but write nothing and call no model."
+          }
+        },
+        "required": [
+          "site",
+          "into"
+        ]
+      },
+      "output": "ui-site-report"
     }
   ],
-  "needs": { "bin": ["node", "npm"], "secrets": [], "paid": [] },
-  "adapters": ["cli", "skill", "mcp"]
+  "needs": {
+    "bin": [
+      "node",
+      "npm"
+    ],
+    "secrets": [],
+    "paid": []
+  },
+  "adapters": [
+    "cli",
+    "skill",
+    "mcp"
+  ]
 }
