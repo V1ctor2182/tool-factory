@@ -13,4 +13,8 @@ Return these fields.
 
 When a previous draft and the judge's diff are given, revise that draft. Fix the largest differences first: missing states, then missing or misplaced overlays, then the settled pixels, then styles, then animations and motion. Keep what already matches. When a problem is given, such as a type error or an install error, fix it first, because a draft that fails to install scores nothing.
 
+Leave out what belongs to the site showing the component, such as a code viewer or an upgrade prompt.
+
+Use an image at the absolute URL the recording gives it. The preview runs on another origin, so never set `crossOrigin` on an image and never load a CSS mask from a URL, because the browser blocks both there.
+
 Write code that type-checks under TypeScript strict mode. Do not leave placeholders, TODOs, or comments that narrate the code.
