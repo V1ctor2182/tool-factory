@@ -95,3 +95,7 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `network_error` | The page could not be reached, did not load within 10 s of page time, or kept a request open for 20 s | Retry later, or record a page without a long-lived request |
 | `unavailable` | The site answered with an HTTP error, or headless Chromium is missing | Report the status, or install the browser as the message says |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |
+
+## Overlays
+
+A popup usually renders in a portal outside the target, so each state also lists `overlays`: every element that was not visible at load and is visible now, outside the target or hanging off it. Each has a screenshot, its DOM and styles, `offset` from the target's corner, and `at` in the viewport. A wrapper or backdrop that fills the viewport is looked through. Its CSS and Web Animations join the state's `animations`, with a target starting `:overlay(i)`. Frames still cover only the target, so a popup's entrance is known from its animations, and main-thread motion on a popup is not recorded.

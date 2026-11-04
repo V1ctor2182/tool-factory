@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC = model.load(ROOT)
 FRAMES_PER_STATE = 3
 LIMITS = {"dom": 12_000, "styles": 12_000, "motion": 6_000, "animations": 8_000, "steps": 6_000, "draft": 60_000, "diff": 4_000, "problem": 6_000}
-DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion"]
+DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays"]
 
 
 def _schema(packages: list[str] | None) -> dict:
@@ -87,6 +87,13 @@ def _recording(path: str) -> list[str | Path]:
             "Transform and opacity tracks that moved across the frames:\n" + _clip(_read(state["motion"], "motion"), LIMITS["motion"]),
             "Animations seen while the state ran:\n" + _clip(json.dumps(state["animations"]), LIMITS["animations"]),
         ]
+        for i, overlay in enumerate(state["overlays"]):
+            parts += [
+                f"Overlay {i}, outside the target, such as a popup in a portal. Its corner is at {overlay['offset']} from the target's corner and {overlay['at']} in the viewport:",
+                Path(overlay["screenshot"]),
+                "Its rendered DOM:\n" + _clip(_read(overlay["dom"], "overlay dom"), LIMITS["dom"]),
+                "Its computed styles by element path:\n" + _clip(_read(overlay["styles"], "overlay styles"), LIMITS["styles"]),
+            ]
     return parts
 
 
@@ -106,6 +113,9 @@ def _diff(path: str) -> list[str | Path]:
             parts += ["Settled screenshots, original then draft then heatmap:", *image]
         if sheet := _image(state.get("sheet")):
             parts += ["Contact sheet of shared frames, original, draft, and heatmap stacked:", *sheet]
+        for overlay in state.get("overlays") or []:
+            if image := _image(overlay.get("image")):
+                parts += [f"Overlay {overlay['index']}, original then draft then heatmap:", *image]
     return parts
 
 

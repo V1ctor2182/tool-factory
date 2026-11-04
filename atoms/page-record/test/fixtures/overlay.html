@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #111; font: 16px/1.5 sans-serif; }
+  #card { position: relative; width: 200px; height: 100px; margin: 100px; background: #222; }
+  #hint { position: absolute; left: 0; top: 110px; width: 120px; height: 30px; background: rgb(30, 64, 175); display: none; }
+  #deco { position: absolute; left: -20px; top: 0; width: 10px; height: 10px; background: #444; }
+  #hider { width: 40px; height: 20px; }
+  .wrap { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); }
+  .pop { position: fixed; left: 400px; top: 80px; width: 150px; height: 60px; background: rgb(21, 128, 61); color: #fff; animation: rise 200ms ease-out; }
+  @keyframes rise { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="card">
+  <button id="open">Open</button>
+  <button id="hang">Hang</button>
+  <div id="deco"></div>
+  <div id="hint">inside</div>
+</div>
+<script>
+  document.getElementById('open').addEventListener('click', () => {
+    const wrap = document.createElement('div');
+    wrap.className = 'wrap';
+    wrap.innerHTML = '<div class="pop" data-slot="popup">Portal text<script>1<\/script></div><span aria-hidden="true" style="position:fixed;width:1px;height:1px"></span>';
+    document.body.append(wrap);
+  });
+  document.getElementById('hang').addEventListener('click', () => {
+    document.getElementById('hint').style.display = 'block';
+  });
+</script>
+</body>
+</html>

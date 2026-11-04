@@ -73,19 +73,115 @@
     return clear.call(this, id);
   };
 
+  // A popup usually renders in a portal outside the target, so nothing recorded for the target shows it. A piece is the
+  // outermost element that was not visible at load and is now, outside the target or hanging off it. A wrapper or backdrop
+  // that fills the viewport is looked through, since behind it each page shows something different.
+  const INERT = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'NOSCRIPT']);
+  const MIN_PX = 4;
+  const SLACK_PX = 2;
+  const FILLS = 0.9;
+  let baseline = new WeakSet();
+  const shown = (el) => el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+  const hollow = (r) => r.width < MIN_PX || r.height < MIN_PX || (r.width >= innerWidth * FILLS && r.height >= innerHeight * FILLS);
+  const onScreen = (r) => r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight;
+
+  const hangsOff = (el, top, box) => {
+    const r = el.getBoundingClientRect();
+    if (!['absolute', 'fixed'].includes(getComputedStyle(el).position) || hollow(r)) return false;
+    if (r.left >= box.left - SLACK_PX && r.top >= box.top - SLACK_PX && r.right <= box.right + SLACK_PX && r.bottom <= box.bottom + SLACK_PX) return false;
+    for (let node = el.parentElement; node !== top.parentElement; node = node.parentElement) {
+      if (getComputedStyle(node).overflow !== 'visible') return false;
+    }
+    return true;
+  };
+
+  const pieces = (top) => {
+    const out = [];
+    const walk = (el) => {
+      for (const child of el.children) {
+        if (INERT.has(child.tagName) || top.contains(child)) continue;
+        if (child.contains(top) || baseline.has(child) || getComputedStyle(child).display === 'contents') {
+          walk(child);
+        } else if (shown(child)) {
+          const r = child.getBoundingClientRect();
+          if (hollow(r)) walk(child);
+          else if (onScreen(r)) out.push(child);
+        }
+      }
+    };
+    walk(document.body);
+    const box = top.getBoundingClientRect();
+    for (const el of top.querySelectorAll('*')) {
+      if (!baseline.has(el) && !INERT.has(el.tagName) && shown(el) && !out.some((p) => p.contains(el)) && hangsOff(el, top, box)) out.push(el);
+    }
+    return out;
+  };
+
+  const domOf = (el) => {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('script').forEach((s) => s.remove());
+    [clone, ...clone.querySelectorAll('*')].forEach((c) => c.getAttribute(STYLE) === '' && c.removeAttribute(STYLE));
+    return clone.outerHTML;
+  };
+
+  const stylesOf = (top) => {
+    const out = {};
+    for (const el of [top, ...top.querySelectorAll('*')]) {
+      if (el.tagName === 'SCRIPT') continue;
+      const cs = getComputedStyle(el);
+      out[path(el, top)] = Object.fromEntries(PROPS.map((p) => [p, cs.getPropertyValue(p)]));
+    }
+    return out;
+  };
+
+  const clip = (r, margin) => {
+    const x = Math.max(0, Math.floor(r.left - margin));
+    const y = Math.max(0, Math.floor(r.top - margin));
+    return {
+      x, y,
+      width: Math.min(innerWidth, Math.ceil(r.right + margin)) - x,
+      height: Math.min(innerHeight, Math.ceil(r.bottom + margin)) - y,
+    };
+  };
+
   window.__uiRecord = {
     drive,
+
+    baseline() {
+      baseline = new WeakSet([...document.querySelectorAll('*')].filter(shown));
+    },
+
+    overlays(selector, margin) {
+      const box = root(selector).getBoundingClientRect();
+      return pieces(root(selector)).map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          dom: domOf(el),
+          styles: stylesOf(el),
+          clip: clip(r, margin),
+          offset: { x: Math.round(r.left - box.left), y: Math.round(r.top - box.top) },
+          at: { x: Math.round(r.left), y: Math.round(r.top) },
+        };
+      });
+    },
 
     unsettled: () => timeouts.size > 0 || document.getAnimations().some((a) => running(a) && finite(a)),
 
     animations(selector) {
       const top = root(selector);
+      const outside = pieces(top);
+      const where = (el) => {
+        if (top.contains(el)) return path(el, top);
+        const i = outside.findIndex((p) => p.contains(el));
+        return i < 0 ? null : path(el, outside[i]).replace(':scope', `:overlay(${i})`);
+      };
       return document.getAnimations().flatMap((a) => {
         const el = a.effect?.target;
-        if (!running(a) || !el || !top.contains(el)) return [];
+        const target = el && running(a) ? where(el) : null;
+        if (!target) return [];
         const t = a.effect.getTiming();
         return [{
-          target: path(el, top),
+          target,
           pseudoElement: a.effect.pseudoElement ?? null,
           type: a.constructor.name in { CSSAnimation: 1, CSSTransition: 1 } ? a.constructor.name : 'Animation',
           name: a.animationName ?? a.transitionProperty ?? a.id,
@@ -101,23 +197,9 @@
       });
     },
 
-    dom(selector) {
-      const clone = root(selector).cloneNode(true);
-      clone.querySelectorAll('script').forEach((s) => s.remove());
-      [clone, ...clone.querySelectorAll('*')].forEach((el) => el.getAttribute(STYLE) === '' && el.removeAttribute(STYLE));
-      return clone.outerHTML;
-    },
+    dom: (selector) => domOf(root(selector)),
 
-    styles(selector) {
-      const top = root(selector);
-      const out = {};
-      for (const el of [top, ...top.querySelectorAll('*')]) {
-        if (el.tagName === 'SCRIPT') continue;
-        const cs = getComputedStyle(el);
-        out[path(el, top)] = Object.fromEntries(PROPS.map((p) => [p, cs.getPropertyValue(p)]));
-      }
-      return out;
-    },
+    styles: (selector) => stylesOf(root(selector)),
 
     motion(selector) {
       const top = root(selector);
@@ -130,16 +212,7 @@
       return out;
     },
 
-    box(selector, margin) {
-      const r = root(selector).getBoundingClientRect();
-      const x = Math.max(0, Math.floor(r.left - margin));
-      const y = Math.max(0, Math.floor(r.top - margin));
-      return {
-        x, y,
-        width: Math.min(innerWidth, Math.ceil(r.right + margin)) - x,
-        height: Math.min(innerHeight, Math.ceil(r.bottom + margin)) - y,
-      };
-    },
+    box: (selector, margin) => clip(root(selector).getBoundingClientRect(), margin),
 
     paste(text) {
       const target = document.activeElement ?? document.body;

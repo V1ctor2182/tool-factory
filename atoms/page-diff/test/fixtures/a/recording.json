@@ -10,7 +10,8 @@
       "dom": "00-idle.dom.html",
       "styles": "00-idle.styles.json",
       "motion": "00-idle.motion.json",
-      "animations": []
+      "animations": [],
+      "overlays": []
     },
     {
       "name": "hover",
@@ -160,7 +161,8 @@
           "direction": "normal",
           "fill": "none"
         }
-      ]
+      ],
+      "overlays": []
     },
     {
       "name": "open",
@@ -169,7 +171,8 @@
       "dom": "02-open.dom.html",
       "styles": "02-open.styles.json",
       "motion": "02-open.motion.json",
-      "animations": []
+      "animations": [],
+      "overlays": []
     },
     {
       "name": "closed",
@@ -178,7 +181,8 @@
       "dom": "03-closed.dom.html",
       "styles": "03-closed.styles.json",
       "motion": "03-closed.motion.json",
-      "animations": []
+      "animations": [],
+      "overlays": []
     }
   ],
   "cacheHit": false

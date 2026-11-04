@@ -24,13 +24,16 @@ HERE = Path(__file__).resolve().parent
 RECORDING_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "page-recording.schema.json").read_text(encoding="utf-8"))
 
 # Bump when the comparison or the score changes, so cached diffs from the old formula stop matching.
-VERSION = 2
+VERSION = 3
 SCALE = 2
 STYLE_CAP = 50
 PATH_CAP = 5
 MOTION_CAP = 20
 SHEET_MAX = 4096
-WEIGHTS = {"pixels": 0.5, "frames": 0.2, "styles": 0.2, "animations": 0.1}
+WEIGHTS = {"pixels": 0.5, "frames": 0.2, "styles": 0.2, "animations": 0.1, "overlays": 0.5}
+OVERLAY_WEIGHTS = {"pixels": 0.5, "styles": 0.25, "placement": 0.25}
+PLACED_PX = 4
+LOST_PX = 100
 TIMING = ("type", "duration", "delay", "easing", "iterations")
 KEYFRAME_TIMING = {"offset", "easing", "composite"}
 # Largest difference per matrix3d component that still counts as the same motion: translation in CSS pixels, the rest unitless.
@@ -63,8 +66,9 @@ def _load(path: str) -> dict:
     for st in recording["states"]:
         if st["name"] in states:
             raise cli.AtomError("invalid_source", f"{path} has two states named {st['name']!r}")
-        state = {**st, **{k: file.parent / st[k] for k in ("screenshot", "styles", "motion")}, "frames": [file.parent / f for f in st["frames"]]}
-        for f in [state["screenshot"], *state["frames"], state["styles"], state["motion"]]:
+        overlays = [{**o, "screenshot": file.parent / o["screenshot"], "styles": file.parent / o["styles"]} for o in st["overlays"]]
+        state = {**st, **{k: file.parent / st[k] for k in ("screenshot", "styles", "motion")}, "frames": [file.parent / f for f in st["frames"]], "overlays": overlays}
+        for f in [state["screenshot"], *state["frames"], state["styles"], state["motion"], *(o[k] for o in overlays for k in ("screenshot", "styles"))]:
             if not f.is_file():
                 raise cli.AtomError("invalid_source", f"{path}: state {st['name']!r} points at {f}, which is not a file")
         states[st["name"]] = state
@@ -73,7 +77,7 @@ def _load(path: str) -> dict:
 
 def _fingerprint(recording: dict) -> list:
     return [
-        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"]}
+        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"], "overlays": [{"screenshot": file_sha256(o["screenshot"]), "styles": file_sha256(o["styles"]), "offset": o["offset"], "at": o["at"]} for o in s["overlays"]]}
         for name, s in recording["states"].items()
     ]
 
@@ -247,12 +251,44 @@ def _motion(path_a: Path, path_b: Path) -> list:
     return out[:MOTION_CAP]
 
 
+def _placement(oa: dict, ob: dict) -> tuple[int, float]:
+    # A tooltip sits at a set place from its trigger and a dialog at a set place in the viewport, so the closer of the two counts.
+    apart = lambda k: max(abs(oa[k]["x"] - ob[k]["x"]), abs(oa[k]["y"] - ob[k]["y"]))
+    px = min(apart("offset"), apart("at"))
+    return px, max(0.0, min(1.0, 1 - (px - PLACED_PX) / LOST_PX))
+
+
+def _overlays(slug: str, list_a: list, list_b: list, tolerance: int, out: Path) -> tuple[list, float | None]:
+    rows, scores = [], []
+    for i in range(max(len(list_a), len(list_b))):
+        oa, ob = list_a[i] if i < len(list_a) else None, list_b[i] if i < len(list_b) else None
+        points = lambda k: {"a": oa and oa[k], "b": ob and ob[k]}
+        size = lambda o: _size(_rgba(o["screenshot"])) if o else None
+        row = {"index": i, "score": 0.0, "missing": "a" if oa is None else "b" if ob is None else None, "size": {"a": size(oa), "b": size(ob)}, "offset": points("offset"), "at": points("at"), "apartPx": None, "pixels": None, "styles": [], "image": None}
+        if oa and ob:
+            x, y = _rgba(oa["screenshot"]), _rgba(ob["screenshot"])
+            c = _compare(x, y, tolerance)
+            styles, styles_term = _styles(oa["styles"], ob["styles"])
+            apart, placement = _placement(oa, ob)
+            terms = {"pixels": c["similarity"], "styles": styles_term, "placement": placement}
+            row.update(
+                score=_r(sum(OVERLAY_WEIGHTS[k] * t for k, t in terms.items())),
+                apartPx=apart,
+                pixels={"mismatch": _r(c["mismatch"]), "meanDelta": _r(c["meanDelta"])},
+                styles=styles,
+                image=_save(_join(_panels(x, y, c["delta"], tolerance), axis=1), out / f"{slug}.overlay{i}.png"),
+            )
+        rows.append(row)
+        scores.append(row["score"])
+    return rows, (sum(scores) / len(scores) if scores else None)
+
+
 def _missing(name: str, sa: dict | None, sb: dict | None) -> dict:
     size = lambda s: _size(_rgba(s["screenshot"])) if s else None
     return {
         "name": name, "score": 0.0, "missing": "a" if sa is None else "b",
         "size": {"a": size(sa), "b": size(sb)}, "pixels": None, "frames": [], "styles": [],
-        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "image": None, "sheet": None,
+        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "overlays": [], "image": None, "sheet": None,
     }
 
 
@@ -283,11 +319,13 @@ def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path)
         sheet = _save(_join(padded, axis=1), out / f"{slug}.sheet.png")
     styles, styles_term = _styles(sa["styles"], sb["styles"])
     animations, animations_term = _animations(sa["animations"], sb["animations"])
+    overlays, overlays_term = _overlays(slug, sa["overlays"], sb["overlays"], tolerance, out)
     terms = {
         "pixels": settled["similarity"],
         "frames": sum(frame_scores) / len(frame_scores) if frame_scores else None,
         "styles": styles_term,
         "animations": animations_term,
+        "overlays": overlays_term,
     }
     present = {k: t for k, t in terms.items() if t is not None}
     score = sum(WEIGHTS[k] * t for k, t in present.items()) / sum(WEIGHTS[k] for k in present)
@@ -295,7 +333,7 @@ def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path)
         "name": name, "score": _r(score), "missing": None,
         "size": {"a": _size(x), "b": _size(y)},
         "pixels": {"mismatch": _r(settled["mismatch"]), "meanDelta": _r(settled["meanDelta"])},
-        "frames": frames, "styles": styles, "animations": animations, "motion": _motion(sa["motion"], sb["motion"]),
+        "frames": frames, "styles": styles, "animations": animations, "motion": _motion(sa["motion"], sb["motion"]), "overlays": overlays,
         "image": image, "sheet": sheet,
     }
 
@@ -307,7 +345,7 @@ def compare(a: str, b: str, tolerance: int) -> dict:
     fingerprint = {"v": VERSION, "tolerance": tolerance, "a": _fingerprint(ra), "b": _fingerprint(rb)}
     key = hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
     cache = Cache("page-diff")
-    if (cached := cache.get(key)) and all(Path(f).is_file() for s in cached["states"] for f in (s["image"], s["sheet"]) if f):
+    if (cached := cache.get(key)) and all(Path(f).is_file() for s in cached["states"] for f in (s["image"], s["sheet"], *(o["image"] for o in s["overlays"])) if f):
         return {**cached, "a": ra["path"], "b": rb["path"]}
 
     names = list(ra["states"]) + [n for n in rb["states"] if n not in ra["states"]]
@@ -326,6 +364,9 @@ def compare(a: str, b: str, tolerance: int) -> dict:
         for f in ("image", "sheet"):
             if s[f]:
                 s[f] = str(final / Path(s[f]).name)
+        for o in s["overlays"]:
+            if o["image"]:
+                o["image"] = str(final / Path(o["image"]).name)
     result = {"a": ra["path"], "b": rb["path"], "tolerance": tolerance, "score": _r(sum(s["score"] for s in states) / len(states)), "states": states}
     cache.put(key, result)
     return result

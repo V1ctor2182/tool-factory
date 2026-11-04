@@ -63,4 +63,22 @@ jq '.states[0].actions[0] = {"do": "hover"}' "$steps" > "$out/bad.json"
 if "$bin" capture "$out/bad.json" --json > "$out/bad-out.json"; then fail "a hover with no selector exited 0"; fi
 [ "$(jq -r .error.code "$out/bad-out.json")" = invalid_args ] || fail "a steps file that breaks the schema did not report invalid_args"
 
+jq -n --arg url "file://$test_dir/fixtures/overlay.html" '{url: $url, target: "#card", states: [
+	{name: "idle", actions: []},
+	{name: "hanging", actions: [{do: "click", selector: "#hang"}]},
+	{name: "open", actions: [{do: "click", selector: "#open"}]}]}' > "$out/overlay-steps.json"
+"$bin" capture "$out/overlay-steps.json" --json > "$out/overlay.json"
+"$repo/contracts/check" page-recording "$out/overlay.json" || fail "a recording with overlays does not match page-recording.schema.json"
+[ "$(jq -c '[.states[].overlays | length]' "$out/overlay.json")" = '[0,1,2]' ] || fail "idle should show no overlay, hanging the hint, and open the hint and the popup, not $(jq -c '[.states[].overlays | length]' "$out/overlay.json")"
+[ "$(jq -c '.states[2].overlays[0] | [.offset, .at]' "$out/overlay.json")" = '[{"x":300,"y":-20},{"x":400,"y":80}]' ] \
+	|| fail "the popup is not looked up through its full-viewport wrapper at 400,80: $(jq -c '.states[2].overlays[0] | [.offset, .at]' "$out/overlay.json")"
+popup=$(jq -r '.states[2].overlays[0].dom' "$out/overlay.json")
+grep -q 'Portal text' "$popup" || fail "the popup's DOM lacks its text"
+if grep -qi '<script' "$popup"; then fail "the popup's DOM keeps a script element"; fi
+[ "$(jq -r '.[":scope"].width' "$(jq -r '.states[2].overlays[0].styles' "$out/overlay.json")")" = 150px ] || fail "the popup's styles were not recorded"
+[ "$(file -b "$(jq -r '.states[2].overlays[0].screenshot' "$out/overlay.json")" | cut -d, -f2)" = " 332 x 152" ] \
+	|| fail "the popup's screenshot is not 150 x 60 plus the 8 px margin at scale 2: $(file -b "$(jq -r '.states[2].overlays[0].screenshot' "$out/overlay.json")")"
+[ "$(jq -c '.states[1].overlays[0].offset' "$out/overlay.json")" = '{"x":0,"y":110}' ] || fail "the hint hanging off the target is not an overlay: $(jq -c .states[1].overlays "$out/overlay.json")"
+[ "$(jq -c '[.states[2].animations[] | [.name, .target]]' "$out/overlay.json")" = '[["rise",":overlay(0)"]]' ] || fail "the popup's animation was not recorded: $(jq -c '[.states[2].animations[] | [.name, .target]]' "$out/overlay.json")"
+
 echo "PASS page-record"
