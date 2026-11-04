@@ -23,6 +23,7 @@ PAGE_JS = (HERE / "page.js").read_text(encoding="utf-8")
 
 EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
 LOAD_MS = 30_000
+ACTION_ERROR_CHARS = 800
 LOAD_VIRTUAL_MS = 10_000
 STALL_S = 20
 SETTLE_STEP_MS = 100
@@ -94,9 +95,9 @@ class Session:
         return str(path)
 
     def locate(self, selector: str, where: str):
-        loc = self.page.locator(selector).first
+        loc = self.page.locator(selector).locator("visible=true").first
         if not loc.count():
-            raise cli.AtomError("invalid_source", f"{where}: no element matches {selector!r}")
+            raise cli.AtomError("invalid_source", f"{where}: no visible element matches {selector!r}")
         return loc
 
 
@@ -180,7 +181,11 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
         slug = _slug(i, state["name"])
         s.seen = {}
         for j, action in enumerate(state["actions"]):
-            ACTIONS[action["do"]](s, action, f"state {state['name']!r} action {j} ({action['do']})")
+            where = f"state {state['name']!r} action {j} ({action['do']})"
+            try:
+                ACTIONS[action["do"]](s, action, where)
+            except PlaywrightError as e:
+                raise cli.AtomError("invalid_source", f"{where}: {e.message[:ACTION_ERROR_CHARS]}") from None
         s.js("drive")
         s.collect()
         frames, samples, every = [], [], None

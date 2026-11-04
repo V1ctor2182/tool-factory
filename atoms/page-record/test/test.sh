@@ -59,6 +59,29 @@ if "$bin" capture "$out/missing.json" --url "$page" --json > "$out/missing-out.j
 [ "$(jq -r .error.code "$out/missing-out.json")" = invalid_source ] || fail "a missing selector did not report invalid_source"
 jq -r .error.message "$out/missing-out.json" | grep -q "state 'toggle dot' action 0" || fail "invalid_source does not name the state and action"
 
+jq -n --arg url "$page" '{url: $url, target: "body", states: [{name: "shortcut", actions: [{do: "press", key: "shift"}]}]}' > "$out/bad-key.json"
+if "$bin" capture "$out/bad-key.json" --json > "$out/bad-key-out.json"; then fail "an action Playwright refused exited 0"; fi
+[ "$(jq -r .error.code "$out/bad-key-out.json")" = invalid_source ] || fail "an action Playwright refused did not report invalid_source: $(cat "$out/bad-key-out.json")"
+jq -r .error.message "$out/bad-key-out.json" | grep -q "state 'shortcut' action 0 (press): .*Unknown key" || fail "a refused action does not name the state and Playwright's reason: $(cat "$out/bad-key-out.json")"
+
+hidden="file://$test_dir/fixtures/hidden-first.html"
+jq -n --arg url "$hidden" '{url: $url, target: "#stage > *", states: [{name: "idle", actions: []}, {name: "hover", actions: [{do: "hover", selector: "#stage button"}]}]}' > "$out/hidden.json"
+"$bin" capture "$out/hidden.json" --json > "$out/hidden-out.json" || fail "a page whose first match is hidden did not record: $(cat "$out/hidden-out.json")"
+dom=$(jq -r '.states[0].dom' "$out/hidden-out.json" | xargs cat)
+case "$dom" in *Shown*) ;; *) fail "the target is not the first visible match: $dom" ;; esac
+case "$dom" in *"src=\"file://$test_dir/fixtures/pixel.png\""*) ;; *) fail "an image's src was not made absolute: $dom" ;; esac
+case "$dom" in *srcset*) fail "a relative srcset stayed in the DOM: $dom" ;; esac
+jq -n --arg url "$hidden" '{url: $url, target: "#gone", states: [{name: "idle", actions: []}]}' > "$out/gone.json"
+if "$bin" capture "$out/gone.json" --json > "$out/gone-out.json"; then fail "a target with no visible match exited 0"; fi
+jq -r .error.message "$out/gone-out.json" | grep -q "no visible element matches" || fail "a hidden target did not say so: $(cat "$out/gone-out.json")"
+
+jq -n --arg url "$hidden" '{url: $url, target: "#stage > *", states: [{name: "hidden", actions: [{do: "click", selector: "#hide"}]}]}' > "$out/vanish.json"
+if "$bin" capture "$out/vanish.json" --json > "$out/vanish-out.json"; then fail "a target that vanished exited 0"; fi
+[ "$(jq -r .error.code "$out/vanish-out.json")" = invalid_source ] || fail "a target that vanished after an action did not report invalid_source: $(cat "$out/vanish-out.json")"
+
+jq -n --arg url "file://$test_dir/fixtures/scroll-driven.html" '{url: $url, target: "body", states: [{name: "idle", actions: []}]}' > "$out/scroll-driven.json"
+"$bin" capture "$out/scroll-driven.json" --json > "$out/scroll-driven-out.json" || fail "a page with a scroll-driven animation did not record: $(cat "$out/scroll-driven-out.json")"
+
 jq '.states[0].actions[0] = {"do": "hover"}' "$steps" > "$out/bad.json"
 if "$bin" capture "$out/bad.json" --json > "$out/bad-out.json"; then fail "a hover with no selector exited 0"; fi
 [ "$(jq -r .error.code "$out/bad-out.json")" = invalid_args ] || fail "a steps file that breaks the schema did not report invalid_args"
