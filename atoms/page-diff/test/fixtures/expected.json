@@ -27,7 +27,8 @@
         "onlyB": [],
         "changed": []
       },
-      "motion": []
+      "motion": [],
+      "overlays": []
     },
     {
       "name": "hover",
@@ -242,7 +243,8 @@
             "0"
           ]
         }
-      ]
+      ],
+      "overlays": []
     },
     {
       "name": "open",
@@ -269,7 +271,8 @@
         "onlyB": [],
         "changed": []
       },
-      "motion": []
+      "motion": [],
+      "overlays": []
     },
     {
       "name": "closed",
@@ -290,7 +293,8 @@
         "onlyB": [],
         "changed": []
       },
-      "motion": []
+      "motion": [],
+      "overlays": []
     }
   ]
 }

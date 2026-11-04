@@ -105,10 +105,11 @@
               "additionalProperties": false
             }
           },
+          "overlays": { "type": "array", "items": { "$ref": "#/$defs/overlay" }, "description": "The state's overlays, such as popups outside the target, paired by document order. When either recording has one, they weigh as much as the settled pixels in the state's score." },
           "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side. Null for a missing state." },
           "sheet": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A contact sheet of the frames both recordings have, one column per frame index, with a, b, and the heatmap stacked top to bottom. Null when no frame index is shared." }
         },
-        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "image", "sheet"],
+        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "image", "sheet"],
         "additionalProperties": false
       }
     },
@@ -117,6 +118,45 @@
   "required": ["a", "b", "tolerance", "score", "states", "cacheHit"],
   "additionalProperties": false,
   "$defs": {
+    "point": {
+      "oneOf": [
+        { "type": "object", "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }, "required": ["x", "y"], "additionalProperties": false },
+        { "type": "null" }
+      ]
+    },
+    "pair": {
+      "type": "object",
+      "properties": { "a": { "$ref": "#/$defs/point" }, "b": { "$ref": "#/$defs/point" } },
+      "required": ["a", "b"],
+      "additionalProperties": false
+    },
+    "overlay": {
+      "type": "object",
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "score": { "type": "number", "minimum": 0, "maximum": 1, "description": "Half the pixels, a quarter the styles, a quarter the placement. 0 when one recording lacks it." },
+        "missing": { "enum": ["a", "b", null], "description": "The recording that lacks this overlay." },
+        "size": {
+          "type": "object",
+          "properties": { "a": { "$ref": "#/$defs/size" }, "b": { "$ref": "#/$defs/size" } },
+          "required": ["a", "b"],
+          "additionalProperties": false
+        },
+        "offset": { "$ref": "#/$defs/pair", "description": "Its corner from the target's corner in each recording." },
+        "at": { "$ref": "#/$defs/pair", "description": "Its corner from the viewport's corner in each recording." },
+        "apartPx": { "type": ["integer", "null"], "description": "How far apart the two sit, measured from the target or from the viewport, whichever is closer." },
+        "pixels": {
+          "type": ["object", "null"],
+          "properties": { "mismatch": { "type": "number", "minimum": 0, "maximum": 1 }, "meanDelta": { "type": "number", "minimum": 0, "maximum": 255 } },
+          "required": ["mismatch", "meanDelta"],
+          "additionalProperties": false
+        },
+        "styles": { "type": "array", "description": "Grouped computed differences, as in the state's styles." },
+        "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side." }
+      },
+      "required": ["index", "score", "missing", "size", "offset", "at", "apartPx", "pixels", "styles", "image"],
+      "additionalProperties": false
+    },
     "size": {
       "oneOf": [
         { "type": "array", "items": { "type": "number", "minimum": 0 }, "minItems": 2, "maxItems": 2 },

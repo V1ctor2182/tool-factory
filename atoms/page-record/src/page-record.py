@@ -173,6 +173,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
     _load(s, url)
     s.page.evaluate("document.fonts.ready.then(() => true)")
     s.locate(s.target, "target")
+    s.js("baseline")
 
     states = []
     for i, state in enumerate(steps["states"]):
@@ -195,6 +196,18 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
         s.locate(s.target, f"state {state['name']!r}, after its actions settled, the target")
         (out / f"{slug}.dom.html").write_text(s.js("dom", s.target), encoding="utf-8")
         (out / f"{slug}.styles.json").write_text(json.dumps(s.js("styles", s.target), indent=2), encoding="utf-8")
+        overlays = []
+        for k, overlay in enumerate(s.js("overlays", s.target, MARGIN_PX)):
+            (out / f"{slug}.overlay{k}.dom.html").write_text(overlay["dom"], encoding="utf-8")
+            (out / f"{slug}.overlay{k}.styles.json").write_text(json.dumps(overlay["styles"], indent=2), encoding="utf-8")
+            s.page.screenshot(path=out / f"{slug}.overlay{k}.png", clip=overlay["clip"], caret="hide")
+            overlays.append({
+                "screenshot": str(out / f"{slug}.overlay{k}.png"),
+                "dom": str(out / f"{slug}.overlay{k}.dom.html"),
+                "styles": str(out / f"{slug}.overlay{k}.styles.json"),
+                "offset": overlay["offset"],
+                "at": overlay["at"],
+            })
         states.append({
             "name": state["name"],
             "screenshot": s.screenshot(out / f"{slug}.png"),
@@ -203,6 +216,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
             "styles": str(out / f"{slug}.styles.json"),
             "motion": str(out / f"{slug}.motion.json"),
             "animations": list(s.seen.values()),
+            "overlays": overlays,
         })
     return states
 

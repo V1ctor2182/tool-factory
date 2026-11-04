@@ -34,7 +34,7 @@ styles = {":scope > :nth-child(1) > :nth-child(1)": {"background-color": "rgb(25
           ":scope > :nth-child(1) > :nth-child(2)": {"display": "none", "opacity": "0", "transform": "matrix(0.96, 0, 0, 0.96, 0, -4)", "transition": "opacity 0.18s ease-out, transform 0.18s ease-out"}}
 (rec / "00-idle.styles.json").write_text(json.dumps(styles))
 (rec / "00-idle.motion.json").write_text(json.dumps({"everyMs": None, "tracks": {}}))
-state = {"name": "idle", "screenshot": str(rec / "00-idle.png"), "frames": [], "dom": str(rec / "00-idle.dom.html"), "styles": str(rec / "00-idle.styles.json"), "motion": str(rec / "00-idle.motion.json"), "animations": []}
+state = {"name": "idle", "screenshot": str(rec / "00-idle.png"), "frames": [], "dom": str(rec / "00-idle.dom.html"), "styles": str(rec / "00-idle.styles.json"), "motion": str(rec / "00-idle.motion.json"), "animations": [], "overlays": []}
 (rec / "recording.json").write_text(json.dumps({"source": steps["url"], "steps": str(rec / "survey.json"), "dir": str(rec), "states": [state], "cacheHit": False}))
 PY
 "$repo/contracts/check" page-recording "$rec/recording.json" || fail "the fixture is not a page-recording"

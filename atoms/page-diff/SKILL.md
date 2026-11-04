@@ -71,3 +71,7 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `invalid_args` | `--tolerance` is outside 0 to 255 | Fix the flag |
 | `invalid_source` | A file is not a page-recording, names one state twice, or points at a missing or unreadable image, styles, or motion file. The message names the file and the state | Pass a `recording.json` that `page-record capture` wrote, with its run folder intact |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |
+
+## Overlays
+
+Overlays pair by document order. Each scores half pixels, a quarter styles, and a quarter placement. Placement takes the closer of the distance from the target and the distance in the viewport, since a tooltip sits at a set place from its trigger and a dialog at a set place in the viewport. It is full within 4 px and gone at 104 px. When either recording has an overlay, the overlays weigh 0.5 in the state's score, the same as its settled pixels, and one recording lacking an overlay scores it 0. Each pair's `image` shows a, b, and the heatmap.
