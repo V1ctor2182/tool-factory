@@ -43,7 +43,7 @@ Motion tracks compare frame by frame as 3D matrices, so `none`, `matrix()`, and 
 
 ## The score
 
-Each state with both sides scores a weighted mean of up to four terms, each from 0 to 1.
+Each state with both sides scores a weighted mean of up to five terms, each from 0 to 1. The fifth, overlays, is under Overlays below.
 
 | Term | Weight | Value |
 |---|---|---|

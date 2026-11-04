@@ -57,7 +57,7 @@ After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`
 | `dom` | An HTML file with the target's settled `outerHTML`, script elements removed |
 | `styles` | A JSON file mapping each element path to its computed box model, colors, borders, radii, shadow, font, opacity, transform, transition, and flex or grid properties |
 | `motion` | A JSON file `{everyMs, tracks}`. `tracks` maps each element path whose computed `transform` or `opacity` changed across the frames to the value at every frame, for the properties that changed. A frame where the element is not in the DOM holds null. Empty for a state without frames |
-| `animations` | Every distinct running animation seen on the target or inside it during the state, with keyframes, duration, delay, easing, iterations, direction, and fill |
+| `animations` | Every distinct running animation seen on the target, inside it, or on an overlay during the state, with keyframes, duration, delay, easing, iterations, direction, and fill |
 
 An element path is a selector relative to the target, such as `:scope > :nth-child(2) > :nth-child(1)`. The target itself is `:scope`. A CSS animation's timing function sits on each keyframe's `easing`, and the animation's own `easing` reads `linear`.
 
