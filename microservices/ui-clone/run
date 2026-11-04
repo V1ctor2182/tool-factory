@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import traceback
@@ -20,7 +21,7 @@ MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
 SITES = json.loads((ROOT / "sites.json").read_text(encoding="utf-8"))
 OUTCOMES = ("kept", "locked", "skipped", "needs-terms", "failed")
 SITE_OUTCOMES = ("kept", "exists", "rebuilt", "below-target", "would-rebuild", "no-steps", "rebuild-failed", "needs-terms", "skipped", "failed")
-HALTS = ("rate_limited", "blocked")
+HALTS = ("rate_limited", "blocked", "preview_down")
 DEFAULT_MATCH = r"^/components/[^/]+/?$"
 STEPS_TRIES = 2
 CODE_TYPES = ("registry:ui", "registry:block", "registry:component")
@@ -52,6 +53,7 @@ class Site:
     page: str | None = None
     stage: str | None = None
     aliases: dict[str, str] = field(default_factory=dict)
+    viewport: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -96,7 +98,7 @@ def site_of(text: str) -> Site:
     entry = SITES[key]
     return Site(
         key, entry["url"], entry.get("index"), entry.get("base"), entry["keepCode"], entry["terms"], entry.get("theme", {}),
-        entry.get("catalog"), entry.get("match", DEFAULT_MATCH), entry.get("page"), entry.get("stage"), entry.get("aliases", {}),
+        entry.get("catalog"), entry.get("match", DEFAULT_MATCH), entry.get("page"), entry.get("stage"), entry.get("aliases", {}), entry.get("viewport"),
     )
 
 
@@ -257,6 +259,31 @@ def install(into: Path, source: str, draft: dict, meta: dict) -> None:
     log(added.stdout.strip())
 
 
+def held(into: Path, name: str) -> tuple[dict, dict[Path, bytes]] | None:
+    """A rebuild's registry item and files, to put back if a --redo of it fails."""
+    try:
+        items = json.loads((into / "registry.json").read_text(encoding="utf-8"))["items"]
+    except FileNotFoundError:
+        return None
+    item = next((item for item in items if item["name"] == name), None)
+    files = [*(into / "registry" / name).glob("*"), into / "preview" / "demos" / f"{name}.tsx"]
+    return item and (item, {path: path.read_bytes() for path in files if path.is_file()})
+
+
+def withdraw(into: Path, name: str, before: tuple[dict, dict[Path, bytes]] | None) -> None:
+    """Take out a rebuild no round of which was judged, or put back the one it replaced. Left in, its type errors would fail every later component's typecheck, and a rerun would count it as done."""
+    path = into / "registry.json"
+    registry = json.loads(path.read_text(encoding="utf-8"))
+    registry["items"] = [item for item in registry["items"] if item["name"] != name] + ([before[0]] if before else [])
+    path.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    shutil.rmtree(into / "registry" / name, ignore_errors=True)
+    (into / "preview" / "demos" / f"{name}.tsx").unlink(missing_ok=True)
+    for file, content in before[1].items() if before else ():
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(content)
+    log(f"{'restored' if before else 'withdrew'} {name}")
+
+
 def typecheck(into: Path) -> str | None:
     checked = subprocess.run(["npm", "run", "--silent", "typecheck"], cwd=into, capture_output=True, text=True)
     output = (checked.stdout + checked.stderr).strip()
@@ -344,23 +371,50 @@ def rebuilt(into: Path, steps: str, name: str, args, original: str | None = None
     }
 
 
-def in_victor_ui(into: Path) -> tuple[dict[str, str], set[str]]:
-    """Each registry item's name by its meta.source, the itemUrl it was collected from or the page it was rebuilt from, and every name."""
+def in_victor_ui(into: Path) -> tuple[dict[str, dict], set[str]]:
+    """Each registry item by its meta.source, the itemUrl it was collected from or the page it was rebuilt from, and every name."""
     try:
         items = json.loads((into / "registry.json").read_text(encoding="utf-8"))["items"]
     except FileNotFoundError:
         items = []
-    sources = {item["meta"]["source"]: item["name"] for item in items if item.get("meta", {}).get("source")}
+    sources = {item["meta"]["source"]: item for item in items if item.get("meta", {}).get("source")}
     return sources, {item["name"] for item in items}
+
+
+def launched(recording: str, page: str) -> str | None:
+    """The full-page preview a demo opens when the demo is only a link to it, under the component's own page."""
+    try:
+        state = json.loads(Path(recording).read_text(encoding="utf-8"))["states"][0]
+        dom = Path(state["dom"]).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    link = re.match(r'<a\b[^>]*\bhref="([^"]+)"', dom)
+    href = urljoin(page, link[1]) if link else None
+    return href if href and urlparse(href).path.startswith(urlparse(page).path.rstrip("/") + "/") else None
+
+
+def for_preview(steps: dict, root: str) -> dict:
+    """The same steps with the page's root swapped for victor-ui's preview stage."""
+    swap = lambda selector: re.sub(rf"(?<![\w.#\"'=-]){re.escape(root)}(?![\w-])", lambda _: PREVIEW_STAGE, selector)
+    states = [{**state, "actions": [{**action, "selector": swap(action["selector"])} if "selector" in action else action for action in state["actions"]]} for state in steps["states"]]
+    return {**steps, "target": swap(steps["target"]), "states": states}
 
 
 def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str, str] | None:
     """Survey the page's idle state, have ui-steps write the states, and record the original with them. Returns the steps file, that recording, and the steps the rebuild is judged with, or None after setting row's outcome."""
     folder = HOME / "microservices" / "ui-clone" / "site" / site.id / c.name
-    # The target is the demo inside the stage. A site's stage and victor-ui's are sized by their pages, so recording the stage compares two page layouts.
-    survey = saved(folder / "survey.json", {"url": c.pageUrl, "target": f"{site.stage} > *", "states": [{"name": "idle", "actions": []}]})
+
+    def surveyed(url: str, root: str) -> str:
+        # The target is the demo inside the stage. A site's stage and victor-ui's are sized by their pages, so recording the stage compares two page layouts.
+        plan = {"url": url, "target": f"{root} > *", **({"viewport": site.viewport} if site.viewport else {}), "states": [{"name": "idle", "actions": []}]}
+        return recording_of(saved(folder / "survey.json", plan), None)
+
+    root = site.stage
     try:
-        idle = recording_of(survey, None)
+        idle = surveyed(c.pageUrl, root)
+        if full := launched(idle, c.pageUrl):
+            root = "body"
+            idle = surveyed(full, root)
     except AtomFailed as e:
         if halts(e.error):
             raise
@@ -378,7 +432,7 @@ def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str, str] | Non
         row["stepsFile"] = saved(folder / "steps.json", written["steps"])
         try:
             recording = recording_of(row["stepsFile"], None)
-            judged = saved(folder / "rebuild-steps.json", json.loads(Path(row["stepsFile"]).read_text(encoding="utf-8").replace(json.dumps(site.stage)[1:-1], json.dumps(PREVIEW_STAGE)[1:-1])))
+            judged = saved(folder / "rebuild-steps.json", for_preview(written["steps"], root))
             return row["stepsFile"], recording, judged
         except AtomFailed as e:
             if halts(e.error):
@@ -404,8 +458,10 @@ def site(args) -> dict:
     sources, names = in_victor_ui(into)
 
     def decide(c: Component, row: dict) -> None:
-        if known := sources.get(c.itemUrl or "") or sources.get(c.pageUrl or ""):
-            row.update(outcome="exists", detail=f"in victor-ui as {known}")
+        # A demo that links to its own preview page is rebuilt from that page, so the item's source sits under pageUrl.
+        known = sources.get(c.itemUrl or "") or sources.get(c.pageUrl or "") or next((item for source, item in sources.items() if c.pageUrl and source.startswith(f"{c.pageUrl}/")), None)
+        if known and not (args.redo and known["meta"].get("method") == "rebuild"):
+            row.update(outcome="exists", detail=f"in victor-ui as {known['name']}")
             return
         why = "no registry item"
         if c.itemUrl:
@@ -423,17 +479,23 @@ def site(args) -> dict:
         found = steps_for(where, c, row)
         if found is None:
             return
-        name = rebuild_name(where, c.name, names)
+        name = known["name"] if known else rebuild_name(where, c.name, names)
+        before = held(into, name)
         try:
             report = rebuilt(into, found[0], name, args, found[1], found[2])
         except AtomFailed as e:
+            withdraw(into, name, before)
             if halts(e.error):
                 raise
             row.update(outcome="rebuild-failed", detail=f"{e.error['code']}: {e.error['message']}")
             return
         row["costUsd"] += report["costUsd"]
         if report["best"] is None:
-            row.update(outcome="rebuild-failed", detail=f"{name}: no round was judged, last {headline(report['rounds'][-1]['error'] or 'error unknown')}")
+            withdraw(into, name, before)
+            last = report["rounds"][-1]["error"] or "error unknown"
+            if last.startswith(f"network_error: {args.preview.rstrip('/')}/"):
+                raise AtomFailed({"code": "preview_down", "message": f"The victor-ui preview at {args.preview} is not answering: {headline(last)}"})
+            row.update(outcome="rebuild-failed", detail=f"{name}: no round was judged, last {headline(last)}")
             return
         row["score"] = report["best"]["score"]
         row.update(outcome="rebuilt" if report["passed"] else "below-target", detail=f"{name}, best round {report['best']['round']} of {len(report['rounds'])}")

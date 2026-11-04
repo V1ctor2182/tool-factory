@@ -9,7 +9,8 @@
     },
     "catalog": "https://kobra.systems/components",
     "page": "https://kobra.systems/components/{name}",
-    "stage": "[data-slot=\"preview-stage\"]"
+    "stage": "[data-slot=\"preview-stage\"]",
+    "viewport": { "width": 1280, "height": 1400 }
   },
   "rareui": {
     "url": "https://www.rareui.com",

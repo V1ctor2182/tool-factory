@@ -161,6 +161,10 @@
             "default": "http://localhost:5173",
             "description": "Base URL of the running victor-ui preview, from npm run preview:dev. Rebuilds need it."
           },
+          "redo": {
+            "type": "boolean",
+            "description": "Rebuild components already rebuilt in victor-ui, under the same name. One whose rounds all fail gets its last rebuild back. Combine with --only."
+          },
           "dryRun": {
             "type": "boolean",
             "description": "List the components and decide code or rebuild for each, but write nothing and call no model."
