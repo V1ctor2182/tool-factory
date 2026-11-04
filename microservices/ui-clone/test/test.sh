@@ -14,6 +14,7 @@ mkdir -p "$fake/microservices/ui-clone" "$out" "$ui/scripts"
 cp "$test_dir/../run" "$test_dir/../manifest.json" "$fake/microservices/ui-clone/"
 jq '. + {
 	stubsite: {url: "https://stub.test", keepCode: true, terms: "stub terms", catalog: "https://stub.test/components", page: "https://stub.test/components/{name}", stage: "[data-stage]", aliases: {"fancy-card": "card-x"}},
+	fullsite: {url: "https://full.test", keepCode: false, terms: null, catalog: "https://full.test/components", page: "https://full.test/components/{name}", stage: "[data-stage]", viewport: {width: 1280, height: 1400}},
 	pagesite: {url: "https://pages.test", catalog: "https://pages.test/components", keepCode: false, terms: null}
 }' "$test_dir/../sites.json" > "$fake/microservices/ui-clone/sites.json"
 run="$fake/microservices/ui-clone/run"
@@ -48,8 +49,19 @@ case "$name $1" in
 "page-record capture")
 	case "$*" in
 	*--url\ http://localhost:5173/missing*) echo '{"error":{"code":"invalid_source","message":"stub selector not found"}}'; exit 1 ;;
-	*--url*) echo '{"dir":"/stub/rebuild"}' ;;
-	*/survey.json*) echo "{\"dir\":\"/stub/survey/$(jq -r .url "$2" | xargs basename)\"}" ;;
+	*--url*)
+		if [ -n "${STUB_PREVIEW_DOWN:-}" ]; then printf '{"error":{"code":"network_error","message":"%s: connection refused"}}\n' "$(echo "$*" | sed 's/.*--url \([^ ]*\).*/\1/')"; exit 1; fi
+		echo '{"dir":"/stub/rebuild"}' ;;
+	*/survey.json*)
+		case "$(jq -r .url "$2")" in
+		https://full.test/components/page-only)
+			shot="$TOOL_FACTORY_HOME/launcher"
+			mkdir -p "$shot"
+			echo '<a class="x" href="/components/page-only/preview" target="_blank">Open preview</a>' > "$shot/idle.dom.html"
+			jq -cn --arg dom "$shot/idle.dom.html" '{states: [{dom: $dom}]}' > "$shot/recording.json"
+			echo "{\"dir\":\"$shot\"}" ;;
+		*) echo "{\"dir\":\"/stub/survey/$(jq -r .url "$2" | xargs basename)\"}" ;;
+		esac ;;
 	*/site/*/steps.json*)
 		if [ -n "${STUB_CHECK_DOWN:-}" ]; then echo '{"error":{"code":"network_error","message":"stub site down"}}'; exit 1; fi
 		if grep -q '#bad' "$2"; then echo '{"error":{"code":"invalid_source","message":"state '"'hover'"' action 0 (hover): no element matches '"'#bad'"'"}}'; exit 1; fi
@@ -88,13 +100,22 @@ for name in ui-catalog ui-source page-record page-diff ui-draft page-links ui-st
 done
 
 cat > "$ui/scripts/add.mjs" <<'ADD'
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 const result = JSON.parse(readFileSync(0, 'utf8'))
 const license = process.argv[process.argv.indexOf('--license') + 1]
 if (process.argv.includes('--rebuild')) {
 	const content = result.item.files[0].content
 	appendFileSync(new URL('../rebuilt', import.meta.url), `${JSON.stringify({ source: result.source, license, content, demo: result.demo, meta: result.meta })}\n`)
 	writeFileSync(new URL('../installed', import.meta.url), content)
+	if (process.env.STUB_ADD_WRITES) {
+		const registry = JSON.parse(readFileSync(new URL('../registry.json', import.meta.url), 'utf8'))
+		registry.items.push({ name: result.item.name, meta: { source: result.source, method: 'rebuild' } })
+		writeFileSync(new URL('../registry.json', import.meta.url), JSON.stringify(registry))
+		mkdirSync(new URL(`../registry/${result.item.name}/`, import.meta.url), { recursive: true })
+		writeFileSync(new URL(`../registry/${result.item.name}/x.tsx`, import.meta.url), content)
+		mkdirSync(new URL('../preview/demos/', import.meta.url), { recursive: true })
+		writeFileSync(new URL(`../preview/demos/${result.item.name}.tsx`, import.meta.url), result.demo)
+	}
 	console.log(`updated ${result.item.name}`)
 	process.exit(0)
 }
@@ -284,6 +305,7 @@ jq -n '{items: [
 	{name: "rebuilt-before-rebuild", meta: {source: "https://stub.test/components/rebuilt-before", method: "rebuild"}},
 	{name: "page-only-rebuild", meta: {source: "https://elsewhere.test/page-only", method: "rebuild"}}
 ]}' > "$ui/registry.json"
+edit_registry() { jq "$1" "$ui/registry.json" > "$ui/registry.next" && mv "$ui/registry.next" "$ui/registry.json"; }
 site_rows() { jq -c '[.items[] | [.name, .outcome, .score, .costUsd * 1]]' "$out/stdout"; }
 site_report() { "$repo/contracts/check" ui-site-report "$out/stdout" || fail "$1 does not match the ui-site-report contract"; }
 site_dir="$TOOL_FACTORY_HOME/microservices/ui-clone/site/stubsite"
@@ -332,6 +354,48 @@ STUB_CHECK_DOWN=1 call site stubsite --into "$ui" --only page-only,button --json
 unset STUB_CHECK_DOWN
 [ "$(jq -c '[.items[] | [.name, .outcome]]' "$out/stdout")" = '[["button","kept"],["page-only","no-steps"]]' ] && [ "$(jq -r '.items[1].detail' "$out/stdout")" = "page-record could not record with the steps: network_error: stub site down" ] \
 	|| fail "a check that cannot reach the page did not end that component as no-steps: $(jq -c .items "$out/stdout")"
+
+STUB_ADD_WRITES=1 STUB_TSC_FAIL="round 1" call site stubsite --into "$ui" --rounds 1 --only pro-card --json || fail "site with a draft that never typechecks exited nonzero: $(cat "$out/stdout")"
+[ "$(jq -c '[.items[] | [.name, .outcome, .score]]' "$out/stdout")" = '[["pro-card","rebuild-failed",null]]' ] || fail "a draft that never typechecks decided $(jq -c .items "$out/stdout")"
+[ "$(jq -c '[.items[].name]' "$ui/registry.json")" = '["kept-before","rebuilt-before-rebuild","page-only-rebuild"]' ] || fail "an unjudged rebuild stayed in the registry: $(cat "$ui/registry.json")"
+[ ! -e "$ui/registry/pro-card-rebuild" ] && [ ! -e "$ui/preview/demos/pro-card-rebuild.tsx" ] || fail "an unjudged rebuild left its files behind"
+unset STUB_ADD_WRITES
+STUB_TSC_FAIL=""
+
+call site fullsite --into "$ui" --only page-only --rounds 1 --json || fail "site on a launcher demo failed: $(cat "$out/stdout")"
+full_dir="$TOOL_FACTORY_HOME/microservices/ui-clone/site/fullsite/page-only"
+[ "$(jq -c . "$full_dir/survey.json")" = '{"url":"https://full.test/components/page-only/preview","target":"body > *","viewport":{"width":1280,"height":1400},"states":[{"name":"idle","actions":[]}]}' ] \
+	|| fail "a demo that only links to its preview was not surveyed there at the site's viewport: $(cat "$full_dir/survey.json")"
+[ "$(ran 'ui-steps write /stub/survey/preview/recording.json --json')" = 1 ] || fail "ui-steps did not get the preview's survey: $(grep ui-steps "$STUB_LOG")"
+
+edit_registry '.items += [{name: "preview-rebuild", meta: {source: "https://stub.test/components/pro-card/preview", method: "rebuild"}}]'
+call site stubsite --into "$ui" --only pro-card --dry-run --json || fail "site --dry-run with a rebuilt preview page failed"
+[ "$(jq -c '[.items[] | [.outcome, .detail]]' "$out/stdout")" = '[["exists","in victor-ui as preview-rebuild"]]' ] || fail "a component rebuilt from its preview page did not count as rebuilt: $(jq -c .items "$out/stdout")"
+edit_registry 'del(.items[] | select(.name == "preview-rebuild"))'
+
+edit_registry '.items += [{name: "pro-card-rebuild", meta: {source: "https://stub.test/components/pro-card", method: "rebuild"}}]'
+call site stubsite --into "$ui" --only pro-card,button --rounds 1 --dry-run --json || fail "site --dry-run with a rebuild failed"
+[ "$(jq -c '[.items[] | .outcome]' "$out/stdout")" = '["kept","exists"]' ] || fail "without --redo a rebuilt component was not skipped: $(jq -c .items "$out/stdout")"
+call site stubsite --into "$ui" --only pro-card --rounds 1 --redo --json || fail "site --redo failed: $(cat "$out/stdout")"
+[ "$(jq -c '[.items[] | [.outcome, .detail]]' "$out/stdout")" = '[["rebuilt","pro-card-rebuild, best round 1 of 1"]]' ] || fail "--redo did not rebuild under the same name: $(jq -c .items "$out/stdout")"
+call site stubsite --into "$ui" --only kept-before --redo --dry-run --json || fail "site --redo on a kept item failed"
+[ "$(jq -c '[.items[] | .outcome]' "$out/stdout")" = '["exists"]' ] || fail "--redo touched code that was kept, not rebuilt: $(jq -c .items "$out/stdout")"
+mkdir -p "$ui/registry/pro-card-rebuild"
+echo kept > "$ui/registry/pro-card-rebuild/x.tsx"
+STUB_ADD_WRITES=1 STUB_TSC_FAIL="round 1" call site stubsite --into "$ui" --only pro-card --rounds 1 --redo --json || fail "site --redo with a draft that never typechecks exited nonzero"
+unset STUB_ADD_WRITES
+STUB_TSC_FAIL=""
+[ "$(jq -c '[.items[] | [.outcome]]' "$out/stdout")" = '[["rebuild-failed"]]' ] && [ "$(jq -c '[.items[] | select(.name == "pro-card-rebuild")] | length' "$ui/registry.json")" = 1 ] && [ "$(cat "$ui/registry/pro-card-rebuild/x.tsx")" = kept ] \
+	|| fail "a failed --redo did not put the last rebuild back: $(cat "$ui/registry.json")"
+rm -rf "$ui/registry/pro-card-rebuild"
+edit_registry 'del(.items[] | select(.name == "pro-card-rebuild"))'
+
+STUB_PREVIEW_DOWN=1
+export STUB_PREVIEW_DOWN
+call site stubsite --into "$ui" --only pro-card,page-only --rounds 1 --preview http://127.0.0.1:9999/ --json || fail "site with its preview down exited nonzero: $(cat "$out/stdout")"
+unset STUB_PREVIEW_DOWN
+[ "$(jq -c '[.items[] | .outcome]' "$out/stdout")" = '["failed","skipped"]' ] && jq -r '.items[0].detail' "$out/stdout" | grep -q '^preview_down: ' \
+	|| fail "site did not stop when its preview went down: $(jq -c .items "$out/stdout")"
 
 STUB_RATE_LIMITED=pro-card call site stubsite --into "$ui" --dry-run --json || fail "site stopped by a 429 exited nonzero"
 [ "$(jq -c '[.items[] | .outcome]' "$out/stdout")" = '["kept","failed","skipped","skipped","skipped","skipped","skipped","skipped"]' ] && [ "$(ran ui-source)" = 2 ] \

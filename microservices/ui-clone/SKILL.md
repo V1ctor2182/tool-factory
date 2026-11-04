@@ -36,6 +36,8 @@ TOOL_FACTORY_CALL_BUDGET_USD=1 <this skill's folder>/run site kobra --into ~/vic
 <this skill's folder>/run site aceternity --into ~/victor/victor-ui --limit 10 --rounds 3
 ```
 
+`--redo` rebuilds components that are already rebuilt, under the same name, and is meant for use with `--only`. A component whose rounds all fail gets its last rebuild back. A site's `viewport` in `sites.json` sets the size pages are recorded at. Kobra's is tall so its code panel sits below the demo. A demo that is only a link to a page under its own opens that page and records it.
+
 Start the victor-ui preview with `npm run preview:dev` before a run that rebuilds. `--dry-run` lists the components and decides code or rebuild for each. It still fetches each registry item to see whether it is locked, but it writes nothing and calls no model. `--only`, `--limit`, `--target`, `--rounds`, and `--preview` work as in `collect` and `rebuild`.
 
 For each site, `site` does these steps:
