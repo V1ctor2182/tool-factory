@@ -16,7 +16,14 @@
   ];
 
   const STYLE = 'style';
-  const root = (selector) => document.querySelector(selector);
+  // A page can hold a hidden variant of its demo first, such as one for small screens.
+  const root = (selector) => {
+    const all = [...document.querySelectorAll(selector)];
+    return all.find((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && el.checkVisibility({ visibilityProperty: true });
+    }) ?? all[0];
+  };
 
   const path = (el, top) => {
     const steps = [];
@@ -37,7 +44,7 @@
   const drive = () => {
     const now = Math.round(performance.now());
     for (const a of document.getAnimations()) {
-      if (a.playState !== 'running' || driven.has(a)) continue;
+      if (a.playState !== 'running' || driven.has(a) || a.timeline !== document.timeline) continue;
       driven.set(a, now);
       a.pause();
     }
@@ -120,6 +127,11 @@
   const domOf = (el) => {
     const clone = el.cloneNode(true);
     clone.querySelectorAll('script').forEach((s) => s.remove());
+    // A rebuild runs on another origin, where a relative image would not load. Its srcset would still point here.
+    clone.querySelectorAll('[src], [srcset]').forEach((c) => {
+      c.removeAttribute('srcset');
+      if (c.hasAttribute('src')) c.setAttribute('src', new URL(c.getAttribute('src'), document.baseURI).href);
+    });
     [clone, ...clone.querySelectorAll('*')].forEach((c) => c.getAttribute(STYLE) === '' && c.removeAttribute(STYLE));
     return clone.outerHTML;
   };
