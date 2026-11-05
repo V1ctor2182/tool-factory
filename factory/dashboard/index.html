@@ -690,7 +690,7 @@ function verbPage(row, v) {
     ...(row.adapters.includes('mcp') ? [['MCP', json({ method: 'tools/call', params: { name: `${row.name}_${v.name}`, arguments: placeholders } })]] : []),
     ['Dashboard', `POST /run/${row.name}/${v.name}\ncontent-type: application/json\n\n${json(placeholders)}`],
   ];
-  const guard = row.guard === 'confirm' ? 'Asks for confirmation on every run' : row.guard === 'budget' ? 'Spends the daily model budget' : null;
+  const guard = row.guard === 'confirm' ? 'Asks for confirmation on every run' : row.guard === 'budget' ? 'Spends on the model' : null;
   const pager = (d, label) => d ? h('a', { class: `pager-link ${label.toLowerCase()}`, href: docPath(d.row, d.verb) }, h('span', null, label), `${d.row.name} ${d.verb.name}`) : h('span');
   return [
     h('article', { class: 'doc-main' },
@@ -824,21 +824,22 @@ const pageOf = (path) => {
 
 function overviewView() {
   const { capUsd, spentTodayUsd } = model.budget;
-  const share = capUsd && spentTodayUsd !== null ? spentTodayUsd / capUsd : 0;
+  const capped = typeof capUsd === 'number';
+  const share = capped && capUsd && spentTodayUsd !== null ? spentTodayUsd / capUsd : 0;
   const sick = rows.length - counts.ok;
   const calls = model.calls;
   return h('main', { class: 'wrap' },
     h('section', { class: 'hero' },
       headline(sick, calls),
-      h('p', { class: 'say' }, 'Spent ', h('b', null, usd(spentTodayUsd)), capUsd === null ? ' today, and the budget is unreadable.' : capUsd === 0 ? ' today, and no model spend is allowed.' : ` of today's $${capUsd.toFixed(2)} budget.`),
+      h('p', { class: 'say' }, 'Spent ', h('b', null, usd(spentTodayUsd)), capUsd === 'none' ? ' today.' : capUsd === null ? ' today, and the budget is unreadable.' : capUsd === 0 ? ' today, and no model spend is allowed.' : ` of today's $${capUsd.toFixed(2)} budget.`),
       model.problems.length
         ? h('div', { class: 'problems', role: 'alert' }, `${plural(model.problems.length, 'problem')} found`,
           h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
         : null,
       h('div', { class: 'kpis' },
         h('div', { class: 'kpi lead', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
-          meter(share, spentTodayUsd !== null && capUsd !== null && spentTodayUsd >= capUsd),
-          h('div', { class: 's' }, capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
+          meter(share, spentTodayUsd !== null && capped && spentTodayUsd >= capUsd),
+          h('div', { class: 's' }, capUsd === 'none' ? 'No daily cap' : capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
         h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), meter(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Microservice runs and direct atom calls')),
         h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
           meter(calls?.runs ? calls.failed / calls.runs : 0, calls?.failed), h('div', { class: 's' }, calls?.runs ? `${Math.round((calls.failed / calls.runs) * 100)}% of calls` : 'No calls')),

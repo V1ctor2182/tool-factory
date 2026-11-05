@@ -98,7 +98,7 @@ test('each atom lists the microservices whose uses name it', () => {
 });
 
 test('spend counts today against the budget and charges atom spend to the calling microservice', () => {
-  assert.deepEqual(model.budget, { capUsd: 3, spentTodayUsd: 0.011 });
+  assert.deepEqual(model.budget, { capUsd: 'none', spentTodayUsd: 0.011 });
   assert.deepEqual(
     ['youtube', 'podcast', 'meeting-notes', 'digest', 'see', 'transcribe'].map((n) => [n, row(n).spentUsd]),
     [['youtube', 0.013], ['podcast', 0.004], ['meeting-notes', 0], ['digest', 0.0145], ['see', 0.0025], ['transcribe', 0]],

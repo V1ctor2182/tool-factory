@@ -75,7 +75,8 @@ export function spentToday() {
 const DECIMAL = /^[+-]?(?:\d+(?:_\d+)*(?:\.(?:\d+(?:_\d+)*)?)?|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?$/;
 
 export function budget() {
-  const raw = process.env.TOOL_FACTORY_BUDGET_USD ?? '3';
+  const raw = process.env.TOOL_FACTORY_BUDGET_USD;
+  if (raw === undefined) return Infinity;
   const text = raw.trim();
   const value = DECIMAL.test(text) ? Number(text.replaceAll('_', '')) : NaN;
   if (!(value >= 0 && value < Infinity)) throw new Error(`TOOL_FACTORY_BUDGET_USD is not a finite number of dollars, 0 or more: ${raw}`);

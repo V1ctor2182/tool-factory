@@ -109,7 +109,7 @@ const COMMANDS = {
     ]);
     console.log(table([['name', 'type', 'kind', 'health', 'runs 7d', 'failed', 'median', 'spent 7d', 'uses or used by', 'links'], ...rows]));
     const { capUsd, spentTodayUsd } = model.budget;
-    console.log(`\nbudget: ${spentTodayUsd === null ? 'unknown' : `$${spentTodayUsd.toFixed(4)}`} spent today of ${capUsd === null ? 'an unreadable cap' : `$${capUsd.toFixed(2)}`}`);
+    console.log(`\nbudget: ${spentTodayUsd === null ? 'unknown' : `$${spentTodayUsd.toFixed(4)}`} spent today${capUsd === 'none' ? ', no daily cap' : ` of ${capUsd === null ? 'an unreadable cap' : `$${capUsd.toFixed(2)}`}`}`);
     for (const t of model.external) console.log(`external: ${t.name} at ${t.where}`);
     return reportProblems(model.problems);
   },

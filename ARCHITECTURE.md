@@ -42,7 +42,7 @@ The kind decides how the factory caches, tests, and guards an atom. It is one fi
 | Kind | Example | Cached | Tests assert | Cost | Guard |
 |---|---|---|---|---|---|
 | `transform` | `download`, `transcribe`, `frames` | By content, forever | A literal expected output | Free | None |
-| `model` | `see`, `digest`, `ui-draft` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
+| `model` | `see`, `digest`, `ui-draft` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Optional daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
 | `observe` | `find-url`, `screenshot` | Never, or for a day | Schema only, on a recorded fixture | Free | None |
 | `act` | `click`, `type` | Never | A dry run returns the planned action | Varies | Confirmation on every run, enforced by a hook |
 
@@ -133,7 +133,7 @@ The kit is plumbing every atom would otherwise copy.
 | `hash` | Stream a SHA-256 for cache keys |
 | `secrets` | Read a secret from the environment, else the keychain |
 | `web` | Fetch bytes or JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
-| `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget and logs spend. |
+| `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget when one is set, and logs spend. |
 
 The default `model` backend is headless Claude Code, `claude -p --output-format json --json-schema`. It runs on Victor's Claude Code login, so there is no API key. Checked 2026-10-25. A small call returned schema-valid JSON in `structured_output` with `total_cost_usd` set, in about seven seconds. The Anthropic API is the second backend when a key in the keychain is preferred.
 
@@ -377,7 +377,7 @@ Usable first, machinery second. Each step ends in a check that runs before the n
 
 - **Whisper backend.** PR 1 decides with measured numbers. faster-whisper 1.2.1 needs PyAV pinned below 19. With that pin it transcribed a test clip with no system ffmpeg, checked 2026-10-25.
 - **Default model per model atom.** `digest` starts on `sonnet` and `see` on `haiku`. Both are guesses to revisit once the run log shows cost and quality.
-- **Daily budget.** Pick a number before PR 2 merges. Until then the adapter refuses model calls past $3 a day. That figure is a placeholder.
+- **Daily budget.** None by default, by Victor's choice. `TOOL_FACTORY_BUDGET_USD` adds one. Each call has no ceiling either, unless `TOOL_FACTORY_CALL_BUDGET_USD` sets one.
 - **yt-dlp goes stale.** It stays unpinned, and `doctor` reports its age.
 - **YouTube may refuse this network.** Captions downloaded fine on 2026-10-25. PR 1 shows whether audio downloads work too.
 - **The data home grows.** Add a prune command when it first matters.
