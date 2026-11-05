@@ -31,7 +31,6 @@ SETTLE_CAP_MS = 5_000
 MARGIN_PX = 8
 DRAG_MOVES = 10
 DRAG_MOVE_MS = 16
-DRAG_SEND_WAIT_MS = 5
 # Without these, transform and opacity animations run on the compositor thread on real time, outside the virtual clock.
 CHROMIUM_ARGS = ["--disable-threaded-animation", "--disable-threaded-scrolling", "--run-all-compositor-stages-before-draw", "--disable-checker-imaging"]
 CONTEXT = {"device_scale_factor": 2, "locale": "en-US", "timezone_id": "UTC", "reduced_motion": "no-preference", "service_workers": "block"}
@@ -133,18 +132,20 @@ def _drag(s: Session, a: dict, where: str):
     x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
     s.page.mouse.move(x, y)
     s.page.mouse.down()
-    # Chromium holds a pressed pointer's move, and its CDP answer, until the next frame, which never comes on a paused clock. So the move goes out without waiting and the clock lets it land.
-    # The clock also moves between pointer moves, so a spring sees a real velocity and the state's frames open on motion already under way.
+    # Chromium answers a pressed pointer's move over CDP only at the next frame, which a paused clock never reaches, so a blocking move hangs.
+    # The page gets the event at once. So the move goes out without waiting for the answer, and the page's own count of moves says when it arrived.
+    # The clock stands still until then and moves a fixed step after, so every drag takes the same page time and a spring sees a real velocity.
     for i in range(1, DRAG_MOVES + 1):
+        moves = s.js("moves")
         move = s.page._loop.create_task(s.page.mouse._impl_obj.move(x + a["by"]["x"] * i / DRAG_MOVES, y + a["by"]["y"] * i / DRAG_MOVES))
+        # Reads the outcome, so closing the browser on an unanswered move does not log an unretrieved task exception.
+        move.add_done_callback(lambda t: t.cancelled() or t.exception())
         deadline = time.monotonic() + STALL_S
-        s.page.wait_for_timeout(DRAG_SEND_WAIT_MS)
-        while True:
-            s.advance(DRAG_MOVE_MS)
-            if move.done():
-                break
+        while s.js("moves") == moves:
             if time.monotonic() > deadline:
-                raise cli.AtomError("invalid_source", f"{where}: a pointer move did not land within {STALL_S}s")
+                raise cli.AtomError("invalid_source", f"{where}: a pointer move did not reach the page within {STALL_S}s")
+            s.page.wait_for_timeout(5)
+        s.advance(DRAG_MOVE_MS)
 
 
 ACTIONS = {

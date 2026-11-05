@@ -91,7 +91,13 @@ case "$held" in *'data-held="true"'*) ;; *) fail "the pointer was not held throu
 case "$held" in *'>120</output>'*) ;; *) fail "the drag did not move the pointer 120 px: $held" ;; esac
 dropped=$(jq -r '.states[1].dom' "$out/drag-out.json" | xargs cat)
 case "$dropped" in *data-held*) fail "the drop did not release the pointer: $dropped" ;; esac
-jq -e '.tracks | to_entries | any(.value.transform)' "$(jq -r '.states[0].motion' "$out/drag-out.json")" > /dev/null || fail "the frames did not catch the thumb still moving during the drag"
+trace() { jq -r '.tracks | to_entries[0].value.transform | map(split(", ")[4] | tonumber | . * 10 | round / 10) | join(" ")' "$(jq -r '.states[0].motion' "$1")"; }
+want="79.6 93.5 102.6 108.6"
+got=$(trace "$out/drag-out.json")
+[ "$got" = "$want" ] || fail "a thumb stepped once per animation frame did not follow the page clock during the drag: $got"
+"$bin" capture "$out/drag.json" --json > "$out/drag-again.json" || fail "a second drag did not record: $(cat "$out/drag-again.json")"
+got=$(trace "$out/drag-again.json")
+[ "$got" = "$want" ] || fail "a second run of the same drag recorded other frames: $got"
 
 jq 'del(.states[1])' "$out/drag.json" > "$out/undropped.json"
 if "$bin" capture "$out/undropped.json" --json > "$out/undropped-out.json"; then fail "a drag with no drop exited 0"; fi

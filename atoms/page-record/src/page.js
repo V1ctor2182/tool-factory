@@ -64,6 +64,36 @@
   };
   setInterval(drive, DRIVE_MS);
 
+  // requestAnimationFrame has the same problem, and worse. Under the virtual clock it runs only when a screenshot forces
+  // a frame, so a spring written on it advanced by however many frames each screenshot happened to draw. An interval on
+  // virtual time calls it every 16 ms instead.
+  const FRAME_MS = 16;
+  const frames = new Map();
+  let nextFrame = 1;
+  window.requestAnimationFrame = (fn) => {
+    frames.set(nextFrame, fn);
+    return nextFrame++;
+  };
+  window.cancelAnimationFrame = (id) => {
+    frames.delete(id);
+  };
+  const frame = () => {
+    const now = Math.round(performance.now());
+    const due = [...frames.values()];
+    frames.clear();
+    for (const fn of due) {
+      try {
+        fn(now);
+      } catch (e) {
+        reportError(e);
+      }
+    }
+  };
+  setInterval(frame, FRAME_MS);
+
+  let moves = 0;
+  addEventListener('pointermove', () => moves++, { capture: true });
+
   const timeouts = new Set();
   const { setTimeout: set, clearTimeout: clear } = window;
   window.setTimeout = function (fn, ...rest) {
@@ -157,7 +187,13 @@
   };
 
   window.__uiRecord = {
-    drive,
+    // A sample runs one more frame first, so what it records is the page at exactly this time, not up to a frame earlier.
+    drive() {
+      drive();
+      frame();
+    },
+
+    moves: () => moves,
 
     baseline() {
       baseline = new WeakSet([...document.querySelectorAll('*')].filter(shown));
