@@ -14,8 +14,10 @@
   },
   "rareui": {
     "url": "https://www.rareui.com",
+    "index": "https://raw.githubusercontent.com/swamimalode07/rare-ui/main/public/r/registry.json",
+    "base": "https://raw.githubusercontent.com/swamimalode07/rare-ui/main/public/r/",
     "keepCode": true,
-    "terms": "MIT + Commons Clause + Attribution (github.com/swamimalode07/rare-ui LICENSE): use and modify, do not sell; keep attribution"
+    "terms": "MIT + Commons Clause + Attribution, Copyright (c) 2026 Swami Malode (github.com/swamimalode07/rare-ui LICENSE, copied to licenses/rare-ui.txt): use and modify in your own products; never sell, sublicense, or redistribute the components; a project that ships one must credit Rare UI with a visible link to https://rareui.com. victor-ui stays private."
   },
   "aceternity": {
     "url": "https://ui.aceternity.com",

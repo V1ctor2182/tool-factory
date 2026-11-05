@@ -193,7 +193,7 @@ def by_code(site: Site, item: dict, into: Path, dry_run: bool) -> tuple[str, str
     css_vars = fetched["item"].setdefault("cssVars", {})
     css_vars["theme"] = {**site.theme, **css_vars.get("theme", {})}
     added = subprocess.run(
-        ["node", str(into / "scripts" / "add.mjs"), "--license", site.terms, "--site", site.id],
+        ["node", str(into / "scripts" / "add.mjs"), "--license", site.terms],
         input=json.dumps(fetched),
         capture_output=True,
         text=True,
@@ -445,9 +445,11 @@ def steps_for(site: Site, c: Component, row: dict) -> tuple[str, str, str] | Non
     return None
 
 
-def rebuild_name(site: Site, slug: str, taken: set[str]) -> str:
-    name = f"{slug}-rebuild"
-    return f"{site.id}-{name}" if name in taken else name
+def rebuild_name(slug: str, taken: set[str]) -> str:
+    name, n = f"{slug}-rebuild", 2
+    while name in taken:
+        name, n = f"{slug}-{n}-rebuild", n + 1
+    return name
 
 
 def site(args) -> dict:
@@ -479,7 +481,7 @@ def site(args) -> dict:
         found = steps_for(where, c, row)
         if found is None:
             return
-        name = known["name"] if known else rebuild_name(where, c.name, names)
+        name = known["name"] if known else rebuild_name(c.name, names)
         before = held(into, name)
         try:
             report = rebuilt(into, found[0], name, args, found[1], found[2])
