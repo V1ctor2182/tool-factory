@@ -1,0 +1,1 @@
+{"easings": [{"value": "cubic-bezier(.23,1,.32,1)", "count": 1}, {"value": "cubic-bezier(.645,.045,.355,1)", "count": 1}, {"value": "var(--not-a-curve)", "count": 1}]}

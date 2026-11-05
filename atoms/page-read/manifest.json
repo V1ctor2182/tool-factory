@@ -1,0 +1,27 @@
+{
+  "name": "page-read",
+  "type": "atom",
+  "kind": "observe",
+  "description": "What one load of a live page says about itself before anyone clicks: console, labels, state attributes, sections, canvases, animations, capabilities, fonts, and the targets a sweep can hover or click. Needs Google Chrome. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/page-read",
+  "contract": "page-facts",
+  "verbs": [
+    {
+      "name": "facts",
+      "description": "Load a page once in headless Chrome and read what it says about itself. Prints a short summary, or the facts with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Page URL." },
+          "loadMs": { "type": "integer", "default": 6000, "description": "How long to wait after load before reading, for pages that assemble themselves." }
+        },
+        "required": ["url"]
+      },
+      "output": "page-facts"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

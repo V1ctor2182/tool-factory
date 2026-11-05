@@ -1,0 +1,26 @@
+{
+  "name": "motion-measure",
+  "type": "atom",
+  "kind": "transform",
+  "description": "The numbers a page sweep comes down to: where each effect exists, its span and curve, its peak colour, and its rhythm. Cached by the sweep's content.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/motion-measure",
+  "contract": "motion-measures",
+  "verbs": [
+    {
+      "name": "measure",
+      "description": "Turn a sweep.json from page-sweep into one entry per run. Prints one line per run, or the measures with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "sweep": { "type": "string", "description": "The sweep.json that page-sweep wrote." }
+        },
+        "required": ["sweep"]
+      },
+      "output": "motion-measures"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

@@ -1,0 +1,183 @@
+{
+  "differences": [
+    {
+      "run": "card",
+      "kind": "hover",
+      "metric": "responseMs",
+      "a": 10,
+      "b": null,
+      "severity": "major",
+      "meaning": "Time from pointer entry to the first change, or no reaction",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/card.png",
+      "size": null
+    },
+    {
+      "run": "press",
+      "kind": "click",
+      "metric": "worstGapMs",
+      "a": 17,
+      "b": 1567,
+      "severity": "major",
+      "meaning": "The longest frame stall after the click",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/press.png",
+      "size": 1550
+    },
+    {
+      "run": "press",
+      "kind": "click",
+      "metric": "responseMs",
+      "a": 10,
+      "b": 1500,
+      "severity": "major",
+      "meaning": "Time from the click to the first change, or no reaction",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/press.png",
+      "size": 1490
+    },
+    {
+      "run": "rest",
+      "kind": "idle",
+      "metric": "hues",
+      "a": [
+        0,
+        0,
+        0,
+        0,
+        0.05,
+        0,
+        0,
+        0,
+        0.4,
+        0,
+        0,
+        0
+      ],
+      "b": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.4,
+        0,
+        0,
+        0
+      ],
+      "severity": "major",
+      "meaning": "A colour that flashes at rest on one page and not on the other",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/rest.png",
+      "size": 16.667
+    },
+    {
+      "run": "rest",
+      "kind": "idle",
+      "metric": "litPeak",
+      "a": 0.004,
+      "b": 0.02,
+      "severity": "major",
+      "meaning": "How much of the screen lights up at rest",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/rest.png",
+      "size": 5.0
+    },
+    {
+      "run": "drag",
+      "kind": "path",
+      "metric": "reaction",
+      "a": 0.01,
+      "b": 0.05,
+      "severity": "major",
+      "meaning": "How much the page reacts to a moving pointer",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/drag.png",
+      "size": 5.0
+    },
+    {
+      "run": "fine",
+      "kind": "pass",
+      "metric": "transitions[0].spanPx",
+      "a": 400,
+      "b": 150,
+      "severity": "major",
+      "meaning": "How many pixels of scroll a colour change takes, 10% to 90%",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/fine.png",
+      "size": 2.667
+    },
+    {
+      "run": "walk",
+      "kind": "walk",
+      "metric": "sidewaysPx",
+      "a": 0,
+      "b": 170,
+      "severity": "major",
+      "meaning": "The page moves under a sideways wheel",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/walk.png",
+      "size": 1.0
+    },
+    {
+      "run": "walk",
+      "kind": "walk",
+      "metric": "scrollWidth",
+      "a": 1440,
+      "b": 1610,
+      "severity": "major",
+      "meaning": "The page is wider than the viewport",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/walk.png",
+      "size": 1.0
+    },
+    {
+      "run": "walk",
+      "kind": "walk",
+      "metric": "activeRanges",
+      "a": [
+        [
+          0,
+          100
+        ]
+      ],
+      "b": [
+        [
+          0,
+          400
+        ]
+      ],
+      "severity": "major",
+      "meaning": "Where on the page something moves at rest",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/walk.png",
+      "size": 0.75
+    },
+    {
+      "run": "fine",
+      "kind": "pass",
+      "metric": "transitions[0].largestStepPer40Px",
+      "a": 0.1,
+      "b": 0.4,
+      "severity": "major",
+      "meaning": "The hardest jump in a colour change, per 40 px of scroll",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/fine.png",
+      "size": 0.3
+    },
+    {
+      "run": "drag",
+      "kind": "path",
+      "metric": "reachPx",
+      "a": 200,
+      "b": 700,
+      "severity": "minor",
+      "meaning": "How far from the pointer the reaction spreads",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/drag.png",
+      "size": 3.5
+    },
+    {
+      "run": "card",
+      "kind": "hover",
+      "metric": "cursor",
+      "a": "pointer",
+      "b": "auto",
+      "severity": "departure",
+      "meaning": "The cursor over the target",
+      "sheet": "/var/folders/yh/9x6fxwy131z8dljj55bsqc7h0000gn/T/tmp.vEzYchER5d/motion-diff/files/1720510efe2b2d13/card.png",
+      "size": null
+    }
+  ]
+}

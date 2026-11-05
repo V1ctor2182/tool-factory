@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/page-sweep.schema.json",
+  "title": "Page sweep",
+  "description": "Lossless frames and timings from each run of a sweep plan. Frame paths are relative to the sweep.json next to them.",
+  "type": "object",
+  "required": [
+    "url",
+    "sweep",
+    "viewport",
+    "runs",
+    "loadErrors"
+  ],
+  "properties": {
+    "url": {
+      "type": "string"
+    },
+    "sweep": {
+      "type": "string"
+    },
+    "viewport": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "loadErrors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "errors"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "missing",
+              "failed"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "at": {
+            "type": "number"
+          },
+          "scrollY": {
+            "type": "number"
+          },
+          "frames": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "file",
+                "t"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string"
+                },
+                "t": {
+                  "type": "number",
+                  "description": "Seconds since the run began."
+                },
+                "y": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "t",
+                "type"
+              ]
+            }
+          },
+          "stops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "y",
+                "a",
+                "b"
+              ],
+              "properties": {
+                "y": {
+                  "type": "number"
+                },
+                "a": {
+                  "type": "string"
+                },
+                "b": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "worstGapMs": {
+            "type": "number"
+          },
+          "overflow": {
+            "type": "object"
+          },
+          "state": {
+            "type": "object"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "forMs": {
+            "type": "integer",
+            "description": "The planned length of an idle run."
+          }
+        }
+      }
+    }
+  }
+}

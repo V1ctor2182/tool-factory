@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/page-facts.schema.json",
+  "title": "Page facts",
+  "description": "What one load of a live page says about itself before anyone clicks: labels, state attributes, animations, capabilities, and the targets a sweep can act on.",
+  "type": "object",
+  "required": [
+    "url",
+    "viewport",
+    "scrollHeight",
+    "scrollWidth",
+    "console",
+    "errors",
+    "labels",
+    "dataAttributes",
+    "sections",
+    "canvases",
+    "media",
+    "animations",
+    "capabilities",
+    "fonts",
+    "targets",
+    "originTrial"
+  ],
+  "properties": {
+    "url": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "viewport": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "scrollHeight": {
+      "type": "number"
+    },
+    "scrollWidth": {
+      "type": "number"
+    },
+    "console": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "label"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dataAttributes": {
+      "type": "object"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "tag",
+          "y",
+          "height"
+        ],
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "y": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "heading": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "canvases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "rect"
+        ],
+        "properties": {
+          "rect": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "media": {
+      "type": "object"
+    },
+    "animations": {
+      "type": "object",
+      "required": [
+        "scrollDriven",
+        "clock",
+        "names"
+      ],
+      "properties": {
+        "scrollDriven": {
+          "type": "integer"
+        },
+        "clock": {
+          "type": "integer"
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object"
+    },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "originTrial": {
+      "type": "boolean"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "selector",
+          "text",
+          "rect",
+          "y",
+          "safe"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "selector": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          },
+          "rect": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "y": {
+            "type": "number"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "safe": {
+            "type": "boolean",
+            "description": "A click stays on this page and writes nothing, as far as the markup says."
+          }
+        }
+      }
+    }
+  }
+}

@@ -70,7 +70,7 @@ test('every verb carries its CLI usage, and each output names a contract with it
 });
 
 test('microservices come first, the microservice with the most atoms leading', () => {
-  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'ui-clone', 'podcast', 'clipper', 'meeting-notes', 'writing-style']);
+  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'site-clone', 'ui-clone', 'podcast', 'clipper', 'meeting-notes', 'writing-style']);
   assert.deepEqual(row('youtube').uses, ['find-url', 'captions', 'download', 'transcribe', 'frames', 'see', 'digest']);
 });
 
@@ -84,7 +84,12 @@ test('each atom lists the microservices whose uses name it', () => {
     see: ['youtube', 'clipper'],
     transcribe: ['youtube', 'podcast', 'meeting-notes'],
     'ui-catalog': ['ui-clone'],
-    'page-bundle': [],
+    'motion-diff': ['site-clone'],
+    'motion-measure': ['site-clone'],
+    'motion-trace': ['site-clone'],
+    'page-bundle': ['site-clone'],
+    'page-read': ['site-clone'],
+    'page-sweep': ['site-clone'],
     'page-diff': ['ui-clone'],
     'page-record': ['ui-clone'],
     'ui-draft': ['ui-clone'],

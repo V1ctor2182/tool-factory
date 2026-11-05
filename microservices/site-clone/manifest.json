@@ -1,0 +1,43 @@
+{
+  "name": "site-clone",
+  "type": "microservice",
+  "kind": "pipeline",
+  "description": "Rebuild how a web page moves from its URL. study reads the page and sweeps scroll, rest, hover, and click across it. compare sweeps a rebuild the same way and lists what still differs. The skill form tells an agent how to loop the two until the differences run out.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "run",
+  "contract": "site-clone",
+  "uses": ["page-bundle", "page-read", "page-sweep", "motion-measure", "motion-trace", "motion-diff"],
+  "verbs": [
+    {
+      "name": "study",
+      "description": "Read a page, walk its whole scroll range, choose stops and targets from what the walk found, then sweep them twice so the second pass sets the noise floor. Writes everything to a workspace in the data home. Free, and takes minutes on a long page.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "The page to study." },
+          "name": { "type": "string", "x-flag": true, "description": "The workspace name, such as acme-home." },
+          "loadMs": { "type": "integer", "default": 6000, "description": "How long a page gets to assemble itself after load." },
+          "idleMs": { "type": "integer", "default": 6000, "description": "How long each rest at a stop records. Use at least two cycles of the slowest loop." }
+        },
+        "required": ["url", "name"]
+      },
+      "output": "site-clone"
+    },
+    {
+      "name": "compare",
+      "description": "Sweep a rebuild with the study's plan and list what differs from the original, largest first, with side-by-side frames per run. Each call adds a numbered round to the workspace. Free.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "The workspace from study." },
+          "clone": { "type": "string", "x-flag": true, "description": "URL of the rebuild, such as http://localhost:4400/." }
+        },
+        "required": ["name", "clone"]
+      },
+      "output": "site-clone"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
