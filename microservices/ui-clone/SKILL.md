@@ -47,7 +47,7 @@ For each site, `site` does these steps:
 3. It keeps the code of a component with a registry item, the way `collect` does.
 4. It rebuilds a component that is `locked`, or that has a page but no registry item, when the site has a `stage`:
    1. page-record surveys the page's idle state, with `stage` as the target.
-   2. `ui-steps` writes the states to drive from that survey.
+   2. `ui-steps` writes the states to drive from that survey, and adds a pointer sweep to idle. The rebuild is judged with the same grid, and the overall score cannot pass the sweep's worst point.
    3. page-record records the original with those steps. If a selector matches nothing, `ui-steps` gets page-record's message as `--problem` and tries once more.
    4. The `rebuild` loop runs with those steps and that recording, as `<name>-rebuild`, or `<site>-<name>-rebuild` when victor-ui already has that name.
 

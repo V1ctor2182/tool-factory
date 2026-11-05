@@ -18,9 +18,13 @@ The recording's steps file holds the page and the element to watch, with one idl
 { "url": "https://kobra.systems/components/button", "target": "[data-slot=\"preview-stage\"]", "states": [{ "name": "idle", "actions": [] }] }
 ```
 
-The result is a steps file and notes, as `contracts/ui-steps.schema.json` defines it. `steps` is a page-steps file. Its `url`, `target`, `viewport`, and `colorScheme` are the recording's, its first state is `idle` with no actions, and the model writes the 2 to 4 states after it. Each state that moves has `frames`. The atom checks `steps` against `contracts/page-steps.schema.json` before it returns or caches them. Without `--json` it prints one line per state and the notes.
+The result is a steps file and notes, as `contracts/ui-steps.schema.json` defines it. `steps` is a page-steps file. Its `url`, `target`, `viewport`, and `colorScheme` are the recording's, its first state is `idle` with no actions and a pointer sweep, and the model writes the 2 to 4 states after it. Each state that moves has `frames`. The atom checks `steps` against `contracts/page-steps.schema.json` before it returns or caches them. Without `--json` it prints one line per state and the notes.
 
 The steps are a guess until page-record runs them. Record the original with them, and when page-record fails, pass its message as `--problem`. `ui-clone site` does this at most twice per component.
+
+## The sweep
+
+The atom adds the sweep itself, with no model involved, because one still of the idle state cannot show what the pointer does. The grid has a point about every 14 CSS pixels of the idle screenshot, at most 16 by 16. A cached call gets the same grid from the same screenshot. A target that never answers the pointer costs only the recording time, and page-diff then leaves its score alone.
 
 ## What the model sees
 

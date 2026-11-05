@@ -43,7 +43,9 @@ TOOL_FACTORY_CALLER=ui-steps-test "$bin" write "$rec/recording.json" --json > "$
 "$repo/contracts/check" ui-steps "$out/steps.json" || fail "write output does not match ui-steps.schema.json"
 [ "$(jq -c '.steps | [.url, .target, .viewport, .colorScheme]' "$out/steps.json")" = '["https://fixture.test/components/menu","[data-slot=\"preview-stage\"]",{"width":1024,"height":640},"light"]' ] \
 	|| fail "the recording's url, target, viewport, and colorScheme were not kept: $(jq -c .steps "$out/steps.json")"
-[ "$(jq -c '.steps.states[0]' "$out/steps.json")" = '{"name":"idle","actions":[]}' ] || fail "idle is not the first state: $(jq -c '.steps.states[0]' "$out/steps.json")"
+[ "$(jq -c '.steps.states[0]' "$out/steps.json")" = '{"name":"idle","actions":[],"sweep":{"cols":9,"rows":3}}' ] \
+	|| fail "idle is not the first state, with a sweep sized to its 120 by 40 screenshot: $(jq -c '.steps.states[0]' "$out/steps.json")"
+[ "$(jq '[.steps.states[1:][] | has("sweep")] | any' "$out/steps.json")" = false ] || fail "a state after idle has a sweep: $(jq -c .steps.states "$out/steps.json")"
 [ "$(jq '.steps.states | length >= 3 and length <= 5' "$out/steps.json")" = true ] || fail "the steps do not add 2 to 4 states after idle: $(jq -c '.steps.states' "$out/steps.json")"
 [ "$(jq '[.steps.states[].actions[] | select(.do == "click" and (.selector | startswith("[data-slot=\"preview-stage\"]")) and (.selector | test("button|haspopup")))] | length > 0' "$out/steps.json")" = true ] \
 	|| fail "no state clicks the menu's trigger inside the target: $(jq -c '[.steps.states[].actions]' "$out/steps.json")"

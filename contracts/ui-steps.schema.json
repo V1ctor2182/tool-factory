@@ -8,7 +8,7 @@
     "model": { "type": "string", "description": "The model that wrote the states." },
     "steps": {
       "$ref": "https://victor-tool-factory.local/contracts/page-steps.schema.json",
-      "description": "The steps file. url, target, viewport, and colorScheme come from the recording. states starts with idle, which has no actions."
+      "description": "The steps file. url, target, viewport, and colorScheme come from the recording. states starts with idle, which has no actions and a pointer sweep sized to its screenshot."
     },
     "notes": { "type": "string", "description": "What each state shows and why its timing is what it is." },
     "costUsd": { "type": "number", "minimum": 0, "description": "Model spend for this call. 0 on a cache hit." },
