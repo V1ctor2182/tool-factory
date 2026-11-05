@@ -84,4 +84,40 @@ if "$bin" write "$rec/recording.json" --json > "$out/bad.json"; then fail "write
 [ "$(jq -r .error.code "$out/bad.json")" = invalid_args ] || fail "write without --name did not report invalid_args"
 [ "$(jq -s '[.[] | select(.costUsd > 0)] | length' "$runs")" = 1 ] || fail "a call other than the first spent money"
 
+uv run -q --with pillow python - "$rec" <<'PY'
+import json, shutil, sys
+from pathlib import Path
+from PIL import Image, ImageDraw
+rec = Path(sys.argv[1])
+dots = rec / "dots"
+(dots / "s").mkdir(parents=True)
+def row(big=None):
+    image = Image.new("RGB", (136, 56), "#0a0a0a")
+    draw = ImageDraw.Draw(image)
+    for i, x in enumerate((28, 68, 108)):
+        r = 22 if i == big else 16
+        draw.ellipse((x - r, 28 - r, x + r, 28 + r), fill="#60a5fa")
+    return image
+row().save(dots / "s" / "rest.png")
+points = []
+for i, x in enumerate((20, 60, 100)):
+    row(i).save(dots / "s" / f"{i}.png")
+    points.append({"col": i, "row": 0, "x": x, "y": 20, "image": f"s/{i}.png", "cursor": "pointer", "changed": {f":scope > :nth-child({i + 1})": {"scale": "1.38"}}})
+(dots / "sweep.json").write_text(json.dumps({"cols": 3, "rows": 1, "dwellMs": 800, "rest": "s/rest.png", "points": points}))
+recording = json.loads((rec / "recording.json").read_text())
+recording["states"] = [{**recording["states"][0], "screenshot": str(dots / "s" / "rest.png"), "sweep": str(dots / "sweep.json")}]
+(dots / "recording.json").write_text(json.dumps(recording))
+plain = {**recording, "states": [{k: v for k, v in recording["states"][0].items() if k != "sweep"}]}
+(dots / "plain.json").write_text(json.dumps(plain))
+worst = {"col": 1, "row": 0, "a": {":scope > :nth-child(2)": {"scale": "1.27"}}, "b": {}, "image": str(dots / "s" / "1.png")}
+state = {"name": "idle", "score": 0.9, "sweep": {"agreement": 0, "grid": [[0, 0, 0]], "cursors": 3, "worst": worst}}
+(dots / "diff.json").write_text(json.dumps({"score": 0, "states": [state]}))
+(dots / "previous.json").write_text(json.dumps({"item": {"name": "dots-rebuild", "files": []}, "demo": "export default function Demo() { return <div data-preview-root /> }", "notes": "first draft"}))
+PY
+"$repo/contracts/check" page-recording "$rec/dots/recording.json" || fail "the sweep fixture is not a page-recording"
+"$bin" write "$rec/dots/recording.json" --name dots-rebuild --packages clsx,tailwind-merge --json > "$out/sweep.json" || fail "a recording with a sweep exited nonzero: $(cat "$out/sweep.json")"
+jq -r '.item.files[0].content, .demo, (.item.css | tostring)' "$out/sweep.json" | grep -q '1\.38' || fail "the draft did not take the scale that only the sweep shows: $(jq -r '.item.files[0].content' "$out/sweep.json")"
+"$bin" write "$rec/dots/plain.json" --name dots-rebuild --packages clsx,tailwind-merge --previous "$rec/dots/previous.json" --diff "$rec/dots/diff.json" --json > "$out/sweep-diff.json" || fail "a diff with a sweep exited nonzero: $(cat "$out/sweep-diff.json")"
+jq -r '.item.files[0].content, .demo, (.item.css | tostring)' "$out/sweep-diff.json" | grep -q '1\.27' || fail "the draft did not take the scale that only the diff's sweep shows: $(jq -r '.item.files[0].content' "$out/sweep-diff.json")"
+
 echo "PASS ui-draft"

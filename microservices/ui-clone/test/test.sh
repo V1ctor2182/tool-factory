@@ -78,7 +78,7 @@ case "$name $1" in
 	pro-card) case "$*" in *--problem*) ;; *) selector='#bad' ;; esac ;;
 	esac
 	jq -cn --arg s "$selector" --arg slug "$slug" '{model: "stub", steps: {url: "https://stub.test/components/\($slug)", target: "[data-stage]",
-		states: [{name: "idle", actions: []}, {name: "hover", actions: [{do: "hover", selector: $s}]}]}, notes: "n", costUsd: 0.05, cacheHit: false}' ;;
+		states: [{name: "idle", actions: [], sweep: {cols: 4, rows: 2}}, {name: "hover", actions: [{do: "hover", selector: $s}]}]}, notes: "n", costUsd: 0.05, cacheHit: false}' ;;
 "page-diff compare")
 	n=$(grep -c '^page-diff' "$STUB_LOG")
 	score=$(echo "${STUB_SCORES:-0.95}" | cut -d' ' -f"$n")
@@ -335,6 +335,7 @@ site_report "site"
 	|| fail "pro-card's working steps were not saved in the data home"
 [ "$(jq -c '[.target, .states[1].actions[0].selector]' "$site_dir/pro-card/rebuild-steps.json")" = '["[data-slot=\"preview-stage\"]","[data-slot=\"preview-stage\"] button"]' ] \
 	|| fail "the rebuild's steps do not swap the site's stage for the preview's: $(cat "$site_dir/pro-card/rebuild-steps.json")"
+[ "$(jq -c '.states[0].sweep' "$site_dir/pro-card/rebuild-steps.json")" = '{"cols":4,"rows":2}' ] || fail "the rebuild's steps lost the original's sweep: $(cat "$site_dir/pro-card/rebuild-steps.json")"
 [ "$(ran "page-record capture $site_dir/pro-card/rebuild-steps.json --url")" = 1 ] || fail "the rebuild was not recorded with the preview's stage: $(grep page-record "$STUB_LOG")"
 [ "$(ran "ui-steps write /stub/survey/pro-card/recording.json --problem page-record: state 'hover' action 0 (hover): no element matches '#bad' --json")" = 1 ] \
 	|| fail "steps that failed to record were not revised with page-record's message: $(grep ui-steps "$STUB_LOG")"

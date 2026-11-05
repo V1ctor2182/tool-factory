@@ -11,7 +11,9 @@ Return these fields.
 - `title` and `description`. A short title, and one sentence on what the component is and does.
 - `notes`. What this draft changed and why, in a few sentences. Name the observations or diff entries each change answers.
 
-When a previous draft and the judge's diff are given, revise that draft. Fix the largest differences first: missing states, then missing or misplaced overlays, then the settled pixels, then styles, then animations and motion. Keep what already matches. When a problem is given, such as a type error or an install error, fix it first, because a draft that fails to install scores nothing.
+A state can have a pointer sweep. The judge moves the pointer over a grid on your target too, and compares what changes from rest at each point. Your overall score cannot pass the worst point, so one dead or wrong spot sinks a draft that looks right. Work out the rule from the values: what the pointer's position decides, which element answers, and how the others move. Handle the pointer on the element that receives it, and do not rely on hovering one child when the original answers across the surface.
+
+When a previous draft and the judge's diff are given, revise that draft. Fix the largest differences first: missing states, then wrong answers to the pointer, then missing or misplaced overlays, then the settled pixels, then styles, then animations and motion. Keep what already matches. When a problem is given, such as a type error or an install error, fix it first, because a draft that fails to install scores nothing.
 
 Leave out what belongs to the site showing the component, such as a code viewer or an upgrade prompt.
 

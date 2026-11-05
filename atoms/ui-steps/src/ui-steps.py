@@ -6,6 +6,7 @@
 # ///
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from factory_kit import cli, model
@@ -18,7 +19,10 @@ SPEC = model.load(ROOT)
 STEPS_SCHEMA = json.loads((ROOT.parents[1] / "contracts" / "page-steps.schema.json").read_text(encoding="utf-8"))
 DEFAULTS = {"target": "body", "viewport": {"width": 1280, "height": 800}, "colorScheme": "dark"}
 LIMITS = {"dom": 16_000, "styles": 10_000, "animations": 4_000, "problem": 4_000}
-IDLE = {"name": "idle", "actions": []}
+# A point every 14 CSS pixels lands several on each swatch of a 224 px palette. The cap keeps a page-sized target to 256 points.
+SWEEP_STEP_PX = 14
+SWEEP_MAX = 16
+DEVICE_SCALE = 2
 
 
 def _action(verbs: list[str], required: str | None, optional: str | None = None) -> dict:
@@ -89,7 +93,18 @@ def _text(path: str, what: str) -> str:
         raise cli.AtomError("invalid_source", f"{what} is not a file: {path}") from None
 
 
-def _survey(path: str) -> tuple[dict, list[str | Path]]:
+def _sweep(screenshot: str) -> dict:
+    """The grid for a pointer sweep over the idle target. A model cannot see what the pointer does from one still, so every component gets one."""
+    try:
+        with open(screenshot, "rb") as png:
+            header = png.read(24)[16:]
+    except OSError:
+        raise cli.AtomError("invalid_source", f"screenshot is not a file: {screenshot}") from None
+    cells = lambda px: max(1, min(SWEEP_MAX, math.ceil(px / DEVICE_SCALE / SWEEP_STEP_PX)))
+    return {"cols": cells(int.from_bytes(header[:4])), "rows": cells(int.from_bytes(header[4:]))}
+
+
+def _survey(path: str) -> tuple[dict, dict, list[str | Path]]:
     recording = _json(path, "recording")
     if not isinstance(recording.get("states"), list) or not recording["states"] or "steps" not in recording:
         raise cli.AtomError("invalid_source", f"Not a page-record recording.json: {path}")
@@ -104,7 +119,7 @@ def _survey(path: str) -> tuple[dict, list[str | Path]]:
         "Computed styles by element path:\n" + _clip(_text(idle["styles"], "styles"), LIMITS["styles"]),
         "Animations running while idle:\n" + _clip(json.dumps(idle["animations"]), LIMITS["animations"]),
     ]
-    return fixed, parts
+    return fixed, {"name": "idle", "actions": [], "sweep": _sweep(idle["screenshot"])}, parts
 
 
 def _key(parts: list[str | Path]) -> str:
@@ -115,7 +130,7 @@ def _key(parts: list[str | Path]) -> str:
 
 
 def write(recording: str, problem: str | None = None) -> dict:
-    fixed, parts = _survey(recording)
+    fixed, idle, parts = _survey(recording)
     if problem:
         parts.append(f"# The problem the last steps hit\n\n{_clip(problem, LIMITS['problem'])}")
     key = _key(parts)
@@ -125,7 +140,7 @@ def write(recording: str, problem: str | None = None) -> dict:
     cost = 0.0
     if not hit:
         output, cost = model.ask(SPEC, SCHEMA, parts)
-    steps = {**fixed, "states": [IDLE, *output["states"]]}
+    steps = {**fixed, "states": [idle, *output["states"]]}
     errors = sorted(Draft202012Validator(STEPS_SCHEMA).iter_errors(steps), key=str)
     if errors:
         raise cli.AtomError("model_error", "The model's states do not make a page-steps file: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors), cost)
@@ -139,7 +154,8 @@ def _summary(result: dict) -> str:
     for state in result["steps"]["states"]:
         actions = ", ".join(" ".join(str(v) for v in action.values()) for action in state["actions"]) or "no actions"
         frames = f"  frames every {state['frames']['everyMs']} ms for {state['frames']['forMs']} ms" if "frames" in state else ""
-        lines.append(f"{state['name']}: {actions}{frames}")
+        sweep = f"  sweep {state['sweep']['cols']} by {state['sweep']['rows']}" if "sweep" in state else ""
+        lines.append(f"{state['name']}: {actions}{frames}{sweep}")
     return "\n".join([*lines, result["notes"]])
 
 
