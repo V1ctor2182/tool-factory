@@ -119,9 +119,8 @@ if (process.argv.includes('--rebuild')) {
 	console.log(`updated ${result.item.name}`)
 	process.exit(0)
 }
-const site = process.argv[process.argv.indexOf('--site') + 1]
 if (result.item.name === 'bad-add') { console.error('stub add refused'); process.exit(1) }
-appendFileSync(new URL('../written', import.meta.url), `${result.item.name}\t${license}\t${JSON.stringify(result.item.cssVars.theme)}\t${site}\n`)
+appendFileSync(new URL('../written', import.meta.url), `${result.item.name}\t${license}\t${JSON.stringify(result.item.cssVars.theme)}\n`)
 console.log(`added ${result.item.name}: registry/${result.item.name}/${result.item.name}.tsx`)
 ADD
 cat > "$ui/scripts/preview-install.mjs" <<'INSTALL'
@@ -164,7 +163,6 @@ report "collect kobra"
 [ "$(cut -f2 "$ui/written")" = "$(jq -r .kobra.terms "$test_dir/../sites.json")" ] || fail "add.mjs did not get kobra's terms as --license"
 [ "$(cut -f3 "$ui/written")" = '{"--ease-out":"linear","--ease-in-out":"cubic-bezier(0.77, 0, 0.175, 1)","--otp-gap":"4px"}' ] \
 	|| fail "add.mjs did not get kobra's theme under the item's own: $(cut -f3 "$ui/written")"
-[ "$(cut -f4 "$ui/written")" = kobra ] || fail "add.mjs did not get --site kobra: $(cut -f4 "$ui/written")"
 grep -q '^ui-clone: 1/6 input-otp: kept' "$out/stderr" || fail "collect did not log progress to stderr: $(cat "$out/stderr")"
 
 call collect kobra --into "$ui" --only input-otp --json || fail "collect kobra again failed"
@@ -343,9 +341,9 @@ site_report "site"
 	|| fail "steps that fail twice did not end as no-steps after 2 tries: $(jq -r '.items[5].detail' "$out/stdout")"
 [ "$(drafted 1)" = "ui-draft write /stub/checked/pro-card/recording.json --name pro-card-rebuild --packages clsx,motion --json" ] \
 	|| fail "the rebuild did not reuse the recording that checked its steps: $(drafted 1)"
-case "$(drafted 2)" in "ui-draft write /stub/checked/page-only/recording.json --name stubsite-page-only-rebuild "*) ;; *) fail "a taken rebuild name was not prefixed with the site: $(drafted 2)" ;; esac
+case "$(drafted 2)" in "ui-draft write /stub/checked/page-only/recording.json --name page-only-2-rebuild "*) ;; *) fail "a taken rebuild name did not get a number: $(drafted 2)" ;; esac
 [ "$(ran 'page-record capture') $(ran 'page-record capture /stub')" = "10 0" ] || fail "site recorded more than 3 surveys, 5 checks, and 2 judged rounds: $(grep page-record "$STUB_LOG")"
-[ "$(jq -c '[.items[1].detail, .items[6].detail]' "$out/stdout")" = '["pro-card-rebuild, best round 1 of 1","stubsite-page-only-rebuild, best round 1 of 1"]' ] \
+[ "$(jq -c '[.items[1].detail, .items[6].detail]' "$out/stdout")" = '["pro-card-rebuild, best round 1 of 1","page-only-2-rebuild, best round 1 of 1"]' ] \
 	|| fail "the rebuilt rows did not name the item and round: $(jq -c '[.items[1].detail, .items[6].detail]' "$out/stdout")"
 
 call site stubsite --into "$ui" --rounds 1 --only secret || fail "text site failed"

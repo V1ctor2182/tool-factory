@@ -49,7 +49,7 @@ For each site, `site` does these steps:
    1. page-record surveys the page's idle state, with `stage` as the target.
    2. `ui-steps` writes the states to drive from that survey, and adds a pointer sweep to idle. The rebuild is judged with the same grid, and the overall score cannot pass the sweep's worst point.
    3. page-record records the original with those steps. If a selector matches nothing, `ui-steps` gets page-record's message as `--problem` and tries once more.
-   4. The `rebuild` loop runs with those steps and that recording, as `<name>-rebuild`, or `<site>-<name>-rebuild` when victor-ui already has that name.
+   4. The `rebuild` loop runs with those steps and that recording, as `<name>-rebuild`, or `<name>-2-rebuild` when victor-ui already has that name.
 
 The survey, `survey.json`, and the steps, `steps.json`, stay in the data home under `microservices/ui-clone/site/<site>/<name>/`. The rebuild's rounds stay under `microservices/ui-clone/rebuild/<name>/`, as for `rebuild`.
 
@@ -131,6 +131,10 @@ To judge a rebuild by hand, score it, then fix the largest difference and score 
 
 `rebuild` stops at a score of 0.9 or after five rounds. Victor then looks at the rebuild and decides whether it needs more work. Pass `--target` to push one further. The score is mechanical and strict, so a rebuild can score well below 1 and still look the same. Measured on Kobra's input-otp on 2026-11-02, with `sites.json`'s Kobra theme in place: two recordings of the original score 0.9999 against each other, Kobra's own code in the preview scores 0.972, a hand-made rebuild from observation scores 0.976, and `rebuild`'s round 5 scores 0.942. Victor could not tell the four apart. What keeps Kobra's own code from 1 is the licensed font the preview lacks, and the rest of the gap is motion a frame early or late. When a site's fonts or images are missing from the preview, judge one of its kept components against its page first, to see how high the real code scores there.
 
+A name another source already holds gets a number, such as `toast-2`. When the two differ, compare them and run victor-ui's `scripts/rename.mjs` to name the difference, such as `toast-icons`. Names never carry the site's name.
+
+A site's `index` and `base` in `sites.json` name where its registry is read from. rareui.com answers scripts with HTTP 403 and 429, measured on 2026-11-05, so its entry reads the same registry from its public GitHub repository. It has no `stage`, since every item there is free.
+
 A site's `theme` in `sites.json` holds the CSS variables its stylesheet sets for every component, read from the rendered page. `collect` adds them to each kept item's `cssVars.theme`, under the item's own. Without them Kobra's `ease-out` resolves to Tailwind's default curve, and its own code scored 0.964 before the theme was added.
 
 Main-thread motion, such as motion's `x` springs, never shows up in `animations`, but page-diff's `motion` lists each element whose transform or opacity moves differently, frame by frame. Ask for `frames` on every state that moves. A state that lasts only between two frames still escapes the recording. Watch the page yourself for those. Make `forMs` cover the slowest reaction. Kobra's error shake starts 1550 ms after the code is typed. A reaction that starts within a few milliseconds of a frame can land one frame later from run to run, so the same element can show up in `motion` even when the original is compared with itself.
@@ -140,8 +144,8 @@ On failure before any component is fetched, the script exits 1. With `--json` it
 | Code | Meaning | What to do |
 |---|---|---|
 | `invalid_args` | `--into` has no `scripts/add.mjs`, the site is neither a key nor a URL, `--only` names a component the site lacks, or an argument is missing | Check `run --help` and the path |
-| `unavailable` | The site refused its registry index. rareui.com answered HTTP 403 on 2026-11-01 | Report the message |
-| `rate_limited` | The site answered HTTP 429 for its registry index. rareui.com did on 2026-11-01 | Retry later |
+| `unavailable` | The site refused its registry index | Report the message |
+| `rate_limited` | The site answered HTTP 429 for its registry index | Retry later |
 | `network_error` | The site could not be reached | Retry later |
 | `invalid_source` | The site has no shadcn registry index at the address tried | Add an `index` and `base` to its `sites.json` entry |
 | `internal` | A bug. The traceback is on stderr | Report the message and the traceback |
