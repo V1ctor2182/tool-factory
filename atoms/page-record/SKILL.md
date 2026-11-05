@@ -34,7 +34,7 @@ bin/page-record capture steps.json --url http://localhost:3000/preview/input-otp
 
 `target` is the component root, and defaults to `body`. Screenshots, the DOM, and styles cover it. Pick a selector that names the component's own markup, not a wrapper the site adds.
 
-Actions are `hover`, `click`, `focus`, `scroll` (each needs `selector`), `type` and `paste` (need `text`), `press` (needs `key`, a Playwright key name such as `Backspace` or `ControlOrMeta+a`), and `wait` (needs `ms`). `type`, `press`, and `paste` act on the focused element when `selector` is absent. Each state's actions run after the previous state's, like one user session.
+Actions are `hover`, `click`, `focus`, `scroll` (each needs `selector`), `type` and `paste` (need `text`), `press` (needs `key`, a Playwright key name such as `Backspace` or `ControlOrMeta+a`), and `wait` (needs `ms`). `type`, `press`, and `paste` act on the focused element when `selector` is absent. Each state's actions run after the previous state's, like one user session. `drag` needs `selector` and `by` (`{x, y}` in CSS pixels) and keeps the pointer down, so the state's frames show the held motion. A later `drop` releases it, and every `drag` needs one. A drag is not frame-exact. Motion that steps once per animation frame can differ by a few frames between runs of the same steps.
 
 `paste` dispatches a paste event that carries `text`, and inserts the text when the page does not cancel the event. It never touches the system clipboard.
 
