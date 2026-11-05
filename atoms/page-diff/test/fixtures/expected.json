@@ -28,7 +28,8 @@
         "changed": []
       },
       "motion": [],
-      "overlays": []
+      "overlays": [],
+      "sweep": null
     },
     {
       "name": "hover",
@@ -244,7 +245,8 @@
           ]
         }
       ],
-      "overlays": []
+      "overlays": [],
+      "sweep": null
     },
     {
       "name": "open",
@@ -272,7 +274,8 @@
         "changed": []
       },
       "motion": [],
-      "overlays": []
+      "overlays": [],
+      "sweep": null
     },
     {
       "name": "closed",
@@ -294,7 +297,8 @@
         "changed": []
       },
       "motion": [],
-      "overlays": []
+      "overlays": [],
+      "sweep": null
     }
   ]
 }

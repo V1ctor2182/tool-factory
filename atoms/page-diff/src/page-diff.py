@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 RECORDING_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "page-recording.schema.json").read_text(encoding="utf-8"))
 
 # Bump when the comparison or the score changes, so cached diffs from the old formula stop matching.
-VERSION = 3
+VERSION = 4
 SCALE = 2
 STYLE_CAP = 50
 PATH_CAP = 5
@@ -38,6 +38,8 @@ KEYFRAME_TIMING = {"offset", "easing", "composite"}
 # Largest difference per matrix3d component that still counts as the same motion: translation in CSS pixels, the rest unitless.
 MOVE_PX, MATRIX_EPS, OPACITY_EPS = 0.5, 0.01, 0.01
 TRANSLATE = {12, 13, 14}
+# A sweep compares averages over cells this many CSS pixels wide. A component on a half CSS pixel rasterizes differently from itself on a whole one, and at 12 px that noise is gone while a swatch scaled to 1.25 instead of 1.38 still shows.
+CELL_PX = 12
 GAP = 4
 BACKGROUND = (40, 40, 40, 255)
 OUTSIDE = (255, 0, 255, 255)
@@ -50,6 +52,14 @@ NUMBER = re.compile(r"-?\d*\.?\d+(?:e-?\d+)?")
 
 def _r(x: float) -> float:
     return round(float(x), 6)
+
+
+def _load_sweep(file: Path, path: str) -> dict:
+    try:
+        sweep = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise cli.AtomError("invalid_source", f"{path}: cannot read the sweep {file}: {e}") from None
+    return {**sweep, "rest": file.parent / sweep["rest"], "points": [{**p, "image": file.parent / p["image"]} for p in sweep["points"]]}
 
 
 def _load(path: str) -> dict:
@@ -67,24 +77,33 @@ def _load(path: str) -> dict:
             raise cli.AtomError("invalid_source", f"{path} has two states named {st['name']!r}")
         overlays = [{**o, "screenshot": file.parent / o["screenshot"], "styles": file.parent / o["styles"]} for o in st["overlays"]]
         state = {**st, **{k: file.parent / st[k] for k in ("screenshot", "styles", "motion")}, "frames": [file.parent / f for f in st["frames"]], "overlays": overlays}
-        for f in [state["screenshot"], *state["frames"], state["styles"], state["motion"], *(o[k] for o in overlays for k in ("screenshot", "styles"))]:
+        state["sweep"] = _load_sweep(file.parent / st["sweep"], path) if "sweep" in st else None
+        sweep_files = [state["sweep"]["rest"], *(p["image"] for p in state["sweep"]["points"])] if state["sweep"] else []
+        for f in [state["screenshot"], *state["frames"], state["styles"], state["motion"], *(o[k] for o in overlays for k in ("screenshot", "styles")), *sweep_files]:
             if not f.is_file():
                 raise cli.AtomError("invalid_source", f"{path}: state {st['name']!r} points at {f}, which is not a file")
         states[st["name"]] = state
     return {"path": str(file), "states": states}
 
 
+def _sweep_fingerprint(sweep: dict | None) -> dict | None:
+    return sweep and {
+        "cols": sweep["cols"], "rows": sweep["rows"], "rest": file_sha256(sweep["rest"]),
+        "points": [{"image": file_sha256(p["image"]), "cursor": p["cursor"], "changed": p["changed"]} for p in sweep["points"]],
+    }
+
+
 def _fingerprint(recording: dict) -> list:
     return [
-        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"], "overlays": [{"screenshot": file_sha256(o["screenshot"]), "styles": file_sha256(o["styles"]), "offset": o["offset"], "at": o["at"]} for o in s["overlays"]]}
+        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"], "overlays": [{"screenshot": file_sha256(o["screenshot"]), "styles": file_sha256(o["styles"]), "offset": o["offset"], "at": o["at"]} for o in s["overlays"]], "sweep": _sweep_fingerprint(s["sweep"])}
         for name, s in recording["states"].items()
     ]
 
 
-def _rgba(path: Path) -> np.ndarray:
+def _rgba(path: Path, reduce: int = 1) -> np.ndarray:
     try:
         with Image.open(path) as im:
-            return np.asarray(im.convert("RGBA"), dtype=np.int16)
+            return np.asarray(im.convert("RGBA").reduce(reduce), dtype=np.int16)
     except (UnidentifiedImageError, OSError) as e:
         raise cli.AtomError("invalid_source", f"{path} is not an image: {e}") from None
 
@@ -286,13 +305,55 @@ def _overlays(slug: str, list_a: list, list_b: list, tolerance: int, out: Path) 
     return rows, (sum(scores) / len(scores) if scores else None)
 
 
+def _sweep(slug: str, name: str, sa: dict | None, sb: dict | None, tolerance: int, out: Path) -> dict | None:
+    if not sa and not sb:
+        return None
+    if not sa or not sb or (sa["cols"], sa["rows"]) != (sb["cols"], sb["rows"]):
+        raise cli.AtomError("invalid_source", f"State {name!r} does not have the same sweep in both recordings, so they did not use one steps file.")
+    rest_a, rest_b = _rgba(sa["rest"], CELL_PX), _rgba(sb["rest"], CELL_PX)
+    h, w = min(rest_a.shape[0], rest_b.shape[0]), min(rest_a.shape[1], rest_b.shape[1])
+    grid: list[list] = [[None] * sa["cols"] for _ in range(sa["rows"])]
+    scores, worst = [], None
+    differs = lambda d: np.abs(d).max(axis=2) > tolerance
+    for pa, pb in zip(sa["points"], sb["points"], strict=True):
+        answer_a = (_rgba(pa["image"], CELL_PX) - rest_a)[:h, :w]
+        answer_b = (_rgba(pb["image"], CELL_PX) - rest_b)[:h, :w]
+        answered = differs(answer_a) | differs(answer_b)
+        if not answered.any():
+            continue
+        wrong = differs(answer_a - answer_b) & answered
+        score = 1 - float(wrong.sum()) / float(answered.sum())
+        grid[pa["row"]][pa["col"]] = _r(score)
+        scores.append(score)
+        if score < 1 and (worst is None or score < worst[0]):
+            worst = (score, pa, pb)
+    row = {
+        "agreement": _r(min(scores)) if scores else None,
+        "grid": grid,
+        "cursors": sum(pa["cursor"] != pb["cursor"] for pa, pb in zip(sa["points"], sb["points"])),
+        "worst": None,
+    }
+    if worst:
+        _, pa, pb = worst
+        x, y = _rgba(pa["image"]), _rgba(pb["image"])
+        image = _save(_join(_panels(x, y, _compare(x, y, tolerance)["delta"], tolerance), axis=1), out / f"{slug}.sweep.png")
+        row["worst"] = {"col": pa["col"], "row": pa["row"], "a": pa["changed"], "b": pb["changed"], "image": image}
+    return row
+
+
 def _missing(name: str, sa: dict | None, sb: dict | None) -> dict:
     size = lambda s: _size(_rgba(s["screenshot"])) if s else None
     return {
         "name": name, "score": 0.0, "missing": "a" if sa is None else "b",
         "size": {"a": size(sa), "b": size(sb)}, "pixels": None, "frames": [], "styles": [],
-        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "overlays": [], "image": None, "sheet": None,
+        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "overlays": [], "sweep": None, "image": None, "sheet": None,
     }
+
+
+def _images(state: dict) -> list[tuple[dict, str]]:
+    """Every place a state row holds the path of an image this diff wrote."""
+    worst = [(state["sweep"]["worst"], "image")] if state["sweep"] and state["sweep"]["worst"] else []
+    return [(state, "image"), (state, "sheet"), *((o, "image") for o in state["overlays"]), *worst]
 
 
 def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path) -> dict:
@@ -337,6 +398,7 @@ def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path)
         "size": {"a": _size(x), "b": _size(y)},
         "pixels": {"mismatch": _r(settled["mismatch"]), "meanDelta": _r(settled["meanDelta"])},
         "frames": frames, "styles": styles, "animations": animations, "motion": _motion(sa["motion"], sb["motion"]), "overlays": overlays,
+        "sweep": _sweep(slug, name, sa["sweep"], sb["sweep"], tolerance, out),
         "image": image, "sheet": sheet,
     }
 
@@ -348,7 +410,7 @@ def compare(a: str, b: str, tolerance: int) -> dict:
     fingerprint = {"v": VERSION, "tolerance": tolerance, "a": _fingerprint(ra), "b": _fingerprint(rb)}
     key = hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
     cache = Cache("page-diff")
-    if (cached := cache.get(key)) and all(Path(f).is_file() for s in cached["states"] for f in (s["image"], s["sheet"], *(o["image"] for o in s["overlays"])) if f):
+    if (cached := cache.get(key)) and all(Path(row[k]).is_file() for s in cached["states"] for row, k in _images(s) if row[k]):
         return {**cached, "a": ra["path"], "b": rb["path"]}
 
     names = list(ra["states"]) + [n for n in rb["states"] if n not in ra["states"]]
@@ -364,20 +426,19 @@ def compare(a: str, b: str, tolerance: int) -> dict:
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     for s in states:
-        for f in ("image", "sheet"):
-            if s[f]:
-                s[f] = str(final / Path(s[f]).name)
-        for o in s["overlays"]:
-            if o["image"]:
-                o["image"] = str(final / Path(o["image"]).name)
-    result = {"a": ra["path"], "b": rb["path"], "tolerance": tolerance, "score": _r(sum(s["score"] for s in states) / len(states)), "states": states}
+        for row, k in _images(s):
+            if row[k]:
+                row[k] = str(final / Path(row[k]).name)
+    # A mean would let a wrong answer to the pointer pass among many states that look right, so the worst sweep caps the score.
+    agreements = [s["sweep"]["agreement"] for s in states if s["sweep"] and s["sweep"]["agreement"] is not None]
+    result = {"a": ra["path"], "b": rb["path"], "tolerance": tolerance, "score": _r(min([sum(s["score"] for s in states) / len(states), *agreements])), "states": states}
     cache.put(key, result)
     return result
 
 
 def _text(result: dict) -> str:
     lines = [
-        f"{s['name']}  {s['score']:.4f}  " + (f"missing in {s['missing']}" if s["missing"] else f"{s['pixels']['mismatch']:.4f}")
+        f"{s['name']}  {s['score']:.4f}  " + (f"missing in {s['missing']}" if s["missing"] else f"{s['pixels']['mismatch']:.4f}") + (f"  sweep {s['sweep']['agreement']:.4f}" if s["sweep"] and s["sweep"]["agreement"] is not None else "")
         for s in result["states"]
     ]
     return "\n".join([*lines, f"score {result['score']:.4f}"])

@@ -8,7 +8,7 @@
     "a": { "type": "string", "description": "Absolute path of the reference recording.json." },
     "b": { "type": "string", "description": "Absolute path of the recording.json judged against a." },
     "tolerance": { "type": "integer", "minimum": 0, "maximum": 255, "description": "Largest per-channel difference that still counts as the same pixel." },
-    "score": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mean of the state scores. 1 means identical." },
+    "score": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mean of the state scores, capped at the lowest sweep agreement, so a rebuild that answers the pointer wrongly cannot pass on looks. 1 means identical." },
     "states": {
       "type": "array",
       "description": "a's states in order, then states only b has. States pair by name.",
@@ -106,10 +106,11 @@
             }
           },
           "overlays": { "type": "array", "items": { "$ref": "#/$defs/overlay" }, "description": "The state's overlays, such as popups outside the target, paired by document order. When either recording has one, they weigh as much as the settled pixels in the state's score." },
+          "sweep": { "$ref": "#/$defs/sweep" },
           "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side. Null for a missing state." },
           "sheet": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A contact sheet of the frames both recordings have, one column per frame index, with a, b, and the heatmap stacked top to bottom. Null when no frame index is shared." }
         },
-        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "image", "sheet"],
+        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "sweep", "image", "sheet"],
         "additionalProperties": false
       }
     },
@@ -118,6 +119,34 @@
   "required": ["a", "b", "tolerance", "score", "states", "cacheHit"],
   "additionalProperties": false,
   "$defs": {
+    "sweep": {
+      "type": ["object", "null"],
+      "description": "How alike the two pages answer the pointer, each measured against its own rest image, so a static difference counts only in pixels. Null without a sweep.",
+      "properties": {
+        "agreement": { "type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "The lowest number in the grid, so one dead or wrong spot counts. Null when neither page answered anywhere." },
+        "grid": {
+          "type": "array",
+          "description": "One row per grid row. A number is the share of cells that answered on either side and answered alike. Null where neither page answered.",
+          "items": { "type": "array", "items": { "type": ["number", "null"], "minimum": 0, "maximum": 1 } }
+        },
+        "cursors": { "type": "integer", "minimum": 0, "description": "Points whose CSS cursor differs. A diagnostic, outside the agreement." },
+        "worst": {
+          "type": ["object", "null"],
+          "description": "The point with the lowest agreement, the first one on a tie. Null when every point agrees.",
+          "properties": {
+            "col": { "type": "integer", "minimum": 0 },
+            "row": { "type": "integer", "minimum": 0 },
+            "a": { "type": "object", "description": "The elements that moved in a at this point, as in page-record's changed." },
+            "b": { "type": "object" },
+            "image": { "type": "string", "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side at this point." }
+          },
+          "required": ["col", "row", "a", "b", "image"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["agreement", "grid", "cursors", "worst"],
+      "additionalProperties": false
+    },
     "point": {
       "oneOf": [
         { "type": "object", "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }, "required": ["x", "y"], "additionalProperties": false },

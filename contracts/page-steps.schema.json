@@ -35,6 +35,17 @@
             },
             "required": ["everyMs", "forMs"],
             "additionalProperties": false
+          },
+          "sweep": {
+            "type": "object",
+            "description": "After the state settles, move the pointer, unpressed, to the middle of each cell of a grid over the target, and record how the page answers at each point. The pointer ends parked at the viewport's corner, so a later state that needs a hover asks for it again.",
+            "properties": {
+              "cols": { "type": "integer", "minimum": 1, "maximum": 32 },
+              "rows": { "type": "integer", "minimum": 1, "maximum": 32 },
+              "dwellMs": { "type": "integer", "minimum": 0, "default": 800, "description": "Page time to wait at each point before it counts as settled, longer than the page's slowest pointer transition." }
+            },
+            "required": ["cols", "rows"],
+            "additionalProperties": false
           }
         },
         "required": ["name", "actions"],

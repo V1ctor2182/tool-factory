@@ -255,12 +255,19 @@
       for (const el of [top, ...top.querySelectorAll('*')]) {
         if (el.tagName === 'SCRIPT') continue;
         const cs = getComputedStyle(el);
-        out[path(el, top)] = { transform: cs.transform, opacity: cs.opacity };
+        out[path(el, top)] = { transform: cs.transform, opacity: cs.opacity, scale: cs.scale, translate: cs.translate };
       }
       return out;
     },
 
     box: (selector, margin) => clip(root(selector).getBoundingClientRect(), margin),
+
+    rect(selector) {
+      const { left, top, width, height } = root(selector).getBoundingClientRect();
+      return { left, top, width, height };
+    },
+
+    cursor: (x, y) => getComputedStyle(document.elementFromPoint(x, y) ?? document.body).cursor,
 
     paste(text) {
       const target = document.activeElement ?? document.body;
