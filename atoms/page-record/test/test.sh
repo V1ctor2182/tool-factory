@@ -82,6 +82,23 @@ if "$bin" capture "$out/vanish.json" --json > "$out/vanish-out.json"; then fail 
 jq -n --arg url "file://$test_dir/fixtures/scroll-driven.html" '{url: $url, target: "body", states: [{name: "idle", actions: []}]}' > "$out/scroll-driven.json"
 "$bin" capture "$out/scroll-driven.json" --json > "$out/scroll-driven-out.json" || fail "a page with a scroll-driven animation did not record: $(cat "$out/scroll-driven-out.json")"
 
+jq -n --arg url "file://$test_dir/fixtures/drag.html" '{url: $url, target: "body", states: [
+	{name: "held", actions: [{do: "drag", selector: "#thumb", by: {x: 120, y: 0}}], frames: {everyMs: 50, forMs: 200}},
+	{name: "dropped", actions: [{do: "drop"}]}]}' > "$out/drag.json"
+"$bin" capture "$out/drag.json" --json > "$out/drag-out.json" || fail "a drag did not record: $(cat "$out/drag-out.json")"
+held=$(jq -r '.states[0].dom' "$out/drag-out.json" | xargs cat)
+case "$held" in *'data-held="true"'*) ;; *) fail "the pointer was not held through the state: $held" ;; esac
+case "$held" in *'>120</output>'*) ;; *) fail "the drag did not move the pointer 120 px: $held" ;; esac
+dropped=$(jq -r '.states[1].dom' "$out/drag-out.json" | xargs cat)
+case "$dropped" in *data-held*) fail "the drop did not release the pointer: $dropped" ;; esac
+jq -e '.tracks | to_entries | any(.value.transform)' "$(jq -r '.states[0].motion' "$out/drag-out.json")" > /dev/null || fail "the frames did not catch the thumb still moving during the drag"
+
+jq 'del(.states[1])' "$out/drag.json" > "$out/undropped.json"
+if "$bin" capture "$out/undropped.json" --json > "$out/undropped-out.json"; then fail "a drag with no drop exited 0"; fi
+jq -r .error.message "$out/undropped-out.json" | grep -q "no drop" || fail "a drag with no drop did not say so: $(cat "$out/undropped-out.json")"
+jq 'del(.states[0])' "$out/drag.json" > "$out/lone-drop.json"
+if "$bin" capture "$out/lone-drop.json" --json > "$out/lone-drop-out.json"; then fail "a drop with no drag exited 0"; fi
+
 jq '.states[0].actions[0] = {"do": "hover"}' "$steps" > "$out/bad.json"
 if "$bin" capture "$out/bad.json" --json > "$out/bad-out.json"; then fail "a hover with no selector exited 0"; fi
 [ "$(jq -r .error.code "$out/bad-out.json")" = invalid_args ] || fail "a steps file that breaks the schema did not report invalid_args"

@@ -29,6 +29,9 @@ STALL_S = 20
 SETTLE_STEP_MS = 100
 SETTLE_CAP_MS = 5_000
 MARGIN_PX = 8
+DRAG_MOVES = 10
+DRAG_MOVE_MS = 16
+DRAG_SEND_WAIT_MS = 5
 # Without these, transform and opacity animations run on the compositor thread on real time, outside the virtual clock.
 CHROMIUM_ARGS = ["--disable-threaded-animation", "--disable-threaded-scrolling", "--run-all-compositor-stages-before-draw", "--disable-checker-imaging"]
 CONTEXT = {"device_scale_factor": 2, "locale": "en-US", "timezone_id": "UTC", "reduced_motion": "no-preference", "service_workers": "block"}
@@ -45,6 +48,17 @@ def _steps(path: str) -> dict:
     errors = sorted(Draft202012Validator(STEPS_SCHEMA).iter_errors(steps), key=str)
     if errors:
         raise cli.AtomError("invalid_args", f"{path} is not a page-steps file: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors))
+    held = False
+    for state in steps["states"]:
+        for action in state["actions"]:
+            if action["do"] == "drag" and held:
+                raise cli.AtomError("invalid_args", f"{path}: state {state['name']!r} has a drag while the pointer is held")
+            if action["do"] == "drop" and not held:
+                raise cli.AtomError("invalid_args", f"{path}: state {state['name']!r} has a drop with no drag before it")
+            if action["do"] in ("drag", "drop"):
+                held = action["do"] == "drag"
+    if held:
+        raise cli.AtomError("invalid_args", f"{path}: a drag has no drop after it")
     return {"target": "body", "viewport": {"width": 1280, "height": 800}, "colorScheme": "dark", **steps}
 
 
@@ -112,6 +126,27 @@ def _paste(s: Session, a: dict, where: str):
         s.page.keyboard.insert_text(a["text"])
 
 
+def _drag(s: Session, a: dict, where: str):
+    loc = _on(s, a, where)
+    loc.scroll_into_view_if_needed()
+    box = loc.bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    s.page.mouse.move(x, y)
+    s.page.mouse.down()
+    # Chromium holds a pressed pointer's move, and its CDP answer, until the next frame, which never comes on a paused clock. So the move goes out without waiting and the clock lets it land.
+    # The clock also moves between pointer moves, so a spring sees a real velocity and the state's frames open on motion already under way.
+    for i in range(1, DRAG_MOVES + 1):
+        move = s.page._loop.create_task(s.page.mouse._impl_obj.move(x + a["by"]["x"] * i / DRAG_MOVES, y + a["by"]["y"] * i / DRAG_MOVES))
+        deadline = time.monotonic() + STALL_S
+        s.page.wait_for_timeout(DRAG_SEND_WAIT_MS)
+        while True:
+            s.advance(DRAG_MOVE_MS)
+            if move.done():
+                break
+            if time.monotonic() > deadline:
+                raise cli.AtomError("invalid_source", f"{where}: a pointer move did not land within {STALL_S}s")
+
+
 ACTIONS = {
     "hover": lambda s, a, w: _on(s, a, w).hover(),
     "click": lambda s, a, w: _on(s, a, w).click(),
@@ -121,6 +156,8 @@ ACTIONS = {
     "press": lambda s, a, w: _on(s, a, w).press(a["key"]) if "selector" in a else s.page.keyboard.press(a["key"]),
     "paste": _paste,
     "wait": lambda s, a, w: s.advance(a["ms"]),
+    "drag": _drag,
+    "drop": lambda s, a, w: s.page.mouse.up(),
 }
 
 
