@@ -1,0 +1,11 @@
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer theme{:root,:host{--primary:oklch(55% .2 260);--radius:10px;--tw-ring-offset-width:0px}}
+.dark{--primary:oklch(70% .15 260);--canvas:#141517}
+@font-face{font-family:"Sample Sans";src:url(/fonts/sample-sans.woff2) format("woff2")}
+.card{background:url(/img/card.png);transition:transform .2s cubic-bezier(.23, 1, .32, 1)}
+.toast{animation:enter-toast .3s cubic-bezier(.23,1,.32,1)}
+.modal{animation:exit-modal .2s cubic-bezier(.4,0,.2,1)}
+@keyframes enter-toast{from{opacity:0}to{opacity:1}}
+@keyframes exit-modal{to{opacity:0}}
+@media (prefers-color-scheme: dark){:root{--primary:oklch(80% .1 260)}}
+.highlight{--glow:#ff0}

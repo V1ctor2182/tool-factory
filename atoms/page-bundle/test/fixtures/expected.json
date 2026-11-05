@@ -1,0 +1,147 @@
+{
+  "assets": [
+    "/art/hero.svg",
+    "/fonts/sample-sans.woff2",
+    "/img/card.png",
+    "/og.png"
+  ],
+  "cacheHit": false,
+  "easings": [
+    {
+      "count": 2,
+      "value": "cubic-bezier(.23,1,.32,1)"
+    },
+    {
+      "count": 1,
+      "value": "cubic-bezier(.4,0,.2,1)"
+    }
+  ],
+  "files": [
+    {
+      "bytes": 716,
+      "path": "index.html",
+      "type": "html",
+      "url": null
+    },
+    {
+      "bytes": 969,
+      "path": "assets/index-abc123.js",
+      "type": "script",
+      "url": null
+    },
+    {
+      "bytes": 18,
+      "path": "assets/vendor-ghi789.js",
+      "type": "script",
+      "url": null
+    },
+    {
+      "bytes": 697,
+      "path": "assets/index-xyz.css",
+      "type": "stylesheet",
+      "url": null
+    },
+    {
+      "bytes": 64,
+      "path": "assets/chunk-def456.js",
+      "type": "script",
+      "url": null
+    },
+    {
+      "bytes": 167,
+      "path": "assets/index-abc123.js.map",
+      "type": "sourcemap",
+      "url": null
+    }
+  ],
+  "fonts": [
+    "Geist",
+    "Geist Mono",
+    "Sample Sans"
+  ],
+  "keyframes": [
+    "enter-toast",
+    "exit-modal"
+  ],
+  "keys": [
+    "?",
+    "ArrowUp",
+    "Escape",
+    "z"
+  ],
+  "meta": {
+    "description": "A sample board game.",
+    "og:image": "/og.png",
+    "title": "Sample Board"
+  },
+  "modules": [
+    {
+      "names": [],
+      "path": "../../src/game/update.ts"
+    },
+    {
+      "names": [],
+      "path": "../../src/main.ts"
+    },
+    {
+      "names": [
+        "ChangeSettled"
+      ],
+      "path": "src/game/settle.ts"
+    },
+    {
+      "names": [
+        "UndoChosen"
+      ],
+      "path": "src/game/update.ts"
+    },
+    {
+      "names": [
+        "view"
+      ],
+      "path": "src/game/view.ts"
+    }
+  ],
+  "routes": [
+    "/settings"
+  ],
+  "stack": [
+    {
+      "evidence": "/assets/index-abc123.js in index.html",
+      "layer": "build",
+      "name": "vite"
+    },
+    {
+      "evidence": "hook?.destroy?.( in assets/index-abc123.js",
+      "layer": "view",
+      "name": "snabbdom"
+    },
+    {
+      "evidence": "[PixiJS] in assets/index-abc123.js",
+      "layer": "render",
+      "name": "pixi"
+    },
+    {
+      "evidence": "/*! tailwindcss v4.3.3 in assets/index-xyz.css",
+      "layer": "style",
+      "name": "tailwind"
+    }
+  ],
+  "storageKeys": [
+    "sample.save.v1",
+    "sample.tab"
+  ],
+  "tokens": {
+    ".dark": {
+      "--canvas": "#141517",
+      "--primary": "oklch(70% .15 260)"
+    },
+    ":root,:host": {
+      "--primary": "oklch(55% .2 260)",
+      "--radius": "10px"
+    },
+    "@media (prefers-color-scheme: dark) :root": {
+      "--primary": "oklch(80% .1 260)"
+    }
+  }
+}
