@@ -31,6 +31,8 @@ SETTLE_CAP_MS = 5_000
 MARGIN_PX = 8
 DRAG_MOVES = 10
 DRAG_MOVE_MS = 16
+SWEEP_DWELL_MS = 800
+PARKED = (0, 0)
 # Without these, transform and opacity animations run on the compositor thread on real time, outside the virtual clock.
 CHROMIUM_ARGS = ["--disable-threaded-animation", "--disable-threaded-scrolling", "--run-all-compositor-stages-before-draw", "--disable-checker-imaging"]
 CONTEXT = {"device_scale_factor": 2, "locale": "en-US", "timezone_id": "UTC", "reduced_motion": "no-preference", "service_workers": "block"}
@@ -56,6 +58,8 @@ def _steps(path: str) -> dict:
                 raise cli.AtomError("invalid_args", f"{path}: state {state['name']!r} has a drop with no drag before it")
             if action["do"] in ("drag", "drop"):
                 held = action["do"] == "drag"
+        if held and "sweep" in state:
+            raise cli.AtomError("invalid_args", f"{path}: state {state['name']!r} has a sweep while the pointer is held")
     if held:
         raise cli.AtomError("invalid_args", f"{path}: a drag has no drop after it")
     return {"target": "body", "viewport": {"width": 1280, "height": 800}, "colorScheme": "dark", **steps}
@@ -83,18 +87,21 @@ class Session:
         while self.expired == before:
             if time.monotonic() > deadline:
                 raise cli.AtomError("network_error", f"{self.page.url} kept a request open for {STALL_S}s, so page time could not advance")
-            self.page.wait_for_timeout(5)
+            self.page.wait_for_timeout(1)
+
+    def step(self, ms: int):
+        self.run(ms)
+        self.js("drive")
 
     def advance(self, ms: int):
         self.collect()
-        self.run(ms)
-        self.js("drive")
+        self.step(ms)
         self.collect()
 
-    def settle(self):
+    def settle(self, step=None):
         elapsed = 0
         while True:
-            self.advance(SETTLE_STEP_MS)
+            (step or self.advance)(SETTLE_STEP_MS)
             elapsed += SETTLE_STEP_MS
             if elapsed >= SETTLE_CAP_MS or not self.js("unsettled"):
                 break
@@ -206,6 +213,49 @@ def _tracks(samples: list[dict]) -> dict:
     return tracks
 
 
+def _sweep(s: Session, grid: dict, slug: str, out: Path) -> str:
+    """Moves the pointer over the target and keeps how the page answers at each point. Runs after the state is recorded, since it leaves the pointer parked."""
+    folder = out / f"{slug}.sweep"
+    folder.mkdir()
+    dwell = grid.get("dwellMs", SWEEP_DWELL_MS)
+
+    # A sweep's animations belong to no state, so it skips collect, which walks the DOM on every step.
+    def settled() -> None:
+        s.step(dwell)
+        s.settle(s.step)
+
+    def shot(name: str) -> str:
+        # Device scale 1: many points are kept, and page-diff compares them in cells far coarser than a pixel.
+        s.page.screenshot(path=folder / name, clip=clip, caret="hide", scale="css")
+        return f"{folder.name}/{name}"
+
+    s.locate(s.target, f"sweep {slug}, the target").scroll_into_view_if_needed()
+    s.page.mouse.move(*PARKED)
+    settled()
+    box = s.js("rect", s.target)
+    clip = s.js("box", s.target, MARGIN_PX)
+    rest = s.js("motion", s.target)
+    sweep = {"cols": grid["cols"], "rows": grid["rows"], "dwellMs": dwell, "rest": shot("rest.png"), "points": []}
+    for row in range(grid["rows"]):
+        for col in range(grid["cols"]):
+            x, y = box["width"] * (col + 0.5) / grid["cols"], box["height"] * (row + 0.5) / grid["rows"]
+            s.page.mouse.move(box["left"] + x, box["top"] + y)
+            settled()
+            posed = s.js("motion", s.target)
+            changed = {path: diff for path, pose in posed.items() if (diff := {k: v for k, v in pose.items() if v != rest.get(path, {}).get(k)})}
+            sweep["points"].append({
+                "col": col, "row": row, "x": round(x, 3), "y": round(y, 3),
+                "image": shot(f"{row:02d}-{col:02d}.png"),
+                "cursor": s.js("cursor", box["left"] + x, box["top"] + y),
+                "changed": changed,
+            })
+    s.page.mouse.move(*PARKED)
+    settled()
+    file = out / f"{slug}.sweep.json"
+    file.write_text(json.dumps(sweep, indent=2), encoding="utf-8")
+    return str(file)
+
+
 def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
     page.add_init_script(PAGE_JS)
     s = Session(page, steps["target"])
@@ -261,6 +311,8 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
             "animations": list(s.seen.values()),
             "overlays": overlays,
         })
+        if "sweep" in state:
+            states[-1]["sweep"] = _sweep(s, state["sweep"], slug, out)
     return states
 
 

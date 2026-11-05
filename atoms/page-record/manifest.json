@@ -10,7 +10,7 @@
   "verbs": [
     {
       "name": "capture",
-      "description": "Run a page-steps file against its page and record each state: a settled screenshot, frames, the DOM without scripts, computed styles, and animations. Prints each settled screenshot path, one per line, or the recording with --json.",
+      "description": "Run a page-steps file against its page and record each state: a settled screenshot, frames, the DOM without scripts, computed styles, animations, and how the page answers the pointer across a grid when the state asks for a sweep. Prints each settled screenshot path, one per line, or the recording with --json.",
       "input": {
         "type": "object",
         "properties": {

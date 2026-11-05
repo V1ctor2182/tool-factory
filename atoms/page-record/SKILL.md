@@ -46,6 +46,20 @@ Chromium's own animation timeline does not follow the virtual clock. It moves on
 
 After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`. Frame i is at exactly i × `everyMs` after the actions, so frame 0 is the instant the actions finish. Then the atom advances 100 ms at a time until no finite animation runs and no `setTimeout` is pending, for at most 5 s, and records the settled state. A page that keeps a timer pending always settles for the full 5 s.
 
+## The sweep
+
+A state can ask for a pointer sweep, for a component that answers the pointer's position and not one element. A palette that pushes its swatches away from the pointer is one. A `hover` action only ever goes to an element's center, and a settled screenshot never shows the rest of the surface.
+
+```json
+{ "name": "idle", "actions": [], "sweep": { "cols": 16, "rows": 16, "dwellMs": 800 } }
+```
+
+After the state is recorded, the pointer parks at the viewport's corner, then moves unpressed to the middle of each grid cell over the target. It waits `dwellMs` of page time at each point, plus whatever `settle` still needs. `dwellMs` defaults to 800 and must outlast the slowest transition. The state's own screenshot, styles, and animations are taken before the sweep, so the sweep changes none of them. The pointer ends parked, so a later state that needs a hover asks for it again. A sweep while a drag holds the pointer is refused.
+
+Each point keeps an image at device scale 1, the CSS cursor under the pointer, and `changed`, the elements whose computed `transform`, `opacity`, `scale`, or `translate` differ from rest. A 16 by 16 sweep took 15 s on a local page and 63 s on Kobra, whose pending timer makes every point settle for the full 5 s, and came to 10 MB.
+
+A sweep sees the target plus 8 px, settled. It does not see how fast the page gets there, a press, a drag, or a tooltip outside the target. An element that keeps animating at rest makes every point read as an answer.
+
 ## The recording
 
 `contracts/page-recording.schema.json` defines it. Every path points into the run folder `dir`, under the data home's `page-record/`. `dir/recording.json` holds a copy of the result.
@@ -57,6 +71,7 @@ After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`
 | `dom` | An HTML file with the target's settled `outerHTML`, script elements removed |
 | `styles` | A JSON file mapping each element path to its computed box model, colors, borders, radii, shadow, font, opacity, transform, transition, and flex or grid properties |
 | `motion` | A JSON file `{everyMs, tracks}`. `tracks` maps each element path whose computed `transform` or `opacity` changed across the frames to the value at every frame, for the properties that changed. A frame where the element is not in the DOM holds null. Empty for a state without frames |
+| `sweep` | Only when the steps ask for one. A JSON file `{cols, rows, dwellMs, rest, points}`, with image paths relative to it. See The sweep above |
 | `animations` | Every distinct running animation seen on the target, inside it, or on an overlay during the state, with keyframes, duration, delay, easing, iterations, direction, and fill |
 
 An element path is a selector relative to the target, such as `:scope > :nth-child(2) > :nth-child(1)`. The target itself is `:scope`. A CSS animation's timing function sits on each keyframe's `easing`, and the animation's own `easing` reads `linear`.

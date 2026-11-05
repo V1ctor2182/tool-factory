@@ -82,6 +82,30 @@ if "$bin" capture "$out/vanish.json" --json > "$out/vanish-out.json"; then fail 
 jq -n --arg url "file://$test_dir/fixtures/scroll-driven.html" '{url: $url, target: "body", states: [{name: "idle", actions: []}]}' > "$out/scroll-driven.json"
 "$bin" capture "$out/scroll-driven.json" --json > "$out/scroll-driven-out.json" || fail "a page with a scroll-driven animation did not record: $(cat "$out/scroll-driven-out.json")"
 
+jq -n --arg url "file://$test_dir/fixtures/sweep.html" '{url: $url, target: "#stage", states: [
+	{name: "idle", actions: [], sweep: {cols: 2, rows: 1, dwellMs: 300}},
+	{name: "after", actions: []}]}' > "$out/sweep.json"
+"$bin" capture "$out/sweep.json" --json > "$out/sweep-out.json" || fail "a sweep did not record: $(cat "$out/sweep-out.json")"
+"$repo/contracts/check" page-recording "$out/sweep-out.json" || fail "a sweep's output does not match page-recording.schema.json"
+sweep=$(jq -r '.states[0].sweep' "$out/sweep-out.json")
+[ "$(jq -c '[.points[] | [.col, .row, (.x | floor), (.y | floor), .cursor, .changed]]' "$sweep")" = '[[0,0,50,50,"pointer",{":scope > :nth-child(1)":{"scale":"0.5"}}],[1,0,150,50,"pointer",{":scope > :nth-child(2)":{"scale":"0.5"}}]]' ] \
+	|| fail "the sweep does not show each box answering the pointer over it: $(jq -c .points "$sweep")"
+[ "$(file -b "$(dirname "$sweep")/$(jq -r .rest "$sweep")" | cut -d, -f2)" = " 216 x 116" ] || fail "a sweep image is not the target plus 8 px at device scale 1"
+[ "$(jq '.states[0].animations | length' "$out/sweep-out.json")" = 0 ] || fail "the sweep's transitions joined the state's animations"
+[ "$(jq '.states[1] | has("sweep")' "$out/sweep-out.json")" = false ] || fail "a state without a sweep has one"
+cmp -s "$(jq -r '.states[0].screenshot' "$out/sweep-out.json")" "$(jq -r '.states[1].screenshot' "$out/sweep-out.json")" \
+	|| fail "the page did not return to rest after the sweep"
+"$bin" capture "$out/sweep.json" --json > "$out/sweep-again.json"
+again=$(jq -r '.states[0].sweep' "$out/sweep-again.json")
+for image in rest.png 00-00.png 00-01.png; do
+	cmp -s "$(dirname "$sweep")/00-idle.sweep/$image" "$(dirname "$again")/00-idle.sweep/$image" || fail "the sweep's $image differs between two runs"
+done
+jq -n --arg url "file://$test_dir/fixtures/drag.html" '{url: $url, states: [
+	{name: "held", actions: [{do: "drag", selector: "#thumb", by: {x: 10, y: 0}}], sweep: {cols: 1, rows: 1}},
+	{name: "dropped", actions: [{do: "drop"}]}]}' > "$out/held-sweep.json"
+if "$bin" capture "$out/held-sweep.json" --json > "$out/held-sweep-out.json"; then fail "a sweep while the pointer is held exited 0"; fi
+[ "$(jq -r .error.code "$out/held-sweep-out.json")" = invalid_args ] || fail "a sweep while the pointer is held did not report invalid_args: $(cat "$out/held-sweep-out.json")"
+
 jq -n --arg url "file://$test_dir/fixtures/drag.html" '{url: $url, target: "body", states: [
 	{name: "held", actions: [{do: "drag", selector: "#thumb", by: {x: 120, y: 0}}], frames: {everyMs: 50, forMs: 200}},
 	{name: "dropped", actions: [{do: "drop"}]}]}' > "$out/drag.json"

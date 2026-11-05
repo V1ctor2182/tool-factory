@@ -28,6 +28,7 @@ bin/page-diff compare original/recording.json rebuild/recording.json --tolerance
 | `styles` | Computed properties that differ, on element paths both recordings have, grouped by property and the two values as `{property, a, b, count, paths}`. `paths` holds the first 5, root first by depth and then child order, and `count` all of them. Groups follow their first path. At most 50 groups |
 | `animations` | Summaries `{type, name, target, properties, duration, delay, easing, iterations}`, paired on the same `target` by content. `onlyA` and `onlyB` list the unmatched, and `changed` lists each timing field, or `keyframes`, that differs on a pair |
 | `motion` | `{path, property, frame, a, b}` for each transform or opacity track from page-record that differs. `a` and `b` hold the value at every frame, `frame` is where they are furthest apart. A null side holds still there, and `frame` is then null. A null frame inside a track is one where the element is not in the DOM. It matches only another null frame. Root first, at most 20 |
+| `sweep` | How alike the two pages answer the pointer, when the steps asked for a sweep. See Sweeps below. Null otherwise |
 | `image` | A PNG of a, b, and a heatmap side by side, at image scale. The heatmap shows a dimmed in gray, mismatched pixels in red, brighter for larger differences, and magenta where only one screenshot reaches |
 | `sheet` | A contact sheet PNG for a state with frames, one column per frame index both recordings have, with a, b, and the heatmap stacked top to bottom. Shrunk to fit 4096 px. Null without shared frames |
 
@@ -52,7 +53,22 @@ Each state with both sides scores a weighted mean of up to five terms, each from
 | styles | 0.2 | `1 - differing properties / compared properties`, over every property on shared paths, not only the 50 listed |
 | animations | 0.1 | Matched pairs with equal timing divided by matched pairs plus unmatched animations |
 
-A term with nothing on either side, such as frames for a state with no frames, drops out and the weights of the rest renormalize. A state missing on one side scores 0. The overall `score` is the mean over all states. Every term falls as differences grow, and identical recordings score exactly 1.
+A term with nothing on either side, such as frames for a state with no frames, drops out and the weights of the rest renormalize. A state missing on one side scores 0. The overall `score` is the mean over all states, capped by any sweep. Every term falls as differences grow, and identical recordings score exactly 1.
+
+## Sweeps
+
+Each page is measured against its own rest image, so the sweep judges behavior alone. A different background costs in `pixels`, not here. Images average into cells 12 CSS pixels wide. A cell answered when it moved more than `tolerance` from rest on either page, and two answers agree when they are within `tolerance` of each other.
+
+| Field | Holds |
+|---|---|
+| `agreement` | The lowest number in `grid`, so one dead or wrong spot counts. Null when neither page answered anywhere |
+| `grid` | One row per grid row. A number is the share of answering cells that agree at that point. Null where neither page answered |
+| `cursors` | Points whose CSS cursor differs. A diagnostic, outside the agreement |
+| `worst` | `{col, row, a, b, image}` for the lowest point, with what moved on each page and a PNG of a, b, and a heatmap. Null when every point agrees |
+
+The overall `score` is the mean of the state scores, capped at the lowest `agreement`. A mean alone would let a page that answers wrongly pass on its looks. An old rebuild of Kobra's palette whose hover was wrong everywhere had a state score of 0.977, and scores 0 with the cap. Two recordings whose sweeps differ in grid, or that have a sweep on only one side, did not come from one steps file, which is `invalid_source`.
+
+12 px is measured. Kobra's palette recorded at viewport widths 1280 and 1281 sits on a half and a whole CSS pixel, and compared with itself its lowest point scored 0.83 at 4 px, 0.94 at 8 px, and 1 at 12 px. At 12 px a swatch scaled to 1.25 instead of 1.38 still scored 0.84. A thin answer can fall under a cell, since a 1 px line at full contrast moves a 12 px cell by about 20 levels, below the default tolerance of 24.
 
 ## Tolerance
 
@@ -60,7 +76,7 @@ A term with nothing on either side, such as frames for a state with no frames, d
 
 ## Kind
 
-The atom is `transform`. The cache key hashes the content of every screenshot, frame, styles file, and motion file, each state's animations, and the tolerance, never the paths, so a moved copy of a recording hits the cache. A hit sets `cacheHit` to true and carries the current `a` and `b` paths. Diff images and sheets live in the data home under `page-diff/files/<key>/`, and a missing one counts as a miss.
+The atom is `transform`. The cache key hashes the content of every screenshot, frame, styles file, motion file, and sweep point, each state's animations, and the tolerance, never the paths, so a moved copy of a recording hits the cache. A hit sets `cacheHit` to true and carries the current `a` and `b` paths. Diff images and sheets live in the data home under `page-diff/files/<key>/`, and a missing one counts as a miss.
 
 ## Errors
 

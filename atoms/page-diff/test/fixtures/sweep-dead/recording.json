@@ -1,0 +1,19 @@
+{
+  "source": "file:///fixtures/sweep-dead.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/sweep-dead",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
+      "animations": [],
+      "overlays": [],
+      "sweep": "00-idle.sweep.json"
+    }
+  ],
+  "cacheHit": false
+}

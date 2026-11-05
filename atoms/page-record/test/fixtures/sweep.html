@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+<body style="margin:0;background:#111">
+<div id="stage" style="position:absolute;left:40px;top:40px;width:200px;height:100px;display:flex;cursor:pointer">
+  <div style="width:100px;height:100px;background:#eee;transition:scale 200ms"></div>
+  <div style="width:100px;height:100px;background:#888;transition:scale 200ms"></div>
+</div>
+<script>
+const stage = document.getElementById("stage")
+const set = (hit) => [...stage.children].forEach((box, i) => { box.style.scale = i === hit ? "0.5" : "" })
+stage.addEventListener("pointermove", (e) => set(e.clientX - stage.getBoundingClientRect().left < 100 ? 0 : 1))
+stage.addEventListener("pointerleave", () => set(null))
+</script>
+</body>
+</html>

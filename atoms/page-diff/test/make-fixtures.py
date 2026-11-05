@@ -23,6 +23,17 @@ def shifted(im: Image.Image, by: int) -> Image.Image:
     return im.point(lambda v: min(255, v + by))
 
 
+def write_sweep(root: Path, slug: str, sweep: dict) -> str:
+    (root / f"{slug}.sweep").mkdir(exist_ok=True)
+    sweep["rest"].save(root / f"{slug}.sweep/rest.png")
+    points = []
+    for col, (image, cursor) in enumerate(sweep["points"]):
+        image.save(root / f"{slug}.sweep/00-{col:02d}.png")
+        points.append({"col": col, "row": 0, "x": 12 + col * 24, "y": 12, "image": f"{slug}.sweep/00-{col:02d}.png", "cursor": cursor, "changed": {f":scope > :nth-child({col + 1})": {"scale": "1.5"}}})
+    (root / f"{slug}.sweep.json").write_text(json.dumps({"cols": len(points), "rows": 1, "dwellMs": 800, "rest": f"{slug}.sweep/rest.png", "points": points}, indent=2) + "\n")
+    return f"{slug}.sweep.json"
+
+
 def write(side: str, states: list[dict]) -> None:
     root = FIXTURES / side
     root.mkdir(parents=True, exist_ok=True)
@@ -38,10 +49,13 @@ def write(side: str, states: list[dict]) -> None:
         (root / f"{slug}.dom.html").write_text("<div></div>\n")
         motion = {"everyMs": 100 if frames else None, "tracks": st.get("motion", {})}
         (root / f"{slug}.motion.json").write_text(json.dumps(motion, indent=2) + "\n")
-        out.append({
+        row = {
             "name": st["name"], "screenshot": f"{slug}.png", "frames": frames, "dom": f"{slug}.dom.html",
-            "styles": f"{slug}.styles.json", "motion": f"{slug}.motion.json", "animations": st.get("animations", []),
-        })
+            "styles": f"{slug}.styles.json", "motion": f"{slug}.motion.json", "animations": st.get("animations", []), "overlays": [],
+        }
+        if "sweep" in st:
+            row["sweep"] = write_sweep(root, slug, st["sweep"])
+        out.append(row)
     recording = {"source": f"file:///fixtures/{side}.html", "steps": "/fixtures/steps.json", "dir": f"/fixtures/{side}", "states": out, "cacheHit": False}
     (root / "recording.json").write_text(json.dumps(recording, indent=2) + "\n")
 
@@ -125,3 +139,21 @@ write("b", [
     },
     {"name": "open", "screenshot": card(W + 20)},
 ])
+
+
+def lit(*columns: int, base: int = 30) -> Image.Image:
+    """Six 12 px cells by two. A column is 24 px, two cells wide, and an answer lifts it 100 levels over the page's own background."""
+    im = Image.new("RGBA", (72, 24), (base, base, base, 255))
+    for c in columns:
+        ImageDraw.Draw(im).rectangle([c * 24, 0, c * 24 + 23, 23], fill=(base + 100, base + 100, base + 100, 255))
+    return im
+
+
+def sweep_state(rest: Image.Image, *points: tuple) -> dict:
+    return {"name": "idle", "screenshot": rest, "sweep": {"rest": rest, "points": points}}
+
+
+write("sweep-a", [sweep_state(lit(), (lit(0), "pointer"), (lit(1), "pointer"), (lit(), "auto"))])
+write("sweep-alike", [sweep_state(lit(base=70), (lit(0, base=70), "pointer"), (lit(1, base=70), "pointer"), (lit(base=70), "auto"))])
+write("sweep-wrong", [sweep_state(lit(), (lit(0), "auto"), (lit(1, 2), "pointer"), (lit(), "auto"))])
+write("sweep-dead", [sweep_state(lit(), (lit(), "auto"), (lit(), "auto"), (lit(), "auto"))])

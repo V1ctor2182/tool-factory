@@ -87,4 +87,36 @@ placed=$(with_overlay 10 300)
 "$bin" compare "$placed" "$(with_overlay 110 300)" --json > "$out/overlay-centered.json"
 [ "$(jq '.states[0].overlays[0].apartPx' "$out/overlay-centered.json")" = 0 ] || fail "a dialog at the same place in the viewport counts as misplaced"
 
+holds() { jq -e --argjson want "$2" "($1) == \$want" "$3" > /dev/null; }
+sweep() { "$bin" compare "$test_dir/fixtures/sweep-$1/recording.json" "$test_dir/fixtures/sweep-$2/recording.json" --json; }
+sweep a a > "$out/sweep-same.json"
+"$repo/contracts/check" page-diff "$out/sweep-same.json" || fail "a diff with a sweep does not match page-diff.schema.json"
+holds '[.score, .states[0].sweep]' '[1,{"agreement":1,"grid":[[1,1,null]],"cursors":0,"worst":null}]' "$out/sweep-same.json" \
+	|| fail "an identical sweep is not full agreement: $(jq -c .states[0].sweep "$out/sweep-same.json")"
+
+sweep a alike > "$out/sweep-alike.json"
+holds '.states[0] | [.pixels.mismatch, .sweep.agreement, .sweep.grid]' '[1,1,[[1,1,null]]]' "$out/sweep-alike.json" \
+	|| fail "a page with another background but the same answers does not agree: $(jq -c .states[0].sweep "$out/sweep-alike.json")"
+
+sweep a wrong > "$out/sweep-wrong.json"
+"$repo/contracts/check" page-diff "$out/sweep-wrong.json" || fail "a diff with a wrong sweep does not match page-diff.schema.json"
+holds '[.score, .states[0].score, (.states[0].sweep | .agreement, .grid, .cursors, (.worst | .col, .row, .a, .b))]' '[0.5,1,0.5,[[1,0.5,null]],1,1,0,{":scope > :nth-child(2)":{"scale":"1.5"}},{":scope > :nth-child(2)":{"scale":"1.5"}}]' "$out/sweep-wrong.json" \
+	|| fail "lighting a second column does not halve the answer and cap the score: $(jq -c '[.score, .states[0].sweep]' "$out/sweep-wrong.json")"
+[ "$(file -b "$(jq -r .states[0].sweep.worst.image "$out/sweep-wrong.json")" | cut -d, -f2)" = " 224 x 24" ] || fail "the worst point's image is not a, b, and the heatmap side by side"
+sweep a wrong > "$out/sweep-wrong-again.json"
+[ "$(jq .cacheHit "$out/sweep-wrong-again.json")" = true ] || fail "a repeated sweep compare missed the cache"
+
+sweep a dead > "$out/sweep-dead.json"
+holds '[.score, .states[0].sweep.agreement, .states[0].sweep.grid]' '[0,0,[[0,0,null]]]' "$out/sweep-dead.json" \
+	|| fail "a page that never answers the pointer does not score 0: $(jq -c '[.score, .states[0].sweep]' "$out/sweep-dead.json")"
+
+sweep dead dead > "$out/sweep-inert.json"
+holds '[.score, .states[0].sweep.agreement, .states[0].sweep.grid]' '[1,null,[[null,null,null]]]' "$out/sweep-inert.json" \
+	|| fail "two pages that never answer do not agree by default: $(jq -c '[.score, .states[0].sweep]' "$out/sweep-inert.json")"
+[ "$("$bin" compare "$test_dir/fixtures/sweep-a/recording.json" "$test_dir/fixtures/sweep-wrong/recording.json")" = 'idle  1.0000  0.0000  sweep 0.5000
+score 0.5000' ] || fail "the text output does not show the sweep"
+
+if "$bin" compare "$test_dir/fixtures/sweep-a/recording.json" "$a" --json > "$out/sweep-one-side.json"; then fail "a sweep on one side exited 0"; fi
+[ "$(jq -r .error.code "$out/sweep-one-side.json")" = invalid_source ] || fail "a sweep on one side did not report invalid_source: $(cat "$out/sweep-one-side.json")"
+
 echo "PASS page-diff"
