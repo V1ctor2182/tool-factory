@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { doctor } from '../lib/doctor.mjs';
 import { link, SOCKETS, unlink } from '../lib/links.mjs';
@@ -181,13 +181,29 @@ const COMMANDS = {
   },
 
   async dashboard(registry, args) {
-    const { values } = options(args, { port: { type: 'string', default: '4100' } });
-    const port = Number(values.port);
-    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${values.port} is not a port number.`);
+    const { values } = options(args, { port: { type: 'string', default: '4100' }, hosted: { type: 'boolean' } });
+    const asked = values.hosted ? process.env.PORT || values.port : values.port;
+    const port = Number(asked);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${asked} is not a port number.`);
     try {
-      const { dashboard } = await import('../dashboard/server.mjs');
-      console.log(`dashboard on ${await dashboard(registry.root, port)}. Stop it with ctrl-c.`);
+      const start = values.hosted ? (await import('../dashboard/hosted.mjs')).hostedDashboard(port) : (await import('../dashboard/server.mjs')).dashboard(registry.root, port);
+      console.log(`dashboard on ${await start}. Stop it with ctrl-c.`);
       return 0;
+    } catch (e) {
+      console.error(`factory: ${e.message}`);
+      return 1;
+    }
+  },
+
+  async push(registry, args) {
+    const { values, positionals } = options(args, { sources: { type: 'string' }, scan: { type: 'boolean' }, state: { type: 'string' } });
+    if (!values.sources) throw new UsageError('Name the sources, as in factory push https://host --sources game-studio,tools.');
+    if (positionals.length !== (values.scan ? 0 : 1)) throw new UsageError(values.scan ? '--scan sends nothing, so it takes no URL.' : 'Name one URL, as in factory push https://host --sources game-studio,tools.');
+    const names = values.sources.split(',');
+    try {
+      const { push, scan } = await import('../lib/push.mjs');
+      if (values.scan) return await scan(registry.root, names, console.log);
+      return await push(registry.root, positionals[0], names, { log: console.log, warn: console.error, statePath: values.state && resolve(values.state) });
     } catch (e) {
       console.error(`factory: ${e.message}`);
       return 1;
@@ -212,7 +228,13 @@ const USAGE = `usage: factory <command>
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]
   mcp <names...>            stdio MCP server with one tool per verb
-  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each microservice`;
+  dashboard [--port 4100] [--hosted]
+                            the status page on 127.0.0.1, where you can try each microservice.
+                            --hosted serves the public flows page on 0.0.0.0 and $PORT, needs FACTORY_PUSH_TOKEN, and runs nothing
+  push <url> --sources <a,b> [--state <file>]
+                            send this machine's public flows to a --hosted dashboard. Only game-studio and tools are public
+  push --scan --sources <a,b>
+                            shape what a push would send and report the publish guard's findings, sending nothing`;
 
 const [command, ...args] = process.argv.slice(2);
 try {
