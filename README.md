@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) ![Node 24](https://img.shields.io/badge/node-24-339933) ![uv](https://img.shields.io/badge/python-uv-7c3aed) ![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey) ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
 
-[Live dashboard](https://flows-production-4e3e.up.railway.app) · [Quick start](#try-it-in-five-minutes) · [What's inside](#whats-inside) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
+[Live dashboard](https://factory.victorz.studio) · [Quick start](#try-it-in-five-minutes) · [What's inside](#whats-inside) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
 
 <br>
 
@@ -154,7 +154,12 @@ Each atom's folder has a `SKILL.md` that documents it. The dashboard's Docs page
 - **Elsewhere** lists tools that live in other repos.
 - **Flows** draws agent pipelines as stages, loops, and timed traces.
 
-The [public copy](https://flows-production-4e3e.up.railway.app) shows my real run log. It runs nothing, and its Try page links to GitHub instead. A [publish guard](factory/lib/public-flows.mjs) keeps paths and spend on my laptop.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/wiring-dark.png">
+  <img src="docs/media/wiring-light.png" alt="The Wiring page of the factory dashboard. Six microservices on the left connect to the eighteen atoms they call on the right, and each row shows its run and failure counts.">
+</picture>
+
+The [public copy](https://factory.victorz.studio) shows my real run log. It runs nothing, and its Try page links to GitHub instead. A [publish guard](factory/lib/public-flows.mjs) keeps paths and spend on my laptop.
 
 ## Where your data goes
 
