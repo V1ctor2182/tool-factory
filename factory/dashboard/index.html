@@ -94,7 +94,10 @@ h2.big { font-size: 48px; }
 
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 64px; }
 .kpi { background: var(--well); border: 3px solid var(--well); border-radius: 20px; padding: 24px 24px 22px; min-width: 0; }
-@media (min-width: 761px) { .kpis:has(> :last-child:nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 761px) {
+  .kpis:has(> :last-child:nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpis:has(> :last-child:nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .kpi.lead { background: var(--blue-wash); border-color: var(--blue-edge); }
 .kpi .l { font-size: 15px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
 .kpi .v { font-size: 40px; font-weight: 600; letter-spacing: -0.05em; line-height: 1.1; margin: 14px 0 16px; font-variant-numeric: tabular-nums; }
@@ -426,8 +429,8 @@ function unmetered(row) {
 function bars(perDay) {
   const top = Math.max(1, ...perDay.map(total));
   return h('span', { class: 'bars', role: 'img', 'aria-label': `Runs and atom calls per day: ${perDay.map(total).join(', ')}` },
-    perDay.map((d) => h('span', { class: total(d) ? 'on' : '', title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}, ${failed(d)} failed`, style: `height:${Math.max(8, (total(d) / top) * 100)}%` },
-      failed(d) ? h('i', { style: `height:${(failed(d) / total(d)) * 100}%` }) : null)));
+    perDay.map((d) => h('span', { class: total(d) ? 'on' : '', title: `${d.day}: ${plural(d.runs, 'run')}, ${plural(d.atomCalls, 'atom call')}${HOSTED ? '' : `, ${failed(d)} failed`}`, style: `height:${Math.max(8, (total(d) / top) * 100)}%` },
+      !HOSTED && failed(d) ? h('i', { style: `height:${(failed(d) / total(d)) * 100}%` }) : null)));
 }
 
 function everyDay() {
@@ -442,7 +445,7 @@ function serviceStat(service) {
   if (none) return h('div', { class: 'stat' }, none);
   return h('div', { class: 'stat' },
     h('span', null, counted(total(service), 'call')),
-    h('span', { class: failed(service) ? 'bad' : '' }, h('b', null, failed(service)), ' failed'),
+    !HOSTED && h('span', { class: failed(service) ? 'bad' : '' }, h('b', null, failed(service)), ' failed'),
     'spentUsd' in service && h('span', null, usd(service.spentUsd)),
     h('span', null, ago(service.lastRunAt)),
     total(service) ? bars(service.perDay) : null);
@@ -453,7 +456,7 @@ function atomStat(atom) {
   if (none) return h('div', { class: 'stat' }, none);
   return h('div', { class: 'stat' },
     h('span', null, counted(atom.runs, 'run')),
-    atom.failed ? h('span', { class: 'bad' }, h('b', null, atom.failed), ' failed') : null,
+    !HOSTED && atom.failed ? h('span', { class: 'bad' }, h('b', null, atom.failed), ' failed') : null,
     h('span', { class: atom.usedBy.length ? '' : 'bad' }, atom.usedBy.length ? `used by ${atom.usedBy.length}` : 'used by no microservice'));
 }
 
@@ -468,7 +471,7 @@ function lede(row) {
   if (none) return `${row.name} has ${none}.`;
   const calls = total(row);
   const sentence = `${row.name} made ${plural(calls, row.type === 'microservice' ? 'call' : 'run')} in the last ${period}`;
-  if (!calls) return `${sentence}.`;
+  if (!calls || HOSTED) return `${sentence}.`;
   return failed(row) ? `${sentence}, and ${failed(row)} failed.` : `${sentence}, and none failed.`;
 }
 
@@ -478,7 +481,7 @@ function panelFor(name) {
     return [
       h('div', { class: 'head' }, 'Everything'),
       h('p', { class: 'lede' }, calls
-        ? `${plural(calls.runs, 'call')} in the last ${period}, ${calls.failed} failed. ${counts.ok} of ${rows.length} microservices and atoms are healthy.`
+        ? `${plural(calls.runs, 'call')} in the last ${period}${HOSTED ? '' : `, ${calls.failed} failed`}. ${counts.ok} of ${rows.length} microservices and atoms are healthy.`
         : 'Calls unknown, the run log is unreadable.'),
       calls ? h('div', { class: 'chart' }, bars(everyDay())) : null,
       h('div', { class: 'sources' }, h('span', null, `${span}, UTC`)),
@@ -841,7 +844,7 @@ function atomNode(atom) {
 }
 
 function headline(sick, calls) {
-  const said = calls ? `${plural(calls.runs, 'call')} in ${period}${calls.failed ? `, ${calls.failed} failed,` : ''} and` : 'The run log is unreadable, and';
+  const said = calls ? `${plural(calls.runs, 'call')} in ${period}${!HOSTED && calls.failed ? `, ${calls.failed} failed,` : ''} and` : 'The run log is unreadable, and';
   return h('h1', { class: 'big' },
     `${plural(model.microservices.length, 'microservice')}, ${plural(model.atoms.length, 'atom')}. `,
     h('span', { class: 'soft' }, `${said} `),
@@ -874,8 +877,8 @@ function overviewView() {
         model.budget && h('div', { class: 'kpi lead', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
           meter(share, spentTodayUsd !== null && capped && spentTodayUsd >= capUsd),
           h('div', { class: 's' }, capUsd === 'none' ? 'No daily cap' : capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
-        h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), meter(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Microservice runs and direct atom calls')),
-        h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), !HOSTED && meter(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, !HOSTED && calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Microservice runs and direct atom calls')),
+        !HOSTED && h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
           meter(calls?.runs ? calls.failed / calls.runs : 0, calls?.failed), h('div', { class: 's' }, calls?.runs ? `${Math.round((calls.failed / calls.runs) * 100)}% of calls` : 'No calls')),
         h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Healthy'), h('div', { class: 'v' }, `${counts.ok}/${rows.length}`),
           meter(rows.length ? counts.ok / rows.length : 0), h('div', { class: 's' }, sick ? `${counts.warn} warning, ${counts.red} broken` : 'Every microservice and atom passes doctor'))),
