@@ -30,6 +30,7 @@ const studio = join(base, 'studio');
 const production = join(studio, '.studio-local', 'production');
 const originHome = join(base, 'origin-home');
 const factory = join(root, 'factory', 'bin', 'factory.mjs');
+const hostedEntry = join(root, 'factory', 'dashboard', 'hosted.mjs');
 const running = [];
 let shape;
 
@@ -88,8 +89,8 @@ function seedTools() {
   writeFileSync(join(originHome, 'runs.jsonl'), jsonl([atomCall('page-record', '2026-10-03T10:00:01Z'), atomCall('ui-draft', '2026-10-03T10:00:03Z', { ok: false, error: `over_budget in /Users/someone/${SECRET}` })]));
 }
 
-function startServer(args, env) {
-  const child = spawn(process.execPath, [factory, 'dashboard', ...args], { env: { ...process.env, ...env } });
+function startProcess(argv, env) {
+  const child = spawn(process.execPath, argv, { env: { ...process.env, ...env } });
   running.push(child);
   return new Promise((resolve, reject) => {
     let out = '';
@@ -102,10 +103,13 @@ function startServer(args, env) {
   });
 }
 
+const startServer = (args, env) => startProcess([factory, 'dashboard', ...args], env);
+const startHosted = (env) => startProcess([hostedEntry], env);
+
 async function hosted(name) {
   const home = join(base, name);
   mkdirSync(home, { recursive: true });
-  const { url, port } = await startServer(['--hosted', '--port', '0'], { FACTORY_PUSH_TOKEN: TOKEN, TOOL_FACTORY_HOME: home, PORT: '' });
+  const { url, port } = await startHosted({ FACTORY_PUSH_TOKEN: TOKEN, TOOL_FACTORY_HOME: home, PORT: '0' });
   return { home, url, port };
 }
 
@@ -188,8 +192,8 @@ after(() => {
   rmSync(base, { recursive: true, force: true });
 });
 
-test('--hosted refuses to start without a push token of at least 32 characters, and never prints it', () => {
-  const boot = (env) => spawnSync(process.execPath, [factory, 'dashboard', '--hosted', '--port', '0'], { encoding: 'utf8', timeout: 20_000, env: { ...process.env, FACTORY_PUSH_TOKEN: '', TOOL_FACTORY_HOME: join(base, 'refused'), ...env } });
+test('the public server refuses to start without a push token of at least 32 characters, and never prints it', () => {
+  const boot = (env) => spawnSync(process.execPath, [hostedEntry], { encoding: 'utf8', timeout: 20_000, env: { ...process.env, FACTORY_PUSH_TOKEN: '', TOOL_FACTORY_HOME: join(base, 'refused'), ...env } });
   for (const env of [{}, { FACTORY_PUSH_TOKEN: 'x'.repeat(31) }]) {
     const done = boot(env);
     assert.equal(done.status, 1, JSON.stringify(env));
@@ -202,7 +206,7 @@ test('--hosted refuses to start without a push token of at least 32 characters, 
 test('a 32-character token boots, on PORT, for any Host, and the flows open with no login', async () => {
   const home = join(base, 'port-home');
   const free = await new Promise((resolve) => { const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)); }); });
-  const { url, port } = await startServer(['--hosted'], { FACTORY_PUSH_TOKEN: 'y'.repeat(32), FACTORY_PASSWORD: '', TOOL_FACTORY_HOME: home, PORT: String(free) });
+  const { url, port } = await startHosted({ FACTORY_PUSH_TOKEN: 'y'.repeat(32), FACTORY_PASSWORD: '', TOOL_FACTORY_HOME: home, PORT: String(free) });
   assert.equal(Number(port), free);
   const status = await new Promise((resolve) => request({ port: free, host: '127.0.0.1', path: '/healthz', headers: { host: 'something.up.railway.app' } }, (res) => { res.resume(); resolve(res.statusCode); }).end());
   assert.equal(status, 200);
@@ -682,7 +686,7 @@ test('a machine gone for five minutes reads as stalled, and a question to Victor
   const liveTrace = tracePath('game-studio:night', 'live1');
   const freshTrace = await getJson(url, liveTrace);
   assert.equal(freshTrace.live, true);
-  assert.match(freshTrace.subtitle, / · running$/);
+  assert.equal(freshTrace.state, 'running');
   assert.ok(flatten(freshTrace.root).some((n) => n.end === null));
 
   loseMachine(home, 'game-studio', 4 * MINUTE);
@@ -708,13 +712,27 @@ test('a machine gone for five minutes reads as stalled, and a question to Victor
 
   const trace = await getJson(url, liveTrace);
   assert.equal(trace.live, false);
-  assert.match(trace.subtitle, / · stalled$/);
+  assert.equal(trace.state, 'stalled');
+  assert.equal(/running|stalled/.test(trace.subtitle), false, 'the state is a field, not words in the subtitle');
   assert.ok(flatten(trace.root).every((n) => n.end !== null), 'no open span is left for the page to animate');
 
   assert.equal((await pushTo(url, pushHome, 'game-studio')).code, 0);
   const back = await studioOf();
   assert.equal(back.stale, false, 'the next push, even a heartbeat, brings it back');
   assert.equal(back.flows.find((f) => f.id === 'game-studio:night').state, 'running');
+});
+
+test('a repeat read of the flows API with its ETag answers 304 and no body', async () => {
+  const { url } = await hosted('etag-home');
+  const first = await fetch(`${url}/api/flows`);
+  const etag = first.headers.get('etag');
+  assert.ok(etag);
+  const same = await fetch(`${url}/api/flows`, { headers: { 'if-none-match': etag } });
+  assert.equal(same.status, 304);
+  assert.equal(await same.text(), '');
+  const other = await fetch(`${url}/api/flows`, { headers: { 'if-none-match': '"old"' } });
+  assert.equal(other.status, 200);
+  assert.deepEqual(await other.json(), await first.json());
 });
 
 test('collection removes old orphans and leaves referenced and recent blobs', async () => {

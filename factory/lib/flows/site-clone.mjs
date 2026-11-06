@@ -1,7 +1,7 @@
 import { createReadStream, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { home } from '../runs.mjs';
+import { home } from '../home.mjs';
 import { buildNodes, iso, parseTranscript } from './transcript.mjs';
 import { callerRecords, chipTrace, dirNames, fieldsOf, findChip, inWindow, lastEndIn, logTrace, mtime, newestLive, roundNumbers, stage } from './workspace.mjs';
 

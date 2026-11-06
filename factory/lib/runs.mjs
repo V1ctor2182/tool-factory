@@ -1,12 +1,7 @@
 import { spawn } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
-
-export function home() {
-  const raw = process.env.TOOL_FACTORY_HOME || join(homedir(), '.local', 'share', 'tool-factory');
-  return resolve(raw.replace(/^~(?=\/|$)/, homedir()));
-}
+import { join } from 'node:path';
+import { home } from './home.mjs';
 
 export const logPath = () => join(home(), 'runs.jsonl');
 

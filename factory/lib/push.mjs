@@ -3,12 +3,12 @@
 // traces holds finished traces, which do not change, so the expensive read happens once. Each destination keeps its own
 // memory, and a different SHAPE_VERSION forgets it, so a change to what may leave the machine reaches old traces too.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getFlow, getTrace, listSource, SOURCES } from './flows/index.mjs';
-import { sha256 } from './hosted-store.mjs';
+import { sha256, writeAtomic } from './hosted-store.mjs';
 import { GUARD_RULES, isPublicSource, PUBLIC_SOURCES, rulesHitBy, scanPublic, SHAPE_VERSION, shapeFlow, shapeSourceList, shapeTrace, walkStrings } from './public-flows.mjs';
-import { home } from './runs.mjs';
+import { home } from './home.mjs';
 
 const PARALLEL_UPLOADS = 8;
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -60,9 +60,7 @@ function readStateFile(path) {
 
 function saveStateFile(path, file) {
   mkdirSync(dirname(path), { recursive: true });
-  const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, JSON.stringify(file));
-  renameSync(temp, path);
+  writeAtomic(path, JSON.stringify(file));
 }
 
 function client(url, token) {

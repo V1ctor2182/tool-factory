@@ -3,7 +3,8 @@ import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
 import { cliArgs, usage } from './registry.mjs';
-import { budget, home, lastDays, logPath, readLog, spend, today } from './runs.mjs';
+import { home } from './home.mjs';
+import { budget, lastDays, logPath, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
 const dollars = (usd) => Math.round(usd * 1e6) / 1e6;

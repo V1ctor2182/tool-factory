@@ -11,7 +11,7 @@
 :root {
   color-scheme: light dark;
   --bg: #ffffff; --ink: #000000; --muted: #5d6370; --soft: #cdd1d8; --line: #e7e9ee; --well: #f3f4f6; --card: #ffffff;
-  --blue: #2b62ef; --blue-ink: #3b74f6; --blue-wash: #eff6ff; --blue-chip: #dde8fd; --blue-edge: #bcd3fb;
+  --blue: #2b62ef; --blue-ink: #3b74f6; --blue-wash: #eff6ff;
   --bad: #d4342a; --bad-wash: #fdeeec; --warn: #b26a00; --warn-wash: #fdf3e2; --ok: #127a4a; --ok-wash: #e3f6ec;
   --run: #e8742c; --run-wash: #fdeee3;
   --shadow: 0 1px 2px #0000000d, 0 12px 32px -8px #0000001f;
@@ -23,7 +23,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0c0d10; --ink: #f4f5f7; --muted: #9aa0ab; --soft: #4a4f59; --line: #23262d; --well: #16181d; --card: #121419;
-    --blue: #7ea3ff; --blue-ink: #8fb0ff; --blue-wash: #121a2e; --blue-chip: #1b2847; --blue-edge: #2c4378;
+    --blue: #7ea3ff; --blue-ink: #8fb0ff; --blue-wash: #121a2e;
     --bad: #ff7a6e; --bad-wash: #2a1513; --warn: #f0b154; --warn-wash: #2a2010; --ok: #5fd39a; --ok-wash: #11261b;
     --run: #f0894a; --run-wash: #2c1a0e;
     --shadow: 0 1px 2px #00000066, 0 12px 32px -8px #000000aa;
@@ -213,7 +213,6 @@ a { color: inherit; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 12px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { position: relative; display: inline-block; width: 18px; height: 10px; overflow: hidden; border-radius: 3px; }
-.note-box { padding: 12px 20px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
 .tip { position: fixed; z-index: 50; min-width: 200px; max-width: 320px; padding: 10px 12px; pointer-events: none; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: var(--shadow); font-size: 12px; }
 .tip h4 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
 .tip .m { margin: 0 0 8px; color: var(--muted); font: 11px var(--mono); overflow-wrap: anywhere; }
@@ -381,6 +380,7 @@ let seenRows = new Set();
 const openAll = new Set();
 const foldState = new Map();
 const lastBytes = {};
+let polling = null;
 
 async function fetchJson(key, url) {
   const res = await fetch(url);
@@ -403,14 +403,21 @@ function mount() {
 }
 
 function schedule(run) {
+  polling = run;
   clearTimeout(pollTimer);
   const mine = ++token;
+  const next = () => {
+    if (mine === token) pollTimer = setTimeout(() => (document.hidden ? next() : tick()), POLL_MS);
+  };
   const tick = async () => {
     await run().then(() => content.querySelector('.source-error.page')?.remove(), showFailure);
-    if (mine === token) pollTimer = setTimeout(tick, POLL_MS);
+    next();
   };
   tick();
 }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && polling) schedule(polling);
+});
 function showFailure(e) {
   if (content.querySelector('.source-error.page')) return;
   content.prepend(h('div', { class: 'source-error page', style: 'margin-top:24px', role: 'alert' }, e.message));
@@ -528,7 +535,7 @@ function stageColumn(flow, stage, index, active, last, selected, liveOnly) {
   // Keep what is alive or selected visible when a long column is folded.
   const rank = (a) => (a.id === selected ? 0 : isLive(a.state) ? 1 : a.state === 'stalled' || (a.state === 'failed' && stage.state === 'failed') ? 2 : 3);
   const sorted = [...stage.agents].sort((a, b) => rank(a) - rank(b));
-  const folded = liveOnly ? sorted.filter((a) => isLive(a.state)) : sorted.length <= CHIP_LIMIT ? sorted : sorted.slice(0, CHIP_LIMIT);
+  const folded = liveOnly ? sorted.filter((a) => isLive(a.state)) : sorted.slice(0, CHIP_LIMIT);
   const shown = open ? stage.agents : folded.length === sorted.length ? stage.agents : folded;
   const hidden = sorted.filter((a) => !shown.includes(a));
   const toggle = () => {
@@ -604,11 +611,11 @@ function rowsOf(node, depth = 0, out = []) {
 }
 function summary(trace, now) {
   const root = trace.root;
-  const out = { elapsed: Math.max(0, Math.min(now, endOf(root, now)) - root.start), waiting: 0, tools: 0, errors: 0, fields: 0, slowest: null, open: false, blocked: false };
+  const out = { elapsed: Math.max(0, Math.min(now, endOf(root, now)) - root.start), waiting: 0, tools: 0, errors: 0, fields: 0, slowest: null, blocked: false };
   let max = 0;
   for (const step of stepsOf(root)) {
     if (step.category === 'human') { out.waiting += endOf(step, now) - step.start; out.blocked ||= step.end === null; continue; }
-    if (step.end === null) { out.open = true; out.tools += 1; continue; }
+    if (step.end === null) { out.tools += 1; continue; }
     if (step.outcome === 'failed') out.errors += 1;
     out.tools += 1;
     out.fields += step.fieldsFilled ?? 0;
@@ -788,9 +795,12 @@ function scrollToLive(flow, scroll) {
 }
 function pickAgent(flow, agentId) {
   history.pushState(null, '', flowHref(flow.id, agentId));
-  lastBytes.flow = null;
-  lastBytes.trace = null;
   start();
+}
+function paintTrace(box) {
+  const scrollTop = traceSlot.querySelector('.scroller')?.scrollTop;
+  traceSlot.replaceChildren(box);
+  if (scrollTop) box.querySelector('.scroller').scrollTop = scrollTop;
 }
 async function refresh() {
   const { flowId, agentId } = route();
@@ -803,22 +813,11 @@ async function refresh() {
   const flow = currentFlow;
   const agent = agentId ? flow.stages.flatMap((s) => s.agents).find((a) => a.id === agentId) : null;
   if (!agent) {
-    if (got.changed) {
-      const scrollTop = traceSlot.querySelector('.scroller')?.scrollTop;
-      const box = renderTrace(overviewTrace(flow), { onPickAgent: (id) => pickAgent(flow, id) });
-      traceSlot.replaceChildren(box);
-      if (scrollTop) box.querySelector('.scroller').scrollTop = scrollTop;
-    }
+    if (got.changed) paintTrace(renderTrace(overviewTrace(flow), { onPickAgent: (id) => pickAgent(flow, id) }));
     return;
   }
-  const close = () => { history.pushState(null, '', flowHref(flow.id)); lastBytes.flow = null; lastBytes.trace = null; start(); };
   const tr = await fetchJson('trace', traceUrl(flowId, agentId));
-  if (tr.changed) {
-    const scrollTop = traceSlot.querySelector('.scroller')?.scrollTop;
-    const box = renderTrace(tr.data, { onClose: close, agent });
-    traceSlot.replaceChildren(box);
-    if (scrollTop) box.querySelector('.scroller').scrollTop = scrollTop;
-  }
+  if (tr.changed) paintTrace(renderTrace(tr.data, { onClose: () => pickAgent(flow), agent }));
 }
 const traceUrl = (flowId, agentId) => `/api/flows/${encodeURIComponent(flowId)}/agents/${encodeURIComponent(agentId)}`;
 

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { getFlow, getTrace, listFlows } from '../lib/flows/index.mjs';
+import { FLOWS_API, FLOWS_PAGE, replier } from './http.mjs';
 import { validate } from '../lib/manifest.mjs';
 import { argv, load } from '../lib/registry.mjs';
 import { invoke } from '../lib/runs.mjs';
@@ -12,8 +13,6 @@ const RUN = /^\/run\/([^/]+)\/([^/]+)$/;
 // Every page is the same HTML. The page picks its view from the path.
 const PAGE = /^\/(?:try|wiring|elsewhere|docs(?:\/[^/]+){0,2})?$/;
 const MAX_BODY = 64 * 1024;
-const FLOWS_PAGE = /^\/flows(?:\/[^/]+){0,2}$/;
-const FLOWS_API = /^\/api\/flows(?:\/([^/]+)(?:\/agents\/([^/]+))?)?$/;
 
 function page(template, root) {
   const json = JSON.stringify(statusModel(load(root))).replaceAll('<', '\\u003c');
@@ -70,10 +69,7 @@ export function dashboard(root, port) {
   const flowsPage = new URL('flows.html', import.meta.url);
   let hosts;
   const handle = async (req, res) => {
-    const reply = (code, type, body, headers = {}) => {
-      res.writeHead(code, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "frame-ancestors 'none'", ...headers });
-      res.end(req.method === 'HEAD' ? undefined : body);
-    };
+    const reply = replier(req, res);
     const refuse = (code, message) => reply(code, 'text/plain', message);
     if (!hosts.has(req.headers.host)) return refuse(421, 'This dashboard answers only on 127.0.0.1 or localhost.\n');
     const path = new URL(req.url, `http://${HOST}`).pathname;

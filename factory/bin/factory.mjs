@@ -181,13 +181,12 @@ const COMMANDS = {
   },
 
   async dashboard(registry, args) {
-    const { values } = options(args, { port: { type: 'string', default: '4100' }, hosted: { type: 'boolean' } });
-    const asked = values.hosted ? process.env.PORT || values.port : values.port;
-    const port = Number(asked);
-    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${asked} is not a port number.`);
+    const { values } = options(args, { port: { type: 'string', default: '4100' } });
+    const port = Number(values.port);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError(`--port ${values.port} is not a port number.`);
     try {
-      const start = values.hosted ? (await import('../dashboard/hosted.mjs')).hostedDashboard(port) : (await import('../dashboard/server.mjs')).dashboard(registry.root, port);
-      console.log(`dashboard on ${await start}. Stop it with ctrl-c.`);
+      const { dashboard } = await import('../dashboard/server.mjs');
+      console.log(`dashboard on ${await dashboard(registry.root, port)}. Stop it with ctrl-c.`);
       return 0;
     } catch (e) {
       console.error(`factory: ${e.message}`);
@@ -228,11 +227,9 @@ const USAGE = `usage: factory <command>
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]
   mcp <names...>            stdio MCP server with one tool per verb
-  dashboard [--port 4100] [--hosted]
-                            the status page on 127.0.0.1, where you can try each microservice.
-                            --hosted serves the public flows page on 0.0.0.0 and $PORT, needs FACTORY_PUSH_TOKEN, and runs nothing
+  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each microservice
   push <url> --sources <a,b> [--state <file>]
-                            send this machine's public flows to a --hosted dashboard. Only game-studio and tools are public
+                            send this machine's public flows to the public flows page. Only game-studio and tools are public
   push --scan --sources <a,b>
                             shape what a push would send and report the publish guard's findings, sending nothing`;
 

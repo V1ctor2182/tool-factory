@@ -296,7 +296,8 @@ export function trace(where, key, agentId) {
   const end = horizon === null ? null : seconds(horizon, origin);
   return {
     title: found.title,
-    subtitle: `${stage.title} · ${agent.name} · ${agent.meta} · ${agent.state}`,
+    subtitle: `${stage.title} · ${agent.name} · ${agent.meta}`,
+    state: agent.state,
     startedAt: iso(origin),
     live,
     root: {

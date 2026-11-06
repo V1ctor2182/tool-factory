@@ -5,21 +5,19 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { heartbeat, hostedFlows, missingBlobs, missingFromManifest, prepareStore, putBlob, sha256, storedListSource, writeManifest } from '../lib/hosted-store.mjs';
 import { isPublicSource, isSha, manifestProblem, readBlob, scanPublic } from '../lib/public-flows.mjs';
+import { FLOWS_API, FLOWS_PAGE, replier } from './http.mjs';
 
 const MIN_TOKEN = 32;
 const MAX_BODY = 8 * 1024 * 1024;
 const API_CACHE = 'public, max-age=2';
 const BIND_HOST = '0.0.0.0';
-const BLOB = /^\/ingest\/blob\/([^/]+)$/;
-const SOURCE = /^\/ingest\/source\/([^/]+)$/;
-const BEAT = /^\/ingest\/heartbeat\/([^/]+)$/;
-const FLOWS_PAGE = /^\/flows(?:\/[^/]+){0,2}$/;
-const FLOWS_API = /^\/api\/flows(?:\/([^/]+)(?:\/agents\/([^/]+))?)?$/;
+const INGEST = /^\/ingest\/(?:(missing)|(blob|source|heartbeat)\/([^/]+))$/;
+const INGEST_METHOD = { missing: 'POST', blob: 'PUT', source: 'PUT', heartbeat: 'POST' };
 const NOT_PUBLIC = 'That source is not on the public allowlist.';
 
 function pushTokenFrom(env) {
   const token = env.FACTORY_PUSH_TOKEN;
-  if (typeof token !== 'string' || token.length < MIN_TOKEN) throw new Error(`--hosted needs FACTORY_PUSH_TOKEN set to at least ${MIN_TOKEN} characters, so it did not start.`);
+  if (typeof token !== 'string' || token.length < MIN_TOKEN) throw new Error(`FACTORY_PUSH_TOKEN must have at least ${MIN_TOKEN} characters, so the server did not start.`);
   return token;
 }
 
@@ -57,45 +55,41 @@ async function ingest(req, path, reply, token) {
   const refuse = (code, message) => reply(code, 'text/plain', `${message}\n`);
   const rejectHit = ([hit]) => json(422, { field: hit.path, rule: hit.rule });
   if (!hasPushToken(req, token)) return reply(401, 'text/plain', 'Send the push token as a bearer token.\n', { 'www-authenticate': 'Bearer' });
-  const blob = path.match(BLOB)?.[1];
-  const source = path.match(SOURCE)?.[1];
-  const beat = path.match(BEAT)?.[1];
-  const route = path === '/ingest/missing' ? 'POST' : blob ? 'PUT' : source ? 'PUT' : beat ? 'POST' : null;
+  const [, missingRoute, kind, name] = path.match(INGEST) ?? [];
+  const route = INGEST_METHOD[missingRoute ?? kind];
   if (!route) return refuse(404, 'No such ingest path.');
   if (req.method !== route) return reply(405, 'text/plain', `Use ${route}.\n`, { allow: route });
-  if (blob !== undefined && !isSha(blob)) return refuse(400, 'A blob name is 64 lowercase hex characters.');
-  for (const name of [source, beat]) {
-    if (name !== undefined && !isPublicSource(name)) return refuse(403, NOT_PUBLIC);
-  }
-  if (beat) return heartbeat(beat) ? json(200, { ok: true }) : refuse(404, `Nothing is stored for ${beat} yet, so send its manifest.`);
+  if (kind === 'blob' && !isSha(name)) return refuse(400, 'A blob name is 64 lowercase hex characters.');
+  if ((kind === 'source' || kind === 'heartbeat') && !isPublicSource(name)) return refuse(403, NOT_PUBLIC);
+  if (kind === 'heartbeat') return heartbeat(name) ? json(200, { ok: true }) : refuse(404, `Nothing is stored for ${name} yet, so send its manifest.`);
 
   const bytes = await readBody(req);
   if (bytes === null) return refuse(413, `The body is over ${MAX_BODY} bytes.`);
-  if (blob) {
-    if (sha256(bytes) !== blob) return refuse(400, 'The body does not hash to its name.');
+  if (kind === 'blob') {
+    if (sha256(bytes) !== name) return refuse(400, 'The body does not hash to its name.');
     const read = readBlob(bytes);
     if (read.refused) return refuse(403, NOT_PUBLIC);
     if (read.problem) return refuse(400, read.problem);
     const hits = scanPublic(read.value, 'blob');
     if (hits.length) return rejectHit(hits);
-    putBlob(blob, bytes);
+    putBlob(name, bytes);
     return json(200, { ok: true });
   }
   const parsed = parseJson(bytes);
   if (!parsed) return refuse(400, 'The body is not JSON.');
-  if (!source) {
+  if (missingRoute) {
     const shas = parsed.value?.shas;
     if (!Array.isArray(shas) || !shas.every(isSha)) return refuse(400, 'Send { shas: [sha256...] }.');
     return json(200, { missing: missingBlobs(shas) });
   }
-  const problem = manifestProblem(parsed.value, source);
+  const problem = manifestProblem(parsed.value, name);
   if (problem) return refuse(400, `The manifest is invalid: ${problem}.`);
   const hits = scanPublic(parsed.value, 'manifest').filter(({ path: at }) => at.includes('.key['));
   if (hits.length) return rejectHit(hits);
   const missing = missingFromManifest(parsed.value);
   if (missing.length) return json(400, { missing });
-  if (storedListSource(parsed.value.list) !== source) return refuse(400, 'The manifest\'s list belongs to another source.');
-  writeManifest(source, parsed.value);
+  if (storedListSource(parsed.value.list) !== name) return refuse(400, 'The manifest\'s list belongs to another source.');
+  writeManifest(name, parsed.value);
   return json(200, { ok: true });
 }
 
@@ -106,10 +100,7 @@ export async function hostedDashboard(port) {
   const page = readFileSync(new URL('flows.html', import.meta.url), 'utf8').replace('<body>', '<body data-hosted>');
 
   const handle = async (req, res) => {
-    const reply = (code, type, body, headers = {}) => {
-      res.writeHead(code, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "frame-ancestors 'none'", ...headers });
-      res.end(req.method === 'HEAD' ? undefined : body);
-    };
+    const reply = replier(req, res);
     const notFound = () => reply(404, 'text/plain', 'Not found.\n');
     const path = new URL(req.url, 'http://hosted').pathname;
     if (path.startsWith('/ingest/')) return await ingest(req, path, reply, pushToken);
@@ -121,7 +112,11 @@ export async function hostedDashboard(port) {
     if (!api) return notFound();
     const [flow, agent] = api.slice(1).map((part) => part && decodeURIComponent(part));
     const answer = agent ? flows.trace(flow, agent) : flow ? flows.flow(flow) : flows.list();
-    return answer ? reply(200, 'application/json', JSON.stringify(answer), { 'cache-control': API_CACHE }) : notFound();
+    if (!answer) return notFound();
+    const body = JSON.stringify(answer);
+    const etag = `"${sha256(body)}"`;
+    const headers = { 'cache-control': API_CACHE, etag };
+    return req.headers['if-none-match'] === etag ? reply(304, 'application/json', undefined, headers) : reply(200, 'application/json', body, headers);
   };
 
   // A bad URL or escape from the open internet must cost one request, never the process. The answer names no cause,

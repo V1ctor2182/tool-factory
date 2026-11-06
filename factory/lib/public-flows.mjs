@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 
 // Raise this when shaping changes, so the pusher re-reads and re-sends traces it already sent.
-export const SHAPE_VERSION = 1;
+export const SHAPE_VERSION = 2;
 
 export const PUBLIC_SOURCES = [
   { source: 'game-studio', label: 'Game Studio' },
@@ -15,7 +15,7 @@ const labelOf = (source) => PUBLIC_SOURCES.find((entry) => entry.source === sour
 
 export const NOTHING_PUSHED = 'No data pushed yet.';
 export const LIST_LOST = 'The stored list of this source is gone. The next push restores it.';
-export const READ_FAILED = 'This source could not be read on the Mac.';
+const READ_FAILED = 'This source could not be read on the Mac.';
 const SOURCE_ERRORS = new Set([NOTHING_PUSHED, LIST_LOST, READ_FAILED]);
 
 const STATES = new Set(['running', 'blocked', 'stalled', 'failed', 'pending', 'done']);
@@ -38,7 +38,7 @@ const list = (shape) => (value) => (Array.isArray(value) ? value.map(shape) : []
 
 // A raw attempt or tool-call id would read as a token on a public page and says nothing to a visitor, so it leaves
 // as a short digest. The same input always gives the same digest, and a digest maps to itself.
-export function publicId(id) {
+function publicId(id) {
   const raw = String(id);
   if (PLAIN_ID.test(raw) && !TOKEN_LIKE_ID.test(raw)) return raw;
   return `x${createHash('sha256').update(raw).digest('hex').slice(0, 16)}`;
@@ -183,7 +183,7 @@ export function scanPublic(value, path) {
   return hits;
 }
 
-// The shapes a blob can take. Returns who it claims to belong to, and whether it holds nothing but the allowlist.
+// The shapes a blob can take. Returns its value only if it holds nothing but the allowlist.
 export function readBlob(bytes) {
   let value;
   const raw = bytes.toString('utf8');
@@ -195,8 +195,7 @@ export function readBlob(bytes) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return { problem: 'A blob must be one public answer.' };
   const shape = Object.hasOwn(value, 'root') ? shapeTrace : Object.hasOwn(value, 'label') ? shapeSourceList : Object.hasOwn(value, 'id') ? shapeFlow : null;
   if (!shape) return { problem: 'A blob must be one public answer.' };
-  const source = shape === shapeTrace ? null : value.source;
-  if (shape !== shapeTrace && !isPublicSource(source)) return { refused: true };
+  if (shape !== shapeTrace && !isPublicSource(value.source)) return { refused: true };
   if (JSON.stringify(shape(value)) !== raw) return { problem: 'The blob holds something outside the allowlist.' };
-  return { value, source };
+  return { value };
 }
