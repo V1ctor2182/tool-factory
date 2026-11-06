@@ -1,4 +1,4 @@
-# victor-tool-factory
+# tool-factory
 
 Every prompt in this repo runs in poteto-mode. Read `~/.claude/skills/poteto-mode/SKILL.md` before the first task of a session and after any compaction. Match each task to a playbook, open the todolist with its steps, name the principles that shaped each decision. A casual question still gets a poteto-style reply (short sentences, evidence or label on every claim, no long dashes, no mid-sentence colons).
 

@@ -1,4 +1,4 @@
-# victor-tool-factory architecture
+# tool-factory architecture
 
 A personal monorepo of microservices Victor can use right away, built from small atomic parts he reuses across microservices.
 
@@ -12,7 +12,7 @@ Design date 2026-10-14, restructured 2026-10-19, rebuilt around microservices an
 
 ## Who it is for
 
-One person on one Mac. Victor calls microservices from a terminal or his scripts. Claude Code and Codex call them through a linked skill or MCP. Nobody else installs or runs them.
+One person on one Mac. Victor calls microservices from a terminal or his scripts. Claude Code and Codex call them through a linked skill or MCP. The code is public under the MIT license, so anyone can fork it, but the design serves only this one caller.
 
 That fact removes work:
 
@@ -28,7 +28,7 @@ The success measure is time from "I need X" to using X. A usable microservice co
 | | Microservice | Atom |
 |---|---|---|
 | What it is | Something Victor uses | One building block that does one job |
-| Examples | `youtube`, `meeting-notes`, `writing-style`, `desktop` | `download`, `transcribe`, `frames`, `see`, `digest` |
+| Examples | `youtube`, `meeting-notes`, `writing-style`, `ui-clone` | `download`, `transcribe`, `frames`, `see`, `digest` |
 | Lives in | `microservices/<name>/` | `atoms/<name>/` |
 | Made of | Atoms it lists in `uses`, called through their CLIs | Its own code plus public libraries and the kit |
 | Returns | One contract | One contract |
@@ -43,8 +43,8 @@ The kind decides how the factory caches, tests, and guards an atom. It is one fi
 |---|---|---|---|---|---|
 | `transform` | `download`, `transcribe`, `frames` | By content, forever | A literal expected output | Free | None |
 | `model` | `see`, `digest`, `ui-draft` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Optional daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
-| `observe` | `find-url`, `screenshot` | Never, or for a day | Schema only, on a recorded fixture | Free | None |
-| `act` | `click`, `type` | Never | A dry run returns the planned action | Varies | Confirmation on every run, enforced by a hook |
+| `observe` | `find-url`, `page-read` | Never, or for a day | Schema only, on a recorded fixture | Free | None |
+| `act` | None yet. `click` and `type` are planned. | Never | A dry run returns the planned action | Varies | Confirmation on every run, enforced by a hook |
 
 `ui-draft` writes a component from a page recording, and `ui-clone rebuild` loops it with `page-record` and `page-diff`. Its cost stays per call in the run log, and the loop also sums it per round into the rebuilt item's `meta`. The kit's budget caps each call as for any `model` atom.
 
@@ -62,10 +62,12 @@ A pipeline microservice has two forms. The script form, `run`, works for Victor'
 ## Repo layout
 
 ```
-victor-tool-factory/
+tool-factory/
   CLAUDE.md
   README.md
   ARCHITECTURE.md
+  CONTRIBUTING.md
+  LICENSE
   microservices/                  what Victor uses
     <name>/
       manifest.json               "type": "microservice", "kind", "uses"
@@ -85,9 +87,8 @@ victor-tool-factory/
     node/
   contracts/                      shared data shapes, as JSON Schema
   factory/                        management plane. Node 24, zero dependencies
-    bin/factory.mjs               list | status | doctor | test | run | link | unlink | mcp | new | dashboard
+    bin/factory.mjs               list | status | doctor | test | run | link | unlink | mcp | dashboard | push
     lib/
-    templates/
     dashboard/
   external.json                   microservices in other repos, such as art-desk
   docs/
@@ -189,7 +190,7 @@ Links are symlinks and the MCP adapter starts the CLI fresh per call, so an edit
 
 | Task | Command |
 |---|---|
-| Start a microservice or atom from a template | `factory new atom see --kind model`, `factory new microservice podcast` |
+| Start a microservice or atom | Copy the closest existing folder, as [CONTRIBUTING.md](CONTRIBUTING.md) describes |
 | See everything | `factory list`, `factory status`, `factory dashboard` |
 | Check binaries, secrets, budget, health | `factory doctor` |
 | Run every test and rule | `factory test` |
