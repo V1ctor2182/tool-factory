@@ -814,7 +814,7 @@ function headline(sick, calls) {
     h('span', { class: `mark${sick ? ' bad' : ''}` }, sick ? `${sick} need a look.` : 'all healthy.'));
 }
 
-const PAGES = [['/', 'Overview'], ['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere']];
+const PAGES = [['/', 'Overview'], ['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere'], ['/flows', 'Flows']];
 // The server serves these paths, so a link to one is handled here without reloading.
 const PAGE_PATH = /^\/(?:try|wiring|elsewhere|docs(?:\/[^/]+){0,2})?$/;
 const pageOf = (path) => {
