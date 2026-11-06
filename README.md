@@ -156,7 +156,7 @@ Each atom's folder has a `SKILL.md` that documents it. The dashboard's Docs page
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/wiring-dark.png">
-  <img src="docs/media/wiring-light.png" alt="The Wiring page of the factory dashboard. Six microservices on the left connect to the eighteen atoms they call on the right, and each row shows its run and failure counts.">
+  <img src="docs/media/wiring-light.png" alt="The Wiring page of the factory dashboard. Six microservices on the left connect to the eighteen atoms they call on the right, and each row shows its run count.">
 </picture>
 
 The [public copy](https://factory.victorz.studio) shows my real run log. It runs nothing, and its Try page links to GitHub instead. A [publish guard](factory/lib/public-flows.mjs) keeps paths and spend on my laptop.
