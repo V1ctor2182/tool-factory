@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { after, before, test } from 'node:test';
+import { KINDS } from '../lib/registry.mjs';
 import { copyRepo, REPO } from './repo.mjs';
 
 const TOKEN = 'test-push-token-that-is-long-enough-to-pass';
@@ -478,7 +479,7 @@ test('the pusher\'s guard stops a leaking source before its first byte, names th
     assert.match(pushed.stderr, /tools rejected by the publish guard/);
     assert.match(pushed.stderr, /tools list\.flows\[0\]\.title broke rule email/);
     assert.equal(`${pushed.stdout}${pushed.stderr}`.includes('someone'), false, 'the matched value stays out of the report');
-    assert.deepEqual(seen, [], 'nothing was sent for that source');
+    assert.deepEqual(seen.filter((path) => path !== '/ingest/catalog'), [], 'nothing was sent for that source');
 
     const both = await pushTo(`http://127.0.0.1:${recorder.address().port}`, pushHome, 'tools,game-studio');
     assert.equal(both.code, 1);
@@ -605,7 +606,7 @@ test('a second push reads no finished trace and sends one heartbeat per unchange
     seen.length = 0;
     const second = await pushTo(through, pushHome, 'tools');
     assert.equal(second.code, 0, second.stderr);
-    assert.deepEqual(seen, ['POST /ingest/heartbeat/tools']);
+    assert.deepEqual(seen, ['POST /ingest/heartbeat/tools', 'PUT /ingest/catalog']);
     assert.equal(statSync(manifest).mtimeMs, stamp, 'the manifest was not rewritten');
     assert.ok(Date.parse((await sourceOf(url, 'tools')).lastPush) > Date.parse(beforeBeat), 'the receipt time moved');
     assert.match(second.stdout, /tools: .*\b0 traces read/);
@@ -720,6 +721,46 @@ test('a machine gone for five minutes reads as stalled, and a question to Victor
   const back = await studioOf();
   assert.equal(back.stale, false, 'the next push, even a heartbeat, brings it back');
   assert.equal(back.flows.find((f) => f.id === 'game-studio:night').state, 'running');
+});
+
+test('a push lists the tools from their manifests, and the page and API answer with no login', async () => {
+  const pushHome = pushHomeFrom('catalog-push-home');
+  const { url, home } = await hosted('catalog-home');
+  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [] });
+  const first = await pushTo(url, pushHome);
+  assert.equal(first.code, 0, first.stderr);
+  assert.match(first.stdout, /tool catalog: \d+ tools sent/);
+  const { tools } = await getJson(url, '/api/tools');
+  const youtube = tools.find((tool) => tool.name === 'youtube');
+  assert.deepEqual(Object.keys(youtube), ['name', 'type', 'kind', 'description', 'verbs', 'uses']);
+  assert.equal(youtube.type, 'microservice');
+  assert.ok(youtube.verbs.includes('get'));
+  assert.ok(tools.some((tool) => tool.type === 'atom'));
+  assert.equal((await get(url, '/tools')).status, 200);
+  rmSync(hostedFile(home, 'catalog.json'));
+  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [] });
+  assert.equal((await pushTo(url, pushHome)).code, 0);
+  assert.deepEqual((await getJson(url, '/api/tools')).tools, tools, 'the next push restores a lost catalog');
+});
+
+test('the public catalog keeps every kind and type the registry knows', () => {
+  for (const [kind, { type }] of Object.entries(KINDS)) {
+    assert.deepEqual(shape.shapeCatalog({ tools: [{ kind, type }] }), { tools: [{ type, kind }] }, kind);
+  }
+});
+
+test('the catalog ingest needs the token and refuses extra fields and anything the guard catches', async () => {
+  const { url } = await hosted('catalog-ingest-home');
+  const put = (body, headers = bearer()) => fetch(`${url}/ingest/catalog`, { method: 'PUT', headers, body: JSON.stringify(body) });
+  const tool = { name: 'a', type: 'atom', kind: 'transform', description: 'Does one thing.', verbs: ['get'], uses: [] };
+  assert.equal((await put({ tools: [tool] }, {})).status, 401);
+  assert.equal((await put({ tools: [{ ...tool, needs: ['secret'] }] })).status, 400);
+  assert.equal((await put({ tools: [tool], extra: 1 })).status, 400);
+  assert.equal((await put({ tools: [{ ...tool, description: 'see /Users/someone/project' }] })).status, 422);
+  assert.equal((await put({ tools: [{ ...tool, description: 'see https://example.com' }] })).status, 422);
+  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [] });
+  assert.equal((await put({ tools: [tool] })).status, 200);
+  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [tool] });
 });
 
 test('a repeat read of the flows API with its ETag answers 304 and no body', async () => {

@@ -7,8 +7,9 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getFlow, getTrace, listSource, SOURCES } from './flows/index.mjs';
 import { sha256, writeAtomic } from './hosted-store.mjs';
-import { GUARD_RULES, isPublicSource, PUBLIC_SOURCES, rulesHitBy, scanPublic, SHAPE_VERSION, shapeFlow, shapeSourceList, shapeTrace, walkStrings } from './public-flows.mjs';
+import { GUARD_RULES, isPublicSource, PUBLIC_SOURCES, rulesHitBy, scanPublic, SHAPE_VERSION, shapeCatalog, shapeFlow, shapeSourceList, shapeTrace, walkStrings } from './public-flows.mjs';
 import { home } from './home.mjs';
+import { load } from './registry.mjs';
 
 const PARALLEL_UPLOADS = 8;
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -174,6 +175,30 @@ function reportHits(source, hits, warn) {
   if (hits.length > HITS_PRINTED) warn(`  and ${hits.length - HITS_PRINTED} more. Run factory push --scan for the rest.`);
 }
 
+function catalogOf(root) {
+  const tools = [...load(root).entries.values()].map(({ name, type, kind, manifest }) => ({
+    name,
+    type,
+    kind,
+    description: manifest.description,
+    verbs: (manifest.verbs ?? []).map((verb) => verb.name),
+    uses: manifest.uses ?? [],
+  }));
+  return shapeCatalog({ tools });
+}
+
+async function pushCatalog(root, send, log, warn) {
+  const catalog = catalogOf(root);
+  const hits = scanPublic(catalog, 'catalog');
+  if (hits.length) {
+    reportHits('the tool catalog', hits, warn);
+    return 1;
+  }
+  ok(await send('PUT', '/ingest/catalog', JSON.stringify(catalog)), 'the tool catalog');
+  log(`tool catalog: ${catalog.tools.length} tools sent`);
+  return 0;
+}
+
 async function pushSource(root, entry, send, state) {
   const { source } = entry;
   const { manifest, blobs, hits, committed, seen, reads, reason } = await shapeSource(root, entry, state.traces);
@@ -223,6 +248,7 @@ export async function push(root, rawUrl, names, { log, warn, statePath = join(ho
       const said = done.reason ? `read failed, sent a generic error. Here it said: ${done.reason}` : `${done.flows} flows, ${done.traces} traces, ${done.reads} traces read`;
       log(`${done.source}: ${said}, ${done.blobs} blobs (${done.bytes} bytes) uploaded, ${done.action === 'heartbeat' ? 'nothing changed, heartbeat sent' : 'manifest sent'}`);
     }
+    code = await pushCatalog(root, send, log, warn) || code;
   } finally {
     saveStateFile(statePath, file);
   }
@@ -250,16 +276,19 @@ export async function scan(root, names, log) {
   const hitFields = new Map();
   const distinct = new Map();
   const samples = new Map();
+  const tally = (hits, label) => {
+    for (const { path, rule } of hits) {
+      ruleCounts.set(rule, ruleCounts.get(rule) + 1);
+      const field = label(path);
+      if (!hitFields.has(field)) hitFields.set(field, new Map());
+      hitFields.get(field).set(rule, (hitFields.get(field).get(rule) ?? 0) + 1);
+    }
+  };
   for (const entry of entries) {
     const { manifest, blobs, hits, answers, reason } = await shapeSource(root, entry);
     const bytes = [...blobs.values()].reduce((sum, body) => sum + body.length, 0);
     log(`${entry.source}: ${Object.keys(manifest.flows).length} flows, ${Object.keys(manifest.traces).length} trace routes, ${blobs.size} blobs, ${bytes} bytes${reason ? `, read failed: ${reason}` : ''}`);
-    for (const { path, rule } of hits) {
-      ruleCounts.set(rule, ruleCounts.get(rule) + 1);
-      const field = `${entry.source} ${fieldOf(path)}`;
-      if (!hitFields.has(field)) hitFields.set(field, new Map());
-      hitFields.get(field).set(rule, (hitFields.get(field).get(rule) ?? 0) + 1);
-    }
+    tally(hits, (path) => `${entry.source} ${fieldOf(path)}`);
     for (const { value, path } of answers) {
       walkStrings(value, path, (at, found) => {
         if (at.includes('.key[')) return;
@@ -272,6 +301,9 @@ export async function scan(root, names, log) {
       });
     }
   }
+  const catalog = catalogOf(root);
+  log(`tool catalog: ${catalog.tools.length} tools`);
+  tally(scanPublic(catalog, 'catalog'), fieldOf);
   const total = [...ruleCounts.values()].reduce((sum, n) => sum + n, 0);
   log(`\nGuard rules, ${total} hits in all:`);
   for (const [rule, n] of ruleCounts) log(`  ${rule}: ${n}`);

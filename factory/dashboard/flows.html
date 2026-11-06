@@ -79,6 +79,8 @@ a { color: inherit; }
 .run { display: flex; gap: 12px; align-items: center; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); text-decoration: none; transition: border-color 0.15s, translate 0.15s var(--ease); }
 .run:hover { border-color: var(--soft); translate: 0 -1px; }
 .run .tx { min-width: 0; flex: 1; }
+.run.tool { align-items: flex-start; }
+.run.tool .s { white-space: normal; }
 .run .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .run .s { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .run .side { text-align: right; flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -247,10 +249,12 @@ a { color: inherit; }
 <script>
 const app = document.getElementById('app');
 const HOSTED = document.body.hasAttribute('data-hosted');
-const NAV = HOSTED ? [['/flows', 'Flows']] : [['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere'], ['/flows', 'Flows']];
+const NAV = HOSTED ? [['/flows', 'Flows'], ['/tools', 'Tools']] : [['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere'], ['/flows', 'Flows']];
 const LOGO = '<svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M7 8h3.5c2 0 2 8 4 8H17M7 16h3.5c2 0 2-8 4-8H17" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="7" cy="8" r="1.3" fill="currentColor"/><circle cx="7" cy="16" r="1.3" fill="currentColor"/><circle cx="17" cy="8" r="1.3" fill="currentColor"/><circle cx="17" cy="16" r="1.3" fill="currentColor"/></svg>';
 // The Mac pushes about once a minute, so a public visitor polling faster only costs the origin.
 const POLL_MS = HOSTED ? 15000 : 2500;
+const REPO_TREE = 'https://github.com/V1ctor2182/victor-tool-factory/tree/main';
+const TOOL_GROUPS = [['microservice', 'Microservices', 'microservices'], ['atom', 'Atoms', 'atoms']];
 const CHIP_LIMIT = 5;
 const STAGE_W = 216;
 // Rows beyond this fold a session's steps away, since its lane already shows them.
@@ -373,6 +377,7 @@ const route = () => {
   const [, , flow, agent] = location.pathname.split('/');
   return { flowId: flow ? decodeURIComponent(flow) : null, agentId: agent ? decodeURIComponent(agent) : null };
 };
+const activePage = () => (location.pathname === '/tools' ? '/tools' : '/flows');
 const flowHref = (id, agent) => `/flows/${encodeURIComponent(id)}${agent ? `/${encodeURIComponent(agent)}` : ''}`;
 let pollTimer = null;
 let token = 0;
@@ -394,7 +399,7 @@ async function fetchJson(key, url) {
 function topBar() {
   return h('header', { class: 'top' }, h('div', { class: 'in' },
     h('a', { class: 'brand', href: HOSTED ? '/flows' : '/', html: `${LOGO}FACTORY` }),
-    h('nav', null, NAV.map(([path, label]) => h('a', { href: path, 'aria-current': path === '/flows' ? 'page' : null }, label)))));
+    h('nav', null, NAV.map(([path, label]) => h('a', { href: path, 'aria-current': path === activePage() ? 'page' : null }, label)))));
 }
 
 let content;
@@ -446,6 +451,21 @@ function renderHome(model) {
     if (lefts.get(source) !== undefined) scroll.scrollLeft = lefts.get(source);
     else scrollToLive(loop, scroll);
   }
+}
+
+function toolCard({ name, kind, description }, folder) {
+  return h('a', { class: 'run tool', href: `${REPO_TREE}/${folder}/${encodeURIComponent(name)}`, target: '_blank', rel: 'noopener' },
+    h('div', { class: 'tx' }, h('div', { class: 't' }, name), h('div', { class: 's' }, description)),
+    h('div', { class: 'side' }, kind));
+}
+
+function renderTools({ tools }) {
+  content.replaceChildren(
+    h('section', { class: 'hero' }, h('h1', null, `${plural(tools.length, 'tool')}. `, h('span', { class: 'soft' }, 'Read the code on GitHub and run them on your own machine.'))),
+    ...TOOL_GROUPS.map(([type, title, folder]) => {
+      const group = tools.filter((tool) => tool.type === type);
+      return group.length ? h('section', { class: 'source' }, h('header', null, h('h2', null, title)), h('div', { class: 'runs' }, group.map((tool) => toolCard(tool, folder)))) : null;
+    }));
 }
 
 function offlineLine({ sources }) {
@@ -824,6 +844,17 @@ const traceUrl = (flowId, agentId) => `/api/flows/${encodeURIComponent(flowId)}/
 function start() {
   const { flowId } = route();
   clearInterval(clockTimer);
+  for (const link of app.querySelectorAll('.top nav a')) link.toggleAttribute('aria-current', false);
+  app.querySelector(`.top nav a[href="${activePage()}"]`)?.setAttribute('aria-current', 'page');
+  if (location.pathname === '/tools') {
+    document.title = 'Tools';
+    lastBytes.tools = null;
+    content.replaceChildren();
+    return schedule(async () => {
+      const got = await fetchJson('tools', '/api/tools');
+      if (got.changed) renderTools(got.data);
+    });
+  }
   if (!flowId) {
     document.title = 'Flows';
     lastBytes.list = null;
@@ -851,7 +882,7 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href]');
   if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const url = new URL(a.href);
-  if (url.origin !== location.origin || !url.pathname.startsWith('/flows')) return;
+  if (url.origin !== location.origin || !(url.pathname.startsWith('/flows') || (HOSTED && url.pathname === '/tools'))) return;
   e.preventDefault();
   if (url.href !== location.href) history.pushState(null, '', url);
   start();

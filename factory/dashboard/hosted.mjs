@@ -3,16 +3,16 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { heartbeat, hostedFlows, missingBlobs, missingFromManifest, prepareStore, putBlob, sha256, storedListSource, writeManifest } from '../lib/hosted-store.mjs';
-import { isPublicSource, isSha, manifestProblem, readBlob, scanPublic } from '../lib/public-flows.mjs';
+import { heartbeat, hostedFlows, missingBlobs, missingFromManifest, prepareStore, putBlob, readCatalog, sha256, storedListSource, writeCatalog, writeManifest } from '../lib/hosted-store.mjs';
+import { isPublicSource, isSha, manifestProblem, readBlob, scanPublic, shapeCatalog } from '../lib/public-flows.mjs';
 import { FLOWS_API, FLOWS_PAGE, replier } from './http.mjs';
 
 const MIN_TOKEN = 32;
 const MAX_BODY = 8 * 1024 * 1024;
 const API_CACHE = 'public, max-age=2';
 const BIND_HOST = '0.0.0.0';
-const INGEST = /^\/ingest\/(?:(missing)|(blob|source|heartbeat)\/([^/]+))$/;
-const INGEST_METHOD = { missing: 'POST', blob: 'PUT', source: 'PUT', heartbeat: 'POST' };
+const INGEST = /^\/ingest\/(?:(missing|catalog)|(blob|source|heartbeat)\/([^/]+))$/;
+const INGEST_METHOD = { missing: 'POST', catalog: 'PUT', blob: 'PUT', source: 'PUT', heartbeat: 'POST' };
 const NOT_PUBLIC = 'That source is not on the public allowlist.';
 
 function pushTokenFrom(env) {
@@ -55,8 +55,8 @@ async function ingest(req, path, reply, token) {
   const refuse = (code, message) => reply(code, 'text/plain', `${message}\n`);
   const rejectHit = ([hit]) => json(422, { field: hit.path, rule: hit.rule });
   if (!hasPushToken(req, token)) return reply(401, 'text/plain', 'Send the push token as a bearer token.\n', { 'www-authenticate': 'Bearer' });
-  const [, missingRoute, kind, name] = path.match(INGEST) ?? [];
-  const route = INGEST_METHOD[missingRoute ?? kind];
+  const [, plain, kind, name] = path.match(INGEST) ?? [];
+  const route = INGEST_METHOD[plain ?? kind];
   if (!route) return refuse(404, 'No such ingest path.');
   if (req.method !== route) return reply(405, 'text/plain', `Use ${route}.\n`, { allow: route });
   if (kind === 'blob' && !isSha(name)) return refuse(400, 'A blob name is 64 lowercase hex characters.');
@@ -77,7 +77,14 @@ async function ingest(req, path, reply, token) {
   }
   const parsed = parseJson(bytes);
   if (!parsed) return refuse(400, 'The body is not JSON.');
-  if (missingRoute) {
+  if (plain === 'catalog') {
+    if (!Array.isArray(parsed.value?.tools) || JSON.stringify(shapeCatalog(parsed.value)) !== bytes.toString('utf8')) return refuse(400, 'The catalog holds something outside the allowlist.');
+    const hits = scanPublic(parsed.value, 'catalog');
+    if (hits.length) return rejectHit(hits);
+    writeCatalog(bytes);
+    return json(200, { ok: true });
+  }
+  if (plain === 'missing') {
     const shas = parsed.value?.shas;
     if (!Array.isArray(shas) || !shas.every(isSha)) return refuse(400, 'Send { shas: [sha256...] }.');
     return json(200, { missing: missingBlobs(shas) });
@@ -107,11 +114,11 @@ export async function hostedDashboard(port) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return notFound();
     if (path === '/healthz') return reply(200, 'text/plain', 'ok\n');
     if (path === '/') return reply(302, 'text/plain', '', { location: '/flows' });
-    if (FLOWS_PAGE.test(path)) return reply(200, 'text/html', page);
+    if (FLOWS_PAGE.test(path) || path === '/tools') return reply(200, 'text/html', page);
     const api = path.match(FLOWS_API);
-    if (!api) return notFound();
-    const [flow, agent] = api.slice(1).map((part) => part && decodeURIComponent(part));
-    const answer = agent ? flows.trace(flow, agent) : flow ? flows.flow(flow) : flows.list();
+    if (!api && path !== '/api/tools') return notFound();
+    const [flow, agent] = api ? api.slice(1).map((part) => part && decodeURIComponent(part)) : [];
+    const answer = !api ? readCatalog() : agent ? flows.trace(flow, agent) : flow ? flows.flow(flow) : flows.list();
     if (!answer) return notFound();
     const body = JSON.stringify(answer);
     const etag = `"${sha256(body)}"`;

@@ -2,12 +2,13 @@
 //   Blob            blobs/<sha>.json, one public answer named by the sha256 of its bytes.
 //   SourceManifest  sources/<source>.json, { source, label, error, list, flows: {flowId: sha}, traces: {"flowId/agentId": sha} }.
 //   Heartbeat       sources/<source>.heartbeat.json, { source, at }, where at is this server's receipt time.
+//   ToolCatalog     catalog.json, { tools: [{ name, type, kind, description, verbs, uses }] }.
 // The heartbeat has its own file so a quiet machine's minute costs one small write, not a rewrite of its manifest.
 // Every answer is shaped again on its way out, so a blob stored under an older allowlist cannot show what the current one drops.
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isPublicSource, LIST_LOST, NOTHING_PUSHED, PUBLIC_SOURCES, shapeFlow, shapeSourceList, shapeTrace } from './public-flows.mjs';
+import { isPublicSource, LIST_LOST, NOTHING_PUSHED, PUBLIC_SOURCES, shapeCatalog, shapeFlow, shapeSourceList, shapeTrace } from './public-flows.mjs';
 import { home } from './home.mjs';
 
 const STALE_AFTER_MS = 5 * 60_000;
@@ -18,6 +19,7 @@ const sourcesDir = () => join(home(), 'hosted', 'sources');
 const blobPath = (sha) => join(blobsDir(), `${sha}.json`);
 const manifestPath = (source) => join(sourcesDir(), `${source}.json`);
 const heartbeatPath = (source) => join(sourcesDir(), `${source}.heartbeat.json`);
+const catalogPath = () => join(home(), 'hosted', 'catalog.json');
 
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -99,6 +101,9 @@ export function heartbeat(source) {
   beat(source);
   return true;
 }
+
+export const writeCatalog = (bytes) => writeAtomic(catalogPath(), bytes);
+export const readCatalog = () => shapeCatalog(readJson(catalogPath()) ?? { tools: [] });
 
 // The one rule that keeps the page honest: a source not heard from has lost its machine, so nothing in it still runs.
 // A blocked agent stays blocked because the question to Victor is still open.

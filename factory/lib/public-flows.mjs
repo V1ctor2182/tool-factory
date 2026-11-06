@@ -24,6 +24,8 @@ const CATEGORIES = new Set(['model', 'browser', 'backend', 'shell', 'file', 'age
 const OUTCOMES = new Set(['ok', 'failed']);
 const KINDS = new Set(['step', 'group']);
 const EDGE_LABELS = new Set(['rejected', 'rework', 'replan']);
+const TOOL_TYPES = new Set(['microservice', 'atom']);
+const TOOL_KINDS = new Set(['pipeline', 'skill', 'transform', 'model', 'observe', 'act']);
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const TOKEN_LIKE_ID = /[A-Za-z0-9]{24,}|[0-9a-f]{8}-[0-9a-f]{4}-/;
 const PLAIN_ID = /^[\w.:-]{1,80}$/;
@@ -103,6 +105,9 @@ const shapeNode = shaper({
 });
 
 export const shapeTrace = shaper({ title: text, subtitle: text, startedAt: time, live: flag, state: oneOf(STATES), root: shapeNode });
+
+const shapeTool = shaper({ name: text, type: oneOf(TOOL_TYPES), kind: oneOf(TOOL_KINDS), description: text, verbs: list(text), uses: list(text) });
+export const shapeCatalog = shaper({ tools: list(shapeTool) });
 
 // A raw exception can hold a path, so an error crosses as one of these sentences or as READ_FAILED.
 const sourceError = (error) => (error ? (SOURCE_ERRORS.has(error) ? error : READ_FAILED) : null);
