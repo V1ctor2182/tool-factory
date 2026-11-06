@@ -17,7 +17,7 @@ One person on one Mac. Victor calls microservices from a terminal or his scripts
 That fact removes work:
 
 - **Breaking changes are cheap.** Victor owns every caller. When an output changes, the same change fixes the callers. Manifests carry no version.
-- **Local first.** Everything runs on this laptop. The dashboard binds to localhost.
+- **Local first.** Everything runs on this laptop. The dashboard binds to localhost. The one exception is the public Flows page on Railway, which runs nothing and shows only what this laptop pushes to it.
 - **Secrets come from the macOS keychain.** No env files with keys in the repo.
 - **No publishing.** `factory link` is the only install path.
 
@@ -42,9 +42,11 @@ The kind decides how the factory caches, tests, and guards an atom. It is one fi
 | Kind | Example | Cached | Tests assert | Cost | Guard |
 |---|---|---|---|---|---|
 | `transform` | `download`, `transcribe`, `frames` | By content, forever | A literal expected output | Free | None |
-| `model` | `see`, `digest` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
+| `model` | `see`, `digest`, `ui-draft` | By input, model, and prompt hash | Schema plus required facts | Logged per call | Optional daily budget in the kit, plus a `PreToolUse` hook in Claude Code |
 | `observe` | `find-url`, `screenshot` | Never, or for a day | Schema only, on a recorded fixture | Free | None |
 | `act` | `click`, `type` | Never | A dry run returns the planned action | Varies | Confirmation on every run, enforced by a hook |
+
+`ui-draft` writes a component from a page recording, and `ui-clone rebuild` loops it with `page-record` and `page-diff`. Its cost stays per call in the run log, and the loop also sums it per round into the rebuilt item's `meta`. The kit's budget caps each call as for any `model` atom.
 
 `transcribe` runs a local model but counts as `transform`. It is free, and with temperature zero its output is stable enough to assert after normalizing case and punctuation.
 
@@ -130,8 +132,8 @@ The kit is plumbing every atom would otherwise copy.
 | `cache` | Read and write results by key, atomically |
 | `hash` | Stream a SHA-256 for cache keys |
 | `secrets` | Read a secret from the environment, else the keychain |
-| `web` | Fetch JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
-| `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget and logs spend. |
+| `web` | Fetch bytes or JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
+| `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget when one is set, and logs spend. |
 
 The default `model` backend is headless Claude Code, `claude -p --output-format json --json-schema`. It runs on Victor's Claude Code login, so there is no API key. Checked 2026-10-25. A small call returned schema-valid JSON in `structured_output` with `total_cost_usd` set, in about seven seconds. The Anthropic API is the second backend when a key in the keychain is preferred.
 
@@ -203,7 +205,11 @@ The dashboard lists microservices first, each with its atoms underneath. Each at
 
 The dashboard can also try any verb of a microservice or an atom. Its form for each verb comes from the verb's `input` schema in `manifest.json`. `POST /run/<name>/<verb>` validates the input against that schema, runs the CLI through `invoke` with `--json`, and logs the run with `dashboard` as the caller, the same path `factory mcp` takes. It streams the CLI's stderr as progress, then the `--json` output. The server answers a run only when the request's `Origin` is the dashboard's own page, so another site open in the browser cannot start one. It refuses `act` atoms, since no one confirms them there. Model spend goes through the same daily budget as every other caller.
 
-The dashboard has five pages: `/` for health and spend, `/try`, `/wiring`, `/docs`, and `/elsewhere`. The server answers each with the same HTML, and the page picks its view from the path. A click on one of these links switches the view in place with `history.pushState`, without a reload, and Try and Wiring keep their state across switches. `/docs/<name>/<verb>` documents one verb as an API reference: its CLI usage, each argument from `input` with its command-line form, its output contract's top-level fields read from `contracts/<output>.schema.json`, and request examples for the CLI, MCP, and the dashboard. Try it opens `/try?name=<name>&verb=<verb>`.
+The dashboard has six pages: `/` for health and spend, `/try`, `/wiring`, `/docs`, `/elsewhere`, and `/flows`. The server answers each with the same HTML, and the page picks its view from the path. A click on one of these links switches the view in place with `history.pushState`, without a reload, and Try and Wiring keep their state across switches. `/docs/<name>/<verb>` documents one verb as an API reference: its CLI usage, each argument from `input` with its command-line form, its output contract's top-level fields read from `contracts/<output>.schema.json`, and request examples for the CLI, MCP, and the dashboard. Try it opens `/try?name=<name>&verb=<verb>`.
+
+`/flows` shows every pipeline run in one shape, so a Game Studio feature, a job application, and a `site-clone` loop read the same way. `factory/lib/flows/` turns each pipeline's own records into it, read-only. A flow is stages left to right, each stage holds agents, and a loop is a back edge between stages. Game Studio is also one long-running system, so its source adds a Studio loop flow, drawn on the home page above its features. The home page shows only what is running or waiting on Victor, and folds every other run and agent behind a toggle. That flow's phases are Plan, the five work stages, Verify, and You review, and its back edges count replans, verifier rejections, and rework after review. `ui-clone` and `site-clone` get the same loop. Their sources read each service's round files and the run log, and a site's Build step reads the session transcript, so no skill reports in. An agent opens a trace, a tree of timed spans drawn as a waterfall, and gaps between spans read as model time. `external.json` names where an outside pipeline lives through its `flows` field, as a folder on this Mac or as a URL. The Job Applier runs on another machine, so its `where` is the URL of Jobfeed's API, reached over an SSH tunnel because Jobfeed binds to loopback. A span shows a tool's name and at most one allowlisted detail, never a tool's result or a form value, because job transcripts hold personal data. The page polls `/api/flows` and re-renders only when the response changes. These are the dashboard's only reads outside the data home, and the only ones over a network. Each failing source shows its own error and leaves the others up.
+
+The public Flows page is a separate server, `factory/dashboard/hosted.mjs`, deployed to Railway as the `flows` service of the `factory-flows` project. It has no login. Its routes are `/healthz`, the status pages, the flows page and API, and an ingest guarded by `FACTORY_PUSH_TOKEN`, and its image holds only the seven files named in `Dockerfile`. A launchd job on the Mac, `com.victor.factory-flows-push`, runs `factory push` every minute. The Mac reads its token from the keychain item `factory-push`. `factory/lib/public-flows.mjs` decides what may be seen, and both the pusher and the ingest route go through it. It copies named fields into new objects, allows only the `game-studio` and `tools` sources, and rejects a blob that holds a path, an email, a URL, an IP address, or a token. Cost, `where`, and notes never leave the Mac. The `meta` field does not either, but a Game Studio trace's subtitle includes its value, which is a runtime or a feature name. `factory push --scan --sources game-studio,tools` shows what would go out and sends nothing. A source with no push for five minutes reads as stalled, and the page says when it went offline. Raise `SHAPE_VERSION` when shaping changes, so finished traces go out again. To deploy it, run `node factory/bin/deploy-flows.mjs`. The script uploads only the files that `Dockerfile` copies and waits for the deployment to succeed. The Dockerfile build and the `/healthz` healthcheck are settings on the Railway service, so the repo needs no Railway config file. The same server draws the status pages from the same `index.html` as the local dashboard, from a snapshot that `factory push` sends. `shapeStatus` drops spend, the data home, links, doctor notes, parameter example URLs, and every `external.json` entry outside its list, so Job Applier stays off the site. On the public site, Try has a GitHub link where the local page has its run button, and the server has no `/run` route.
 
 ## Design alternatives considered
 
@@ -375,7 +381,7 @@ Usable first, machinery second. Each step ends in a check that runs before the n
 
 - **Whisper backend.** PR 1 decides with measured numbers. faster-whisper 1.2.1 needs PyAV pinned below 19. With that pin it transcribed a test clip with no system ffmpeg, checked 2026-10-25.
 - **Default model per model atom.** `digest` starts on `sonnet` and `see` on `haiku`. Both are guesses to revisit once the run log shows cost and quality.
-- **Daily budget.** Pick a number before PR 2 merges. Until then the adapter refuses model calls past $3 a day. That figure is a placeholder.
+- **Daily budget.** None by default, by Victor's choice. `TOOL_FACTORY_BUDGET_USD` adds one. Each call has no ceiling either, unless `TOOL_FACTORY_CALL_BUDGET_USD` sets one.
 - **yt-dlp goes stale.** It stays unpinned, and `doctor` reports its age.
 - **YouTube may refuse this network.** Captions downloaded fine on 2026-10-25. PR 1 shows whether audio downloads work too.
 - **The data home grows.** Add a prune command when it first matters.

@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/sweep-plan.schema.json",
+  "title": "Sweep plan",
+  "description": "The inputs to sweep across one page in real time, one run per input. The same plan against an original and a rebuild yields runs that compare by id.",
+  "type": "object",
+  "required": [
+    "url",
+    "runs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "url": {
+      "type": "string",
+      "pattern": "^(https?|file)://"
+    },
+    "viewport": {
+      "type": "object",
+      "required": [
+        "width",
+        "height"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "loadMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "load",
+              "walk",
+              "pass",
+              "idle",
+              "hover",
+              "path",
+              "click"
+            ]
+          },
+          "at": {
+            "type": "number",
+            "description": "Scroll offset to rest at before the run."
+          },
+          "from": {
+            "type": "number"
+          },
+          "to": {
+            "description": "Where a walk ends. end means the bottom of the page.",
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "end"
+              }
+            ]
+          },
+          "step": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "forMs": {
+            "type": "integer"
+          },
+          "holdMs": {
+            "type": "integer"
+          },
+          "afterMs": {
+            "type": "integer"
+          },
+          "wheelPx": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Wheel size per tick in a pass, one tick every 33 ms."
+          },
+          "distance": {
+            "type": "number"
+          },
+          "speed": {
+            "type": "number"
+          },
+          "target": {
+            "type": "object",
+            "description": "A selector or a viewport point to act on. A rebuild may need a different one for the same run.",
+            "properties": {
+              "selector": {
+                "type": "string"
+              },
+              "point": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "additionalProperties": false
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "minItems": 2
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "walk"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "from",
+                "to",
+                "step"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "idle"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "at",
+                "forMs"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "hover",
+                    "click"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "at",
+                "target"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "path"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "at",
+                "points"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "pass"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "at",
+                "distance"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

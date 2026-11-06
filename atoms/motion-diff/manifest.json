@@ -1,0 +1,29 @@
+{
+  "name": "motion-diff",
+  "type": "atom",
+  "kind": "transform",
+  "description": "How a rebuild's motion differs from the original's, run by run, largest first, with side-by-side frames for each run. A repeat of the original sets the noise floor. Cached by content.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/motion-diff",
+  "contract": "motion-diff",
+  "verbs": [
+    {
+      "name": "compare",
+      "description": "Compare two motion-measures, matched by run id. Prints one line per difference, or the diff with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "a": { "type": "string", "description": "The original's motion-measures JSON file." },
+          "b": { "type": "string", "description": "The rebuild's motion-measures JSON file, from the same run ids." },
+          "baseline": { "type": "string", "description": "A second motion-measures file of the original. The gap between it and a widens each tolerance, so random or drifting effects do not report as differences." },
+          "departures": { "type": "string", "description": "A JSON list of {run, metric, why} for deliberate differences. Run * matches every run." }
+        },
+        "required": ["a", "b"]
+      },
+      "output": "motion-diff"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

@@ -1,0 +1,318 @@
+[
+  {
+    "activeBox": [
+      48,
+      8,
+      152,
+      112
+    ],
+    "box": [
+      40,
+      0,
+      160,
+      120
+    ],
+    "channels": [
+      {
+        "coast": null,
+        "moves": [
+          {
+            "delta": 88.0,
+            "durationS": 0.284,
+            "fits": [
+              {
+                "durationS": 0.49,
+                "ease": "cubic-bezier(.23,1,.32,1)",
+                "error": 0.005,
+                "tauMs": null
+              },
+              {
+                "durationS": null,
+                "ease": "exponential",
+                "error": 0.01,
+                "tauMs": 75
+              },
+              {
+                "durationS": 0.187,
+                "ease": "cubic-bezier(.645,.045,.355,1)",
+                "error": 0.106,
+                "tauMs": null
+              }
+            ],
+            "overshoot": 0.0,
+            "startS": 0.016
+          },
+          {
+            "delta": 87.0,
+            "durationS": 0.284,
+            "fits": [
+              {
+                "durationS": 0.472,
+                "ease": "cubic-bezier(.23,1,.32,1)",
+                "error": 0.0067,
+                "tauMs": null
+              },
+              {
+                "durationS": null,
+                "ease": "exponential",
+                "error": 0.0131,
+                "tauMs": 75
+              },
+              {
+                "durationS": 0.187,
+                "ease": "cubic-bezier(.645,.045,.355,1)",
+                "error": 0.1044,
+                "tauMs": null
+              }
+            ],
+            "overshoot": 0.0,
+            "startS": 1.016
+          },
+          {
+            "delta": 91.0,
+            "durationS": 0.517,
+            "fits": [
+              {
+                "durationS": 0.489,
+                "ease": "cubic-bezier(.23,1,.32,1)",
+                "error": 0.0057,
+                "tauMs": null
+              },
+              {
+                "durationS": null,
+                "ease": "exponential",
+                "error": 0.0135,
+                "tauMs": 83
+              },
+              {
+                "durationS": 0.35,
+                "ease": "cubic-bezier(.645,.045,.355,1)",
+                "error": 0.1578,
+                "tauMs": null
+              }
+            ],
+            "overshoot": 0.0,
+            "startS": 1.983
+          },
+          {
+            "delta": 86.0,
+            "durationS": 0.25,
+            "fits": [
+              {
+                "durationS": 0.479,
+                "ease": "cubic-bezier(.23,1,.32,1)",
+                "error": 0.0103,
+                "tauMs": null
+              },
+              {
+                "durationS": null,
+                "ease": "exponential",
+                "error": 0.0182,
+                "tauMs": 73
+              },
+              {
+                "durationS": 0.163,
+                "ease": "cubic-bezier(.645,.045,.355,1)",
+                "error": 0.1176,
+                "tauMs": null
+              }
+            ],
+            "overshoot": 0.0,
+            "startS": 3.016
+          }
+        ],
+        "name": "angle",
+        "periodCv": 0.027,
+        "periodS": 1.0,
+        "rigid": 0.884,
+        "unit": "deg"
+      },
+      {
+        "coast": null,
+        "moves": [
+          {
+            "delta": 0.0712,
+            "durationS": 0.35,
+            "fits": [],
+            "overshoot": null,
+            "startS": 0.016
+          },
+          {
+            "delta": 0.0699,
+            "durationS": 0.384,
+            "fits": [],
+            "overshoot": null,
+            "startS": 0.983
+          },
+          {
+            "delta": 0.0736,
+            "durationS": 0.484,
+            "fits": [],
+            "overshoot": null,
+            "startS": 2.016
+          },
+          {
+            "delta": 0.071,
+            "durationS": 0.284,
+            "fits": [],
+            "overshoot": null,
+            "startS": 3.016
+          }
+        ],
+        "name": "activity",
+        "periodCv": 0.027,
+        "periodS": 1.0,
+        "rigid": null,
+        "unit": "share"
+      }
+    ],
+    "frames": 100,
+    "run": "turn",
+    "spanS": 3.3,
+    "wheelEndS": null
+  },
+  {
+    "activeBox": [
+      20,
+      20,
+      200,
+      101
+    ],
+    "box": [
+      0,
+      0,
+      200,
+      120
+    ],
+    "channels": [
+      {
+        "coast": {
+          "delta": 29.0,
+          "fits": [
+            {
+              "durationS": 0.802,
+              "ease": "cubic-bezier(.23,1,.32,1)",
+              "error": 0.0243,
+              "tauMs": null
+            },
+            {
+              "durationS": null,
+              "ease": "exponential",
+              "error": 0.0246,
+              "tauMs": 137
+            },
+            {
+              "durationS": 0.443,
+              "ease": "cubic-bezier(.645,.045,.355,1)",
+              "error": 0.195,
+              "tauMs": null
+            }
+          ],
+          "ms": 633
+        },
+        "moves": [
+          {
+            "delta": 130.0,
+            "durationS": 1.117,
+            "fits": [
+              {
+                "durationS": 1.946,
+                "ease": "cubic-bezier(.23,1,.32,1)",
+                "error": 0.0362,
+                "tauMs": null
+              },
+              {
+                "durationS": null,
+                "ease": "exponential",
+                "error": 0.0557,
+                "tauMs": 326
+              },
+              {
+                "durationS": 0.77,
+                "ease": "cubic-bezier(.645,.045,.355,1)",
+                "error": 0.0925,
+                "tauMs": null
+              }
+            ],
+            "overshoot": 0.0,
+            "startS": 0.016
+          }
+        ],
+        "name": "x",
+        "periodCv": null,
+        "periodS": null,
+        "rigid": 1.0,
+        "unit": "px"
+      },
+      {
+        "coast": {
+          "delta": null,
+          "fits": [],
+          "ms": 633
+        },
+        "moves": [
+          {
+            "delta": 0.1417,
+            "durationS": 1.117,
+            "fits": [],
+            "overshoot": null,
+            "startS": 0.016
+          }
+        ],
+        "name": "activity",
+        "periodCv": null,
+        "periodS": null,
+        "rigid": null,
+        "unit": "share"
+      }
+    ],
+    "frames": 45,
+    "run": "scroll",
+    "spanS": 1.467,
+    "wheelEndS": 0.5
+  },
+  {
+    "activeBox": [
+      0,
+      0,
+      200,
+      120
+    ],
+    "box": [
+      0,
+      0,
+      200,
+      120
+    ],
+    "channels": [
+      {
+        "coast": null,
+        "moves": [
+          {
+            "delta": 1.0,
+            "durationS": 0.384,
+            "fits": [],
+            "overshoot": null,
+            "startS": 0.083
+          },
+          {
+            "delta": 1.0,
+            "durationS": 0.017,
+            "fits": [],
+            "overshoot": null,
+            "startS": 0.716
+          }
+        ],
+        "name": "activity",
+        "periodCv": null,
+        "periodS": null,
+        "rigid": null,
+        "unit": "share"
+      }
+    ],
+    "frames": 30,
+    "run": "fade",
+    "spanS": 0.967,
+    "wheelEndS": null
+  }
+]

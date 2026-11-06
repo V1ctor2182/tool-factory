@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/page-recording.schema.json",
+  "title": "Page recording",
+  "description": "What a page, or the part of it the target names, looked like in each state of a page steps script. Rendered results only, never the site's scripts.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The URL recorded, after any override." },
+    "steps": { "type": "string", "description": "Absolute path of the steps file used." },
+    "dir": { "type": "string", "description": "The run folder in the data home that holds every file below." },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "screenshot": { "type": "string", "pattern": "\\.png$", "description": "The settled state, clipped to the target plus a fixed margin." },
+          "frames": { "type": "array", "items": { "type": "string", "pattern": "\\.png$" }, "description": "Frame i was taken at i * everyMs of page time after the actions." },
+          "dom": { "type": "string", "description": "An HTML file holding the target's settled outerHTML with every script element removed." },
+          "styles": { "type": "string", "description": "A JSON file mapping each element path under the target to its curated computed styles, settled." },
+          "motion": { "type": "string", "description": "A JSON file {everyMs, tracks}. tracks maps each element path whose computed transform or opacity changed across the frames to {transform, opacity}, each a list of the computed value at every frame, holding only the properties that changed. everyMs is null and tracks empty for a state without frames." },
+          "animations": { "type": "array", "items": { "$ref": "#/$defs/animation" }, "description": "Every distinct animation seen on the target or inside it while the state ran." }
+        },
+        "required": ["name", "screenshot", "frames", "dom", "styles", "motion", "animations"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "const": false, "description": "Always false. A page is recorded fresh on every call." }
+  },
+  "required": ["source", "steps", "dir", "states", "cacheHit"],
+  "additionalProperties": false,
+  "$defs": {
+    "animation": {
+      "type": "object",
+      "properties": {
+        "target": { "type": "string", "description": "Element path, as a selector relative to the target, starting with :scope." },
+        "pseudoElement": { "type": ["string", "null"] },
+        "type": { "enum": ["CSSAnimation", "CSSTransition", "Animation"] },
+        "name": { "type": "string", "description": "The animation-name, the transitioned property, or the Web Animations id." },
+        "keyframes": { "type": "array", "items": { "type": "object" } },
+        "duration": { "type": "number" },
+        "delay": { "type": "number" },
+        "endDelay": { "type": "number" },
+        "easing": { "type": "string" },
+        "iterations": { "oneOf": [{ "type": "number" }, { "const": "infinite" }] },
+        "direction": { "type": "string" },
+        "fill": { "type": "string" }
+      },
+      "required": ["target", "pseudoElement", "type", "name", "keyframes", "duration", "delay", "endDelay", "easing", "iterations", "direction", "fill"],
+      "additionalProperties": false
+    }
+  }
+}

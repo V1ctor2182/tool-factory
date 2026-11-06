@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --ink: #000000; --muted: #5d6370; --soft: #cdd1d8; --line: #e7e9ee; --well: #f3f4f6; --card: #ffffff;
+  --blue: #2b62ef; --blue-ink: #3b74f6; --blue-wash: #eff6ff;
+  --bad: #d4342a; --bad-wash: #fdeeec; --warn: #b26a00; --warn-wash: #fdf3e2; --ok: #127a4a; --ok-wash: #e3f6ec;
+  --run: #e8742c; --run-wash: #fdeee3;
+  --shadow: 0 1px 2px #0000000d, 0 12px 32px -8px #0000001f;
+  --lane-model: #7f56cf; --lane-browser: #9fc1ee; --lane-backend: #94cdb1; --lane-shell: #bcc1cb; --lane-file: #ecc98c; --lane-agent: #6fbac9; --lane-human: #e0a43a; --lane-hatch: #a9aeb8;
+  --font: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0d10; --ink: #f4f5f7; --muted: #9aa0ab; --soft: #4a4f59; --line: #23262d; --well: #16181d; --card: #121419;
+    --blue: #7ea3ff; --blue-ink: #8fb0ff; --blue-wash: #121a2e;
+    --bad: #ff7a6e; --bad-wash: #2a1513; --warn: #f0b154; --warn-wash: #2a2010; --ok: #5fd39a; --ok-wash: #11261b;
+    --run: #f0894a; --run-wash: #2c1a0e;
+    --shadow: 0 1px 2px #00000066, 0 12px 32px -8px #000000aa;
+    --lane-model: #8e68dc; --lane-browser: #5f8fcb; --lane-backend: #4f9f7c; --lane-shell: #626874; --lane-file: #b08f55; --lane-agent: #4b95a5; --lane-human: #d39a33; --lane-hatch: #5b606b;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font); letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; letter-spacing: inherit; }
+a { color: inherit; }
+:is(button, a, [tabindex]):focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0; }
+
+.top { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top .in { max-width: 1440px; margin: 0 auto; height: 64px; padding: 0 32px; display: flex; align-items: center; gap: 36px; }
+.brand { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 300; letter-spacing: 0.02em; text-decoration: none; }
+.top nav { display: flex; gap: 28px; }
+.top nav a { text-decoration: none; font-size: 17px; }
+.top nav a:hover { color: var(--blue); }
+.top nav a[aria-current="page"] { color: var(--blue-ink); font-weight: 500; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 32px 72px; }
+
+.mascot { display: block; flex: none; border-radius: 28%; overflow: visible; }
+.mascot.running .creature { animation: bob 1.5s ease-in-out infinite; transform-origin: 16px 28px; }
+.mascot.running .eye { animation: blink 3.4s infinite; transform-box: fill-box; transform-origin: center; }
+.mascot.pending { opacity: 0.45; filter: saturate(0.4); }
+.mascot.stalled { filter: saturate(0.55); }
+.mascot .zz { animation: drift 2.4s ease-in-out infinite; }
+.mascot .drop { animation: sweat 1.4s ease-in infinite; }
+@keyframes bob { 50% { transform: translateY(-1.3px) scaleY(1.03); } }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+@keyframes drift { 0% { opacity: 0; transform: translate(0, 1px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translate(1.5px, -3px); } }
+@keyframes sweat { 0% { opacity: 0; transform: translateY(-1px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(4px); } }
+
+.hero { padding: 56px 0 8px; }
+.hero h1 { font-size: 52px; line-height: 1.02; font-weight: 600; letter-spacing: -0.05em; margin: 0; }
+.hero h1 .soft { color: var(--soft); }
+.hero h1 .mark { color: var(--run); background: var(--run-wash); border-radius: 12px; padding: 0 0.12em; }
+.hero h1 .mark.wait { color: var(--warn); background: var(--warn-wash); }
+.last-update { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.last-update.stale { color: var(--warn); background: var(--warn-wash); border-radius: 7px; padding: 2px 8px; }
+.last-update.offline { display: inline-block; margin: 10px 0 0; }
+.source { margin-top: 44px; }
+.runs-title { margin: 22px 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.graph h1 a { color: inherit; text-decoration: none; }
+.graph h1 a:hover { text-decoration: underline; }
+.source > header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.source h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+.source .where { margin-left: auto; }
+.runs { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
+.run { display: flex; gap: 12px; align-items: center; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); text-decoration: none; transition: border-color 0.15s, translate 0.15s var(--ease); }
+.run:hover { border-color: var(--soft); translate: 0 -1px; }
+.run .tx { min-width: 0; flex: 1; }
+.run .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run .s { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run .side { text-align: right; flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.state-tag { display: inline-flex; align-items: center; gap: 5px; border-radius: 7px; padding: 0 7px; line-height: 20px; font-size: 12px; font-weight: 500; background: var(--well); color: var(--muted); }
+.state-tag.running { background: var(--run-wash); color: var(--run); }
+.state-tag.blocked, .state-tag.stalled { background: var(--warn-wash); color: var(--warn); }
+.state-tag.failed { background: var(--bad-wash); color: var(--bad); }
+.state-tag.done { background: var(--ok-wash); color: var(--ok); }
+.more { margin-top: 10px; border: 0; background: var(--well); border-radius: 10px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.more:hover { background: var(--line); }
+.source-error { background: var(--bad-wash); color: var(--bad); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.empty { color: var(--muted); font-size: 14px; }
+
+.crumbs { display: flex; align-items: center; gap: 8px; padding-top: 24px; font-size: 14px; color: var(--muted); }
+.crumbs a { text-decoration: none; }
+.crumbs a:hover { color: var(--blue); }
+
+.graph { margin-top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.graph > header { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 16px 20px 0; }
+.graph h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.035em; }
+.graph .counts { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.graph-scroll { overflow-x: auto; overscroll-behavior-x: contain; padding: 0 20px 18px; }
+.graph-stage { position: relative; display: flex; min-width: max-content; padding-top: var(--arc-room, 34px); }
+.arcs { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.arcs path.arc { fill: none; stroke: var(--soft); stroke-width: 1.25; }
+.arcs path.head { fill: var(--soft); }
+.arcs text { fill: var(--muted); font: 11px var(--mono); }
+.arcs .live path.arc { stroke: var(--run); }
+.arcs .live path.head { fill: var(--run); }
+.stage { width: 216px; flex: none; animation: rise 0.4s var(--ease) backwards; }
+.rail { position: relative; height: 22px; display: flex; align-items: center; }
+.rail::after { content: ""; position: absolute; left: 11px; right: -11px; top: 10px; height: 2px; background: var(--line); }
+.stage.past .rail::after { background: var(--soft); }
+.stage.active .rail::after { background: linear-gradient(90deg, var(--run), var(--line) 70%); }
+.stage:last-child .rail::after { display: none; }
+.dot { position: relative; z-index: 1; width: 12px; height: 12px; border-radius: 50%; background: var(--card); border: 2px solid var(--soft); margin-left: 5px; }
+.dot.done { background: var(--ok); border-color: var(--ok); }
+.dot.failed { background: var(--bad); border-color: var(--bad); }
+.dot.stalled, .dot.blocked { background: var(--warn); border-color: var(--warn); }
+.dot.running { width: 16px; height: 16px; margin-left: 3px; background: var(--run); border: 3px solid color-mix(in srgb, var(--run) 30%, var(--card)); animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--run) 16%, transparent); } }
+.stage-head { display: flex; align-items: center; gap: 6px; padding: 8px 12px 8px 4px; font-size: 13.5px; min-width: 0; }
+.stage-head b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.stage-head .n { flex: none; margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.loop { flex: none; display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: 12px; }
+.loop svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.chips { display: grid; gap: 6px; padding-right: 14px; }
+.chip { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; height: 34px; padding: 0 9px 0 5px; border: 1px solid var(--line); border-radius: 17px; background: var(--well); text-align: left; cursor: pointer; text-decoration: none; transition: border-color 0.15s, background 0.15s, translate 0.15s var(--ease); animation: rise 0.4s var(--ease) backwards; }
+.chip:hover { border-color: var(--soft); translate: 0 -1px; }
+.chip[aria-current="true"] { border-color: var(--blue); background: var(--blue-wash); }
+.chip.pending { background: none; color: var(--muted); }
+.chip .nm { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .st { flex: none; width: 14px; height: 14px; color: var(--muted); }
+.chip .st svg { display: block; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.chip.running .st { color: var(--run); animation: spin 1s linear infinite; }
+.chip.failed .st { color: var(--bad); }
+.chip.stalled .st, .chip.blocked .st { color: var(--warn); }
+.chip.more-chip .stack { display: flex; }
+.chip.more-chip .stack .mascot + .mascot { margin-left: -9px; box-shadow: 0 0 0 2px var(--well); }
+@keyframes spin { to { rotate: 360deg; } }
+@keyframes rise { from { opacity: 0; translate: 0 6px; } }
+
+.trace { margin-top: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; container: trace / inline-size; --steps-w: 340px; --row-h: 36px; }
+.trace > header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; }
+.trace > header h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.035em; }
+.trace > header p { margin: 1px 0 0; color: var(--muted); font-size: 14px; }
+.trace > header .x { margin-left: auto; border: 0; background: var(--well); border-radius: 10px; padding: 6px 12px; font-size: 13px; cursor: pointer; flex: none; }
+.trace > header .x:hover { background: var(--line); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px; margin: 0; background: var(--line); border-top: 1px solid var(--line); }
+.kpis > div { padding: 10px 16px 11px; background: var(--card); min-width: 0; }
+.kpis dt { color: var(--muted); font-size: 12px; }
+.kpis dd { margin: 2px 0 0; font-size: 19px; line-height: 26px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpis dd.bad { color: var(--bad); }
+.kpis dd.warn { color: var(--warn); }
+.kpis dd.ok { color: var(--ok); }
+.scroller { position: relative; max-height: min(640px, 72vh); overflow: auto; overscroll-behavior: contain; border-top: 1px solid var(--line); }
+.thead { position: sticky; top: 0; z-index: 8; display: flex; height: var(--row-h); background: var(--card); border-bottom: 1px solid var(--line); }
+.cell { display: flex; align-items: center; gap: 8px; flex: none; width: var(--steps-w); min-width: 0; height: 100%; padding-right: 10px; border-right: 1px solid var(--line); }
+.thead .cell { padding-left: 14px; color: var(--muted); font-size: 12px; gap: 6px; }
+.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.axis { position: relative; flex: 1; min-width: 0; }
+.tick { position: absolute; top: 50%; translate: 0 -50%; padding-left: 6px; font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
+.tbody { position: relative; }
+.grid { position: absolute; inset: 0 0 0 var(--steps-w); z-index: 0; overflow: hidden; pointer-events: none; }
+.grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.playhead { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink); opacity: 0.55; left: calc(var(--now) / var(--domain) * 100%); }
+.head-dot { position: absolute; bottom: -4px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--ink); left: calc(var(--now) / var(--domain) * 100%); }
+.trace.finished .playhead, .trace.finished .head-dot { display: none; }
+.rows { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; }
+.row { display: flex; height: var(--row-h); overflow: hidden; }
+.row.enter { animation: rowin 0.4s var(--ease); }
+@keyframes rowin { from { opacity: 0; translate: 0 -8px; filter: blur(2px); } }
+.row.group { border-top: 1px solid var(--line); }
+.rows .row:first-child { border-top: 0; }
+.row:hover { background: color-mix(in srgb, var(--line) 35%, transparent); }
+.row .cell { padding-left: calc(10px + var(--depth) * 20px); }
+.chev { display: grid; place-items: center; flex: none; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--muted); cursor: pointer; }
+.chev:hover { background: var(--line); color: var(--ink); }
+.chev .ic { width: 14px; height: 14px; transition: rotate 0.25s var(--ease); }
+.chev[aria-expanded="true"] .ic { rotate: 90deg; }
+.chev-gap { width: 18px; flex: none; }
+.status { display: grid; place-items: center; flex: none; width: 22px; height: 22px; color: var(--muted); }
+.row.group .status .ic { width: 13px; height: 13px; }
+.row.group .status.box { border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+.status.run { color: var(--run); }
+.status.run .ic { animation: spin 1s linear infinite; }
+.status.err { color: var(--bad); }
+.status.human { color: var(--warn); }
+.nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+.row.group .nm { font-weight: 600; }
+.nm.live { color: var(--muted); animation: breathe 1.35s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: 0.45; } }
+.meta { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 12px var(--mono); letter-spacing: 0; }
+.lane { position: relative; flex: 1; min-width: 0; height: 100%; }
+.bar { position: absolute; top: 50%; translate: 0 -50%; height: 16px; min-width: 3px; overflow: hidden; border-radius: 5px; left: calc(var(--s) / var(--domain) * 100% + 1px); width: calc((min(var(--e), var(--now)) - var(--s)) / var(--domain) * 100% - 2px); }
+.row.group .bar { height: 22px; border-radius: 6px; }
+.row:hover .bar { filter: brightness(1.12); }
+.fill-solid { background-color: var(--c); }
+.fill-tint { background-color: color-mix(in srgb, var(--c) 65%, var(--card)); }
+.fill-hatch, .fill-hatch-tint { box-shadow: inset 0 0 0 1px var(--line); }
+.fill-hatch::before, .fill-hatch-tint::before { content: ""; position: absolute; inset: 0; background-color: var(--c);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M-2 2l4-4M0 8l8-8M6 10l4-4' stroke='black' stroke-width='1.1'/%3E%3C/svg%3E") 0 0/8px 8px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M-2 2l4-4M0 8l8-8M6 10l4-4' stroke='black' stroke-width='1.1'/%3E%3C/svg%3E") 0 0/8px 8px; }
+.fill-hatch-tint { background-color: color-mix(in srgb, var(--c) 14%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 50%, var(--card)); }
+.bar.failed { background: var(--bad); box-shadow: none; }
+.bar.failed::before { display: none; }
+.bar.open::after { content: ""; position: absolute; inset: -4px auto -4px 0; width: 40%; background: color-mix(in srgb, var(--card) 60%, transparent); filter: blur(6px); translate: -120% 0; animation: sweep 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+@keyframes sweep { to { translate: 260% 0; } }
+.lbl { position: absolute; top: 50%; translate: 0 -50%; display: flex; align-items: center; gap: 8px; padding-left: 7px; font: 12px var(--mono); color: var(--muted); white-space: nowrap; pointer-events: none; left: calc(min(var(--e), var(--now)) / var(--domain) * 100%); }
+.lbl.flip { translate: -100% -50%; padding: 0 7px 0 0; }
+.badge { padding: 0 6px; border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--card)); border-radius: 6px; background: var(--warn-wash); color: var(--warn); font-size: 11px; font-weight: 600; line-height: 18px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 12px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { position: relative; display: inline-block; width: 18px; height: 10px; overflow: hidden; border-radius: 3px; }
+.tip { position: fixed; z-index: 50; min-width: 200px; max-width: 320px; padding: 10px 12px; pointer-events: none; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: var(--shadow); font-size: 12px; }
+.tip h4 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+.tip .m { margin: 0 0 8px; color: var(--muted); font: 11px var(--mono); overflow-wrap: anywhere; }
+.tip dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.tip dt { color: var(--muted); }
+.tip dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.tip .n { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); }
+
+@container trace (max-width: 760px) {
+  .scroller { --steps-w: 46%; }
+  .meta { display: none; }
+  .row .cell { gap: 6px; padding-left: calc(6px + var(--depth) * 10px); }
+}
+@media (max-width: 760px) {
+  .top .in { height: auto; flex-wrap: wrap; padding: 10px 16px 0; gap: 4px 16px; }
+  .top nav { order: 3; width: 100%; gap: 20px; overflow-x: auto; padding: 6px 0 10px; }
+  .top nav a { font-size: 15px; white-space: nowrap; }
+  .brand { font-size: 22px; }
+  .wrap { padding: 0 16px 48px; }
+  .hero { padding-top: 32px; }
+  .hero h1 { font-size: 36px; }
+  .runs { grid-template-columns: minmax(0, 1fr); }
+  .source .where { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const app = document.getElementById('app');
+const HOSTED = document.body.hasAttribute('data-hosted');
+const NAV = [['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere'], ['/flows', 'Flows']];
+const LOGO = '<svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M7 8h3.5c2 0 2 8 4 8H17M7 16h3.5c2 0 2-8 4-8H17" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="7" cy="8" r="1.3" fill="currentColor"/><circle cx="7" cy="16" r="1.3" fill="currentColor"/><circle cx="17" cy="8" r="1.3" fill="currentColor"/><circle cx="17" cy="16" r="1.3" fill="currentColor"/></svg>';
+// The Mac pushes about once a minute, so a public visitor polling faster only costs the origin.
+const POLL_MS = HOSTED ? 15000 : 2500;
+const CHIP_LIMIT = 5;
+const STAGE_W = 216;
+// Rows beyond this fold a session's steps away, since its lane already shows them.
+const FOLD_OVER = 14;
+
+function h(tag, props, ...children) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(props ?? {})) {
+    if (value === null || value === undefined || value === false) continue;
+    if (key === 'class') el.className = value;
+    else if (key === 'html') el.innerHTML = value;
+    else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
+    else el.setAttribute(key, value);
+  }
+  for (const child of children.flat(Infinity)) {
+    if (child === null || child === undefined || child === false) continue;
+    el.append(child instanceof Node ? child : String(child));
+  }
+  return el;
+}
+const fromHtml = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; };
+
+// ---- Mascots. Every role is a species, the state sets the face, the id picks the tile color.
+const INK = '#1d2026';
+const WHITE = '#fffdf8';
+const TILES = ['#3fae7a', '#2fa8a0', '#3d7bea', '#ee8a34', '#e8508f', '#7a5be6', '#e0483f', '#d9a21b'];
+const hash = (text) => { let n = 5381; for (const c of String(text)) n = (n * 33 + c.charCodeAt(0)) >>> 0; return n; };
+const dome = `<rect x="7" y="8" width="18" height="19" rx="9" fill="${WHITE}"/>`;
+const SPECIES = {
+  planner: { eyes: [[11.5, 16], [20.5, 16]], big: true, body: `${dome}<path d="M8 12 7.5 5l5.5 4zM24 12l.5-7L19 9z" fill="${WHITE}"/><path d="m14.6 19 1.4 1.8 1.4-1.8z" fill="#f2a93b"/>` },
+  worker: { eyes: [[12, 18], [20, 18]], body: `${dome}<path d="M8.5 13.5a7.5 7.5 0 0 1 15 0z" fill="#f7c63c"/><rect x="6.5" y="12.5" width="19" height="2.6" rx="1.3" fill="#f7c63c"/><rect x="14.8" y="5.6" width="2.4" height="4" rx="1.2" fill="#e0a917"/>` },
+  verifier: { eyes: [[11.5, 17], [20.5, 17]], glasses: true, body: `${dome}<path d="M8 12 8.5 5l5 4.5zM24 12l-.5-7-5 4.5z" fill="${WHITE}"/>` },
+  image: { eyes: [[12, 16], [20, 16]], body: `<path d="M7 17a9 9 0 0 1 18 0v8.5c0 1.6-2 1.6-2.6.4-.6-1.2-2.4-1.2-3 0-.6 1.3-2.2 1.3-2.8 0-.6-1.2-2.6-1.2-3.2 0-.6 1.3-2.2 1.2-2.8 0-.5-1.2-3.6-.9-3.6-.4z" fill="${WHITE}"/><ellipse cx="17" cy="8.6" rx="7" ry="2.6" fill="#ef5b6d"/><circle cx="17" cy="5.8" r="1.2" fill="#ef5b6d"/>` },
+  applier: { eyes: [[12, 16], [20, 16]], body: `<rect x="7" y="9" width="18" height="17" rx="5.5" fill="${WHITE}"/><path d="M16 9V5.4" stroke="${WHITE}" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="4.6" r="1.7" fill="#ffd451"/><path d="m16 21.6-1.5 1.5 1.5 2.9 1.5-2.9z" fill="#ef5b6d"/>` },
+  coordinator: { eyes: [[12, 18], [20, 18]], body: `${dome}<path d="M16 9V5.5" stroke="#55b868" stroke-width="1.8" stroke-linecap="round"/><path d="M16 6c-.6-2.6-3-3.4-5.3-3 .1 2.6 2.6 4 5.3 3zM16 6c.6-2.6 3-3.4 5.3-3-.1 2.6-2.6 4-5.3 3z" fill="#6bd17e"/>` },
+  you: { eyes: [[12, 17], [20, 17]], body: `${dome}<path d="M16 7.2c-.8-1.8-3.4-1.5-3.4.6 0 1.5 2 2.7 3.4 3.9 1.4-1.2 3.4-2.4 3.4-3.9 0-2.1-2.6-2.4-3.4-.6z" fill="#ef5b6d"/>` },
+  transform: { eyes: [[10.5, 11], [21.5, 11]], body: `<rect x="5" y="12" width="22" height="15" rx="7.5" fill="${WHITE}"/><circle cx="10.5" cy="11" r="4.6" fill="${WHITE}"/><circle cx="21.5" cy="11" r="4.6" fill="${WHITE}"/><path d="M11.5 20.5q4.5 3 9 0" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>` },
+  model: { eyes: [[12, 15], [20, 15]], body: `<path d="M7 16a9 9 0 0 1 18 0v11l-3-2.2-3 2.2-3-2.2-3 2.2-3-2.2-3 2.2z" fill="${WHITE}"/><path d="m25.5 3 .9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" fill="#ffd451"/>` },
+  observe: { eyes: [[16, 16]], big: true, huge: true, body: `${dome}<path d="M10 9.5 8 5.8M22 9.5l2-3.7" stroke="${WHITE}" stroke-width="1.8" stroke-linecap="round"/>` },
+  act: { eyes: [[12.5, 15], [19.5, 15]], body: `<rect x="8" y="10" width="16" height="15" rx="7.5" fill="${WHITE}"/><circle cx="5.2" cy="13.5" r="3.2" fill="${WHITE}"/><circle cx="26.8" cy="13.5" r="3.2" fill="${WHITE}"/><path d="M5.2 13.5h2.6M26.8 13.5h-2.6" stroke="${INK}" stroke-width="1.2"/><path d="M9.5 25.5v2.4M14 25.5v2.4M18 25.5v2.4M22.5 25.5v2.4" stroke="${WHITE}" stroke-width="1.6" stroke-linecap="round"/>` },
+};
+const eyeFor = {
+  open: ([x, y], r) => `<circle class="eye" cx="${x}" cy="${y}" r="${r}" fill="${INK}"/><circle cx="${x + r * 0.35}" cy="${y - r * 0.4}" r="${r * 0.32}" fill="${WHITE}"/>`,
+  happy: ([x, y], r) => `<path d="M${x - r - 0.5} ${y + 0.8}q${r + 0.5} -${r * 2.2} ${2 * r + 1} 0" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`,
+  closed: ([x, y], r) => `<path d="M${x - r} ${y}h${2 * r}" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`,
+  cross: ([x, y], r) => `<path d="M${x - r} ${y - r}l${2 * r} ${2 * r}M${x + r} ${y - r}l-${2 * r} ${2 * r}" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`,
+};
+const FACE = { running: 'open', blocked: 'open', done: 'happy', failed: 'cross', stalled: 'closed', pending: 'closed' };
+function mascot(role, seed, state = 'done', size = 24) {
+  const s = SPECIES[role] ?? SPECIES.worker;
+  const tile = TILES[hash(seed) % TILES.length];
+  const r = s.huge ? 3.4 : s.big ? 2.3 : 1.7;
+  const draw = eyeFor[FACE[state] ?? 'open'];
+  const eyes = s.eyes.map((p) => (s.big && FACE[state] === 'open' && !s.huge ? `<circle cx="${p[0]}" cy="${p[1]}" r="3.4" fill="#f4e7c8"/>` : '') + draw(p, r)).join('');
+  const glasses = s.glasses ? `<g fill="none" stroke="${INK}" stroke-width="1.1"><circle cx="11.5" cy="17" r="3.2"/><circle cx="20.5" cy="17" r="3.2"/><path d="M14.7 17h2.6"/></g>` : '';
+  const blush = FACE[state] === 'happy' || FACE[state] === 'open' ? (s.eyes.length === 2 ? `<circle cx="${s.eyes[0][0] - 1.5}" cy="${s.eyes[0][1] + 3.4}" r="1.3" fill="#f7a8b8" opacity=".7"/><circle cx="${s.eyes[1][0] + 1.5}" cy="${s.eyes[1][1] + 3.4}" r="1.3" fill="#f7a8b8" opacity=".7"/>` : '') : '';
+  const extra = state === 'stalled' ? `<text class="zz" x="23" y="9" font-size="7" font-weight="700" fill="${WHITE}" font-family="var(--font)">z</text>`
+    : state === 'blocked' ? `<path class="drop" d="M24.5 8c-1 1.5-1.6 2.3-1.6 3.1a1.6 1.6 0 0 0 3.2 0c0-.8-.6-1.6-1.6-3.1z" fill="#8fd0ff"/>` : '';
+  return fromHtml(`<svg class="mascot ${state}" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="${tile}"/><g class="creature">${s.body}${blush}${eyes}${glasses}</g>${extra}</svg>`);
+}
+const RUN_SPECIES = { 'game-studio': ['worker', 'planner', 'verifier', 'image', 'coordinator'], 'job-applier': ['applier', 'you'], 'ui-clone': ['model', 'observe'], 'site-clone': ['worker', 'observe'], tools: ['transform', 'model', 'observe', 'act'] };
+const SOURCE_MASCOT = { 'game-studio': ['coordinator', 'farm0'], 'job-applier': ['applier', 'jobs3'], 'ui-clone': ['model', 'ui0'], 'site-clone': ['worker', 'site0'], tools: ['transform', 'tools'] };
+const sourceMascot = (source, state, size) => { const [role, seed] = SOURCE_MASCOT[source] ?? ['worker', source]; return mascot(role, seed, state, size); };
+
+// ---- Formats.
+const ICON = {
+  check: '<circle cx="8" cy="8" r="5.5"/><path d="M5.6 8.2 7.3 10l3.1-3.8"/>',
+  spin: '<path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"/>',
+  fail: '<circle cx="8" cy="8" r="5.5"/><path d="M6.2 6.2l3.6 3.6M9.8 6.2l-3.6 3.6"/>',
+  warn: '<path d="M8 2.8 14 13H2z"/><path d="M8 6.6v3M8 11.4h0"/>',
+  dash: '<circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2.4"/>',
+  chevron: '<path d="M6 4l4 4-4 4"/>',
+  tree: '<circle cx="8" cy="3.5" r="1.5"/><circle cx="4" cy="12.5" r="1.5"/><circle cx="12" cy="12.5" r="1.5"/><path d="M8 5v3M4 11V9.5h8V11"/>',
+  person: '<circle cx="8" cy="5.5" r="2.5"/><path d="M3.5 13.5c.6-2.4 2.3-3.5 4.5-3.5s3.9 1.1 4.5 3.5"/>',
+  model: '<path d="M8 2.5l1.3 3.2 3.2 1.3-3.2 1.3L8 11.5 6.7 8.3 3.5 7l3.2-1.3z"/>',
+  browser: '<circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11M8 2.5c1.8 2 1.8 9 0 11M8 2.5c-1.8 2-1.8 9 0 11"/>',
+  backend: '<ellipse cx="8" cy="4.5" rx="4.5" ry="2"/><path d="M3.5 4.5v7c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-7M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2"/>',
+  shell: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M5 6.5 7 8 5 9.5M8.5 10H11"/>',
+  file: '<path d="M4 2.5h5.5L12.5 5.5v8H4z"/><path d="M9.5 2.5v3h3"/>',
+  agent: '<rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 2.5V5M6.2 9h0M9.8 9h0"/>',
+  loop: '<path d="M12.5 6.5A5 5 0 0 0 3.6 5.2L2.5 6.5M2.5 3.5v3h3M3.5 9.5a5 5 0 0 0 8.9 1.3l1.1-1.3M13.5 12.5v-3h-3"/>',
+};
+const ic = (name) => fromHtml(`<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">${ICON[name]}</svg>`);
+const STATE_ICON = { running: 'spin', done: 'check', failed: 'fail', stalled: 'warn', blocked: 'warn', pending: 'dash' };
+const STATE_WORD = { running: 'running', done: 'done', failed: 'failed', stalled: 'stalled', blocked: 'waiting on you', pending: 'pending' };
+const LANES = {
+  model: { label: 'Model step', c: '--lane-model', fill: 'solid' },
+  browser: { label: 'Browser action', c: '--lane-browser', fill: 'tint' },
+  backend: { label: 'Backend call', c: '--lane-backend', fill: 'tint' },
+  shell: { label: 'Command', c: '--lane-shell', fill: 'tint' },
+  file: { label: 'File', c: '--lane-file', fill: 'tint' },
+  agent: { label: 'Agent', c: '--lane-agent', fill: 'tint' },
+  human: { label: 'Waiting on you', c: '--lane-human', fill: 'hatch-tint' },
+  wait: { label: 'Waiting on a child', c: '--lane-hatch', fill: 'hatch' },
+};
+const TICKS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 21600, 43200, 86400];
+const tickStep = (domain) => TICKS.find((step) => domain / step <= 6.5) ?? 86400;
+const tickText = (s) => s < 60 ? `${s}s` : s < 3600 ? (s % 60 ? `${Math.floor(s / 60)}m${s % 60}` : `${s / 60}m`) : (s % 3600 ? `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}` : `${s / 3600}h`);
+function clock(s) {
+  if (s < 60) return `${Math.floor(s)}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${String(Math.floor(s % 60)).padStart(2, '0')}s`;
+  return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
+}
+const span = (s) => s < 10 ? `${s.toFixed(1)}s` : clock(s);
+const usd = (n) => n >= 10 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`;
+function ago(iso) {
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const secondsBetween = (a, b) => (Date.parse(b) - Date.parse(a)) / 1000;
+const stateTag = (state) => h('span', { class: `state-tag ${state}` }, STATE_WORD[state] ?? state);
+const isLive = (state) => state === 'running' || state === 'blocked';
+
+// ---- Routes and polling. A response only re-renders when its bytes change.
+const route = () => {
+  const [, , flow, agent] = location.pathname.split('/');
+  return { flowId: flow ? decodeURIComponent(flow) : null, agentId: agent ? decodeURIComponent(agent) : null };
+};
+const flowHref = (id, agent) => `/flows/${encodeURIComponent(id)}${agent ? `/${encodeURIComponent(agent)}` : ''}`;
+let pollTimer = null;
+let token = 0;
+let seenRows = new Set();
+const openAll = new Set();
+const foldState = new Map();
+const lastBytes = {};
+let polling = null;
+
+async function fetchJson(key, url) {
+  const res = await fetch(url);
+  const text = await res.text();
+  if (!res.ok) throw new Error(text.trim() || `${url} answered ${res.status}`);
+  const changed = lastBytes[key] !== text;
+  lastBytes[key] = text;
+  return { changed, data: changed ? JSON.parse(text) : null };
+}
+
+function topBar() {
+  return h('header', { class: 'top' }, h('div', { class: 'in' },
+    h('a', { class: 'brand', href: '/', html: `${LOGO}FACTORY` }),
+    h('nav', null, NAV.map(([path, label]) => h('a', { href: path, 'aria-current': path === '/flows' ? 'page' : null }, label)))));
+}
+
+let content;
+function mount() {
+  app.replaceChildren(topBar(), content = h('div', { class: 'wrap' }));
+}
+
+function schedule(run) {
+  polling = run;
+  clearTimeout(pollTimer);
+  const mine = ++token;
+  const next = () => {
+    if (mine === token) pollTimer = setTimeout(() => (document.hidden ? next() : tick()), POLL_MS);
+  };
+  const tick = async () => {
+    await run().then(() => content.querySelector('.source-error.page')?.remove(), showFailure);
+    next();
+  };
+  tick();
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && polling) schedule(polling);
+});
+function showFailure(e) {
+  if (content.querySelector('.source-error.page')) return;
+  content.prepend(h('div', { class: 'source-error page', style: 'margin-top:24px', role: 'alert' }, e.message));
+}
+
+// ---- Home.
+const updateTime = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+function renderHome(model) {
+  const flows = model.sources.flatMap((s) => s.flows);
+  const working = model.sources.reduce((n, s) => n + (s.loop?.working ?? s.flows.reduce((sum, f) => sum + f.working, 0)), 0);
+  const waiting = flows.filter((f) => f.state === 'blocked').length;
+  const scrollOf = (source) => content.querySelector(`.source[data-source="${source}"] .graph-scroll`);
+  const lefts = new Map(model.sources.map((s) => [s.source, scrollOf(s.source)?.scrollLeft]));
+  content.replaceChildren(
+    h('section', { class: 'hero' }, h('h1', null,
+      `${plural(flows.length, 'run')}. `,
+      working ? h('span', { class: 'mark' }, `${plural(working, 'agent')} working.`) : null,
+      working && waiting ? ' ' : null,
+      waiting ? h('span', { class: 'mark wait' }, `${waiting} waiting on you.`) : null,
+      working || waiting ? null : h('span', { class: 'soft' }, 'Nobody is working right now.')),
+      offlineLine(model)),
+    ...model.sources.map(sourceSection));
+  for (const { source, loop } of model.sources) {
+    const scroll = scrollOf(source);
+    if (!scroll) continue;
+    if (lefts.get(source) !== undefined) scroll.scrollLeft = lefts.get(source);
+    else scrollToLive(loop, scroll);
+  }
+}
+
+function offlineLine({ sources }) {
+  const pushes = sources.map((s) => s.lastPush).filter(Boolean).sort();
+  if (!pushes.length || !sources.every((s) => s.stale)) return null;
+  return h('p', { class: 'last-update stale offline' }, `Offline since ${updateTime.format(new Date(pushes.at(-1)))}`);
+}
+
+const openSources = new Set();
+let listModel = null;
+function sourceSection(source) {
+  const urgency = { blocked: 0, running: 1 };
+  const ordered = [...source.flows].sort((a, b) => (urgency[a.state] ?? 2) - (urgency[b.state] ?? 2));
+  const live = ordered.filter((f) => isLive(f.state));
+  const open = openSources.has(source.source);
+  const shown = open ? ordered : live;
+  const settled = ordered.length - live.length;
+  const toggle = () => { if (open) openSources.delete(source.source); else openSources.add(source.source); renderHome(listModel); };
+  return h('section', { class: 'source', 'data-source': source.source },
+    h('header', null, sourceMascot(source.source, live.length ? 'running' : 'done', 34), h('h2', null, source.label), source.lastPush ? h('span', { class: `last-update${source.stale ? ' stale' : ''}` }, `Last update ${updateTime.format(new Date(source.lastPush))}`) : null, h('span', { class: 'where mono muted' }, source.where ?? '')),
+    source.error ? h('div', { class: 'source-error' }, source.error) : null,
+    !source.error && !source.flows.length ? h('p', { class: 'empty' }, 'No runs recorded yet.') : null,
+    source.loop ? renderGraph(source.loop, null, true).box : null,
+    source.loop && source.flows.length ? h('h3', { class: 'runs-title' }, source.runsTitle ?? 'Runs') : null,
+    h('div', { class: 'runs' }, shown.map(runCard)),
+    settled ? h('button', { type: 'button', class: 'more', 'aria-expanded': String(open), onclick: toggle }, `${open ? 'Hide' : 'Show'} ${settled} not running`) : null);
+}
+function runCard(f) {
+  const seconds = secondsBetween(f.startedAt, isLive(f.state) ? new Date().toISOString() : f.lastAt ?? f.startedAt);
+  const pool = RUN_SPECIES[f.source] ?? RUN_SPECIES.tools;
+  const role = pool[hash(f.id) % pool.length];
+  return h('a', { class: 'run', href: flowHref(f.id) },
+    mascot(role, f.id, f.state, 36),
+    h('div', { class: 'tx' }, h('div', { class: 't' }, f.title), h('div', { class: 's' }, f.subtitle)),
+    h('div', { class: 'side' }, stateTag(f.state),
+      h('div', { style: 'margin-top:3px' }, [clock(Math.max(0, seconds)), f.loops ? `⟲ ${f.loops}` : null, f.costUsd ? usd(f.costUsd) : null].filter(Boolean).join(' · ')),
+      h('div', null, ago(f.lastAt ?? f.startedAt))));
+}
+
+// ---- Graph.
+function renderGraph(flow, selected, linked) {
+  const active = flow.stages.findIndex((s) => isLive(s.state));
+  const last = flow.stages.reduce((at, s, i) => (s.state !== 'pending' ? i : at), -1);
+  const spans = flow.backEdges.filter((e) => e.from !== e.to).length;
+  const arcRoom = spans ? 34 + 14 * Math.min(spans, 7) : flow.backEdges.length ? 26 : 8;
+  const stage = h('div', { class: 'graph-stage', style: `--arc-room:${arcRoom}px` },
+    arcs(flow, arcRoom),
+    flow.stages.map((s, i) => stageColumn(flow, s, i, active, last, selected, linked)));
+  const scroll = h('div', { class: 'graph-scroll' }, stage);
+  const state = flow.state;
+  const stages = flow.stages.length;
+  const box = h('section', { class: 'graph', 'aria-label': 'Run graph' },
+    h('header', null, sourceMascot(flow.source, state, 26),
+      h('h1', null, linked ? h('a', { href: flowHref(flow.id) }, flow.title) : flow.title), stateTag(state), h('span', { class: 'muted' }, flow.subtitle),
+      h('span', { class: 'counts' }, [plural(stages, 'phase'), flow.working ? `${plural(flow.working, 'agent')} working` : plural(flow.agents, 'agent'), flow.loops ? plural(flow.loops, 'loop') : null, flow.costUsd ? usd(flow.costUsd) : null].filter(Boolean).join(' · '))),
+    scroll);
+  return { box, scroll };
+}
+
+function arcs(flow, room) {
+  const at = new Map(flow.stages.map((s, i) => [s.id, i * STAGE_W + 11]));
+  const width = flow.stages.length * STAGE_W;
+  const edges = [...flow.backEdges].sort((a, b) => Math.abs((at.get(a.from) ?? 0) - (at.get(a.to) ?? 0)) - Math.abs((at.get(b.from) ?? 0) - (at.get(b.to) ?? 0)));
+  let crossed = 0;
+  const paths = edges.map((edge) => {
+    const from = at.get(edge.from);
+    const to = at.get(edge.to);
+    if (from === undefined || to === undefined) return '';
+    const y = room + 3;
+    const live = flow.stages.find((s) => s.id === edge.from)?.state === 'running';
+    const tag = [edge.label, edge.count > 1 ? `×${edge.count}` : ''].filter(Boolean).join(' ');
+    if (from === to) {
+      return `<g class="${live ? 'live' : ''}"><path class="arc" d="M${to + 6} ${y}c8 -18 -20 -18 -12 0"/><path class="head" d="M${to - 6} ${y + 2}l-3.4 -5h6z"/><text x="${to + 12}" y="${y - 8}">${tag}</text></g>`;
+    }
+    const top = Math.max(3, room - 24 - 14 * Math.min(crossed++, 6));
+    const r = 8;
+    return `<g class="${live ? 'live' : ''}"><path class="arc" d="M${from} ${y}V${top + r}q0 -${r} -${r} -${r}H${to + r}q-${r} 0 -${r} ${r}V${y}"/><path class="head" d="M${to} ${y + 2}l-3.4 -5h6.8z"/><text x="${(from + to) / 2}" y="${top - 3}" text-anchor="middle">${tag}</text></g>`;
+  }).join('');
+  return fromHtml(`<svg class="arcs" width="${width}" height="${room + 12}" aria-hidden="true">${paths}</svg>`);
+}
+
+const openStages = new Set();
+function stageColumn(flow, stage, index, active, last, selected, liveOnly) {
+  const done = stage.agents.filter((a) => a.state === 'done').length;
+  const stageKey = `${flow.id}/${stage.id}`;
+  const open = openStages.has(stageKey);
+  // Keep what is alive or selected visible when a long column is folded.
+  const rank = (a) => (a.id === selected ? 0 : isLive(a.state) ? 1 : a.state === 'stalled' || (a.state === 'failed' && stage.state === 'failed') ? 2 : 3);
+  const sorted = [...stage.agents].sort((a, b) => rank(a) - rank(b));
+  const folded = liveOnly ? sorted.filter((a) => isLive(a.state)) : sorted.slice(0, CHIP_LIMIT);
+  const shown = open ? stage.agents : folded.length === sorted.length ? stage.agents : folded;
+  const hidden = sorted.filter((a) => !shown.includes(a));
+  const toggle = () => {
+    if (open) openStages.delete(stageKey); else openStages.add(stageKey);
+    lastBytes.flow = null;
+    if (route().flowId) refresh(); else renderHome(listModel);
+  };
+  const foldWord = liveOnly ? 'not running' : 'more';
+  const cls = index === active ? 'active' : index < last ? 'past' : '';
+  return h('div', { class: `stage ${cls}`, role: 'group', 'aria-label': `Phase ${stage.title}, ${STATE_WORD[stage.state] ?? stage.state}` },
+    h('div', { class: 'rail' }, h('span', { class: `dot ${stage.state}` })),
+    h('div', { class: 'stage-head' }, h('b', { title: stage.title }, stage.title),
+      stage.loops ? h('span', { class: 'loop', title: `Looped ${plural(stage.loops, 'time')}` }, ic('loop'), stage.loops) : null,
+      h('span', { class: 'n' }, `${done}/${stage.agents.length}`)),
+    h('div', { class: 'chips' },
+      shown.map((a) => agentChip(flow, a, selected)),
+      hidden.length ? h('button', { type: 'button', class: 'chip more-chip', 'aria-expanded': 'false', onclick: toggle },
+        h('span', { class: 'stack' }, hidden.slice(0, 3).map((a) => mascot(a.role, a.id, a.state, 22))), h('span', { class: 'nm' }, `${hidden.length} ${foldWord}`)) : null,
+      open && folded.length < sorted.length ? h('button', { type: 'button', class: 'chip more-chip', 'aria-expanded': 'true', onclick: toggle }, h('span', { class: 'nm', style: 'padding-left:6px' }, 'Hide')) : null));
+}
+function agentChip(flow, agent, selected) {
+  return h('a', {
+    class: `chip ${agent.state}`, href: flowHref(flow.id, agent.id), 'aria-current': agent.id === selected ? 'true' : null,
+    title: [agent.name, agent.meta, STATE_WORD[agent.state]].filter(Boolean).join(' · '),
+  }, mascot(agent.role, agent.id, agent.state, 24), h('span', { class: 'nm' }, agent.name),
+  h('span', { class: 'st' }, fromHtml(`<svg viewBox="0 0 16 16" aria-label="${STATE_WORD[agent.state] ?? agent.state}">${ICON[STATE_ICON[agent.state] ?? 'dash']}</svg>`)));
+}
+
+// ---- Trace model, the same reads as the Jobfeed waterfall.
+function overviewTrace(flow) {
+  const startedAt = flow.startedAt;
+  const offset = (iso) => secondsBetween(startedAt, iso);
+  const live = isLive(flow.state);
+  const children = flow.stages.filter((s) => s.agents.some((a) => a.startedAt)).map((s) => {
+    const agents = s.agents.filter((a) => a.startedAt).map((a) => ({
+      kind: 'step', id: `${s.id}/${a.id}`, agentId: a.id, name: a.name, meta: a.meta, category: a.role === 'you' ? 'human' : 'agent', role: a.role, state: a.state,
+      start: offset(a.startedAt), end: a.endedAt ? offset(a.endedAt) : (isLive(a.state) ? null : offset(a.startedAt)), outcome: a.state === 'failed' ? 'failed' : 'ok', note: a.state === 'stalled' ? 'The process is gone, so this agent stalled.' : null,
+    }));
+    const ends = agents.map((a) => a.end);
+    return { kind: 'group', id: s.id, name: s.title, meta: plural(agents.length, 'agent'), role: 'stage', start: Math.min(...agents.map((a) => a.start)), end: ends.includes(null) ? null : Math.max(...ends), gapless: true, children: agents };
+  });
+  const ends = children.map((c) => c.end);
+  const end = flow.endedAt ? offset(flow.endedAt) : (live ? null : Math.max(0, ...ends.filter((e) => e !== null)));
+  return { title: 'Whole run', subtitle: 'Every agent on one clock. Click an agent to open its tool calls.', startedAt, live, overview: true, costUsd: flow.costUsd, state: flow.state,
+    root: { kind: 'group', id: 'run', name: flow.title, meta: flow.subtitle, role: 'coordinator', start: 0, end, gapless: true, children } };
+}
+const endOf = (node, now) => node.end ?? now;
+function laneSegments(group, now) {
+  const segments = [];
+  let cursor = group.start;
+  const push = (type, start, end, failed, open) => segments.push({ type, start, end, failed, open });
+  const end = endOf(group, now);
+  for (const child of [...group.children].sort((a, b) => a.start - b.start)) {
+    const type = child.kind === 'group' ? 'wait' : child.category;
+    const childEnd = endOf(child, now);
+    if (child.start > cursor + 0.05 && !group.gapless) push('model', cursor, child.start, false, false);
+    const prev = segments.at(-1);
+    if (prev && prev.type === type && child.start < prev.end) {
+      prev.end = Math.max(prev.end, childEnd);
+      prev.open ||= child.end === null;
+    } else push(type, Math.max(child.start, cursor), childEnd, child.outcome === 'failed', child.end === null);
+    cursor = Math.max(cursor, childEnd);
+  }
+  if (cursor < end - 0.05 && !group.gapless) push('model', cursor, end, false, group.end === null);
+  return segments;
+}
+const rowSegments = (node, now) => (node.kind === 'group' ? laneSegments(node, now) : [{ type: node.category, start: node.start, end: endOf(node, now), failed: node.outcome === 'failed', open: node.end === null }]);
+const stepsOf = (node) => (node.kind === 'step' ? [node] : node.children.flatMap(stepsOf));
+function rowsOf(node, depth = 0, out = []) {
+  out.push({ node, depth });
+  if (node.kind === 'group') for (const child of node.children) rowsOf(child, depth + 1, out);
+  return out;
+}
+function summary(trace, now) {
+  const root = trace.root;
+  const out = { elapsed: Math.max(0, Math.min(now, endOf(root, now)) - root.start), waiting: 0, tools: 0, errors: 0, fields: 0, slowest: null, blocked: false };
+  let max = 0;
+  for (const step of stepsOf(root)) {
+    if (step.category === 'human') { out.waiting += endOf(step, now) - step.start; out.blocked ||= step.end === null; continue; }
+    if (step.end === null) { out.tools += 1; continue; }
+    if (step.outcome === 'failed') out.errors += 1;
+    out.tools += 1;
+    out.fields += step.fieldsFilled ?? 0;
+    if (step.end - step.start > max) { max = step.end - step.start; out.slowest = step.id; }
+  }
+  return out;
+}
+
+// ---- Waterfall. Open spans read --now from CSS, so the clock moves bars without re-rendering.
+let clockTimer = null;
+const tip = document.body.appendChild(h('div', { class: 'tip', hidden: '' }));
+function renderTrace(trace, { onClose, agent, onPickAgent }) {
+  const startMs = Date.parse(trace.startedAt);
+  const nowSeconds = () => (Date.now() - startMs) / 1000;
+  const fixedEnd = trace.root.end;
+  const nowAt = () => (trace.live || fixedEnd === null ? nowSeconds() : fixedEnd);
+  const domainOf = (now) => Math.max(1, Math.max(now, fixedEnd ?? 0) * 1.12);
+  const now0 = nowAt();
+  tip.hidden = true;
+  const all = rowsOf(trace.root);
+  const key = (id) => `${trace.title}/${id}`;
+  const folded = (node, depth) => {
+    const saved = foldState.get(key(node.id));
+    return saved ?? (depth >= 1 && all.length > FOLD_OVER && !trace.overview);
+  };
+  const stats = summary(trace, now0);
+  const kpis = traceKpis(trace, stats, agent);
+  const ticksEl = h('div', { class: 'axis' });
+  const gridEl = h('div', { class: 'grid' });
+  const list = h('ol', { class: 'rows' });
+  const box = h('section', { class: `trace${trace.live ? '' : ' finished'}`, 'aria-label': trace.title },
+    h('header', null,
+      agent ? mascot(agent.role, agent.id, agent.state, 34) : null,
+      h('div', { style: 'min-width:0' }, h('h2', null, agent?.name ?? trace.title), h('p', null, trace.subtitle)),
+      onClose ? h('button', { type: 'button', class: 'x', onclick: onClose }, 'Whole run') : null),
+    kpis,
+    h('div', { class: 'scroller' },
+      h('div', { class: 'thead' }, h('div', { class: 'cell' }, ic('tree'), 'Steps'), ticksEl),
+      h('div', { class: 'tbody' }, gridEl, list)),
+    legend(all, trace));
+
+  const paintRows = () => {
+    const shut = new Set();
+    const rows = all.filter(({ node, depth }) => {
+      const parentShut = node.__parent && shut.has(node.__parent);
+      if (parentShut) { if (node.kind === 'group') shut.add(node.id); return false; }
+      if (node.kind === 'group' && folded(node, depth)) shut.add(node.id);
+      return true;
+    });
+    list.replaceChildren(...rows.map((row) => traceRow(row, stats, folded, key, paintRows, nowAt, domainOf, onPickAgent)));
+    for (const row of rows) seenRows.add(key(row.node.id));
+  };
+  const link = (node) => { if (node.kind === 'group') for (const c of node.children) { c.__parent = node.id; link(c); } };
+  link(trace.root);
+  paintRows();
+
+  let step = 0;
+  const tick = () => {
+    if (!box.isConnected && step) return;
+    const now = nowAt();
+    const domain = domainOf(now);
+    box.style.setProperty('--now', now);
+    box.style.setProperty('--domain', domain);
+    const nextStep = tickStep(domain);
+    if (nextStep !== step) {
+      step = nextStep;
+      const values = [];
+      for (let v = 0; v <= domain; v += step) values.push(v);
+      ticksEl.replaceChildren(...values.map((v) => h('span', { class: 'tick', 'data-v': v }, tickText(v))), h('span', { class: 'head-dot' }));
+      gridEl.replaceChildren(...values.map((v) => h('i', { 'data-v': v })), h('span', { class: 'playhead' }));
+    }
+    for (const el of box.querySelectorAll('.axis [data-v], .grid [data-v]')) el.style.left = `${el.dataset.v / domain * 100}%`;
+    for (const el of list.querySelectorAll('[data-live-from]')) el.textContent = span(Math.max(0, now - Number(el.dataset.liveFrom)));
+  };
+  tick();
+  clearInterval(clockTimer);
+  if (trace.live || fixedEnd === null) clockTimer = setInterval(tick, 250);
+  return box;
+}
+
+function traceKpis(trace, stats, agent) {
+  const session = trace.state && !trace.live ? trace.state : stats.blocked ? 'blocked' : trace.live ? 'working' : agent?.state ?? 'done';
+  const tone = { failed: 'bad', stalled: 'warn', blocked: 'warn', done: 'ok' }[session];
+  const cost = agent ? agent.costUsd : trace.costUsd;
+  const cells = [
+    ['Elapsed', clock(stats.elapsed)],
+    ['Session', STATE_WORD[session] ?? session, tone],
+    stats.fields ? ['Fields filled', stats.fields] : null,
+    ['Waiting on you', clock(stats.waiting), stats.blocked ? 'warn' : null],
+    trace.overview ? ['Agents', stepsOf(trace.root).length] : ['Tool calls', stats.tools],
+    ['Errors', stats.errors, stats.errors ? 'bad' : null],
+    cost ? ['Spent', usd(cost)] : null,
+  ].filter(Boolean);
+  return h('dl', { class: 'kpis' }, cells.map(([label, value, cls]) => h('div', null, h('dt', null, label), h('dd', { class: cls }, value))));
+}
+
+function traceRow({ node, depth }, stats, folded, key, repaint, nowAt, domainOf, onPickAgent) {
+  const now = nowAt();
+  const group = node.kind === 'group';
+  const human = node.category === 'human';
+  const open = node.end === null;
+  const failed = node.outcome === 'failed';
+  const shut = group && folded(node, depth);
+  const statusCls = open ? (human ? 'human' : 'run') : failed ? 'err' : '';
+  const roleIcon = group ? ic(open ? 'spin' : node.role === 'stage' ? 'tree' : 'agent') : ic(open && !human ? 'spin' : human ? 'person' : failed ? 'fail' : node.category);
+  const clickable = node.agentId && onPickAgent;
+  const rowEl = h('li', {
+    class: `row${group ? ' group' : ''}${seenRows.has(key(node.id)) ? '' : ' enter'}`, style: `--depth:${depth}`, tabindex: '0',
+    onpointermove: (e) => showTip(node, e, nowAt()), onpointerleave: () => { tip.hidden = true; }, onblur: () => { tip.hidden = true; },
+    onclick: clickable ? () => onPickAgent(node.agentId) : null,
+  },
+  h('div', { class: 'cell', style: clickable ? 'cursor:pointer' : null },
+    group ? h('button', { type: 'button', class: 'chev', 'aria-expanded': String(!shut), 'aria-label': `${shut ? 'Expand' : 'Collapse'} ${node.name}`,
+      onclick: (e) => { e.stopPropagation(); foldState.set(key(node.id), !shut); repaint(); } }, ic('chevron')) : h('span', { class: 'chev-gap' }),
+    node.role && node.kind === 'step' ? mascot(node.role, node.agentId, node.state, 20) : h('span', { class: `status${group ? ' box' : ''} ${statusCls}` }, roleIcon),
+    h('span', { class: `nm${open ? ' live' : ''}` }, node.name),
+    h('span', { class: 'meta' }, node.meta ?? '')),
+  h('div', { class: 'lane', style: `--e:${node.end ?? 'var(--now)'};--s:${node.start}` },
+    rowSegments(node, now).map((seg) => bar(seg, open)),
+    label(node, stats, open, domainOf(now))));
+  return rowEl;
+}
+function bar(seg, nodeOpen) {
+  const lane = LANES[seg.type] ?? LANES.shell;
+  return h('span', {
+    class: `bar fill-${lane.fill}${seg.failed ? ' failed' : ''}${seg.open ? ' open' : ''}`,
+    style: `--c:var(${lane.c});--s:${seg.start};--e:${seg.open && nodeOpen ? 'var(--now)' : seg.end}`,
+  });
+}
+function label(node, stats, open, domain) {
+  return h('span', { class: `lbl${!open && node.id === stats.slowest && node.end / domain > 0.72 ? ' flip' : ''}` },
+    open ? h('span', { 'data-live-from': node.start }, '') : h('span', null, span(Math.max(0, node.end - node.start))),
+    node.id === stats.slowest ? h('span', { class: 'badge' }, 'Slowest') : null);
+}
+function showTip(node, e, now) {
+  const end = endOf(node, now);
+  tip.replaceChildren(h('h4', null, node.name), node.meta ? h('p', { class: 'm' }, node.meta) : '',
+    h('dl', null, h('dt', null, 'Took'), h('dd', null, span(Math.max(0, end - node.start))), h('dt', null, 'Started at'), h('dd', null, `+${span(node.start)}`),
+      node.kind === 'step' && !node.state ? [h('dt', null, 'Kind'), h('dd', null, LANES[node.category]?.label ?? node.category)] : null,
+      node.fieldsFilled ? [h('dt', null, 'Fields filled'), h('dd', null, node.fieldsFilled)] : null),
+    node.note ? h('div', { class: 'n' }, node.note) : '');
+  tip.hidden = false;
+  tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 340)}px`;
+  tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 140)}px`;
+}
+function legend(all, trace) {
+  const used = new Set();
+  for (const { node } of all) {
+    if (node.kind === 'step') used.add(node.category);
+    else for (const child of node.children) if (child.kind === 'group') used.add('wait');
+    if (node.kind === 'group' && !node.gapless) used.add('model');
+  }
+  const order = Object.keys(LANES).filter((k) => used.has(k));
+  if (trace.overview && order.length <= 1) return null;
+  return h('div', { class: 'legend' }, order.map((k) => h('span', null, h('i', { class: `swatch fill-${LANES[k].fill}`, style: `--c:var(${LANES[k].c})` }), LANES[k].label)),
+    h('span', null, h('i', { class: 'swatch', style: 'background:var(--bad)' }), 'Failed'));
+}
+
+// ---- Run page.
+let graphSlot;
+let traceSlot;
+let currentFlow = null;
+let scrollDone = null;
+function renderFlow(flow, agentId) {
+  const { box, scroll } = renderGraph(flow, agentId);
+  const left = graphSlot.querySelector('.graph-scroll')?.scrollLeft;
+  graphSlot.replaceChildren(box);
+  if (left !== undefined) scroll.scrollLeft = left;
+  if (scrollDone !== flow.id) {
+    scrollDone = flow.id;
+    scrollToLive(flow, scroll);
+  }
+}
+function scrollToLive(flow, scroll) {
+  const at = flow.stages.findIndex((s) => isLive(s.state));
+  if (at > 1) scroll.scrollLeft = (at - 1) * STAGE_W;
+}
+function pickAgent(flow, agentId) {
+  history.pushState(null, '', flowHref(flow.id, agentId));
+  start();
+}
+function paintTrace(box) {
+  const scrollTop = traceSlot.querySelector('.scroller')?.scrollTop;
+  traceSlot.replaceChildren(box);
+  if (scrollTop) box.querySelector('.scroller').scrollTop = scrollTop;
+}
+async function refresh() {
+  const { flowId, agentId } = route();
+  const got = await fetchJson('flow', `/api/flows/${encodeURIComponent(flowId)}`);
+  if (got.changed) {
+    currentFlow = got.data;
+    document.title = `${currentFlow.title} · Flows`;
+    renderFlow(currentFlow, agentId);
+  }
+  const flow = currentFlow;
+  const agent = agentId ? flow.stages.flatMap((s) => s.agents).find((a) => a.id === agentId) : null;
+  if (!agent) {
+    if (got.changed) paintTrace(renderTrace(overviewTrace(flow), { onPickAgent: (id) => pickAgent(flow, id) }));
+    return;
+  }
+  const tr = await fetchJson('trace', traceUrl(flowId, agentId));
+  if (tr.changed) paintTrace(renderTrace(tr.data, { onClose: () => pickAgent(flow), agent }));
+}
+const traceUrl = (flowId, agentId) => `/api/flows/${encodeURIComponent(flowId)}/agents/${encodeURIComponent(agentId)}`;
+
+function start() {
+  const { flowId } = route();
+  clearInterval(clockTimer);
+  if (!flowId) {
+    document.title = 'Flows';
+    lastBytes.list = null;
+    content.replaceChildren();
+    seenRows = new Set();
+    return schedule(async () => {
+      const got = await fetchJson('list', '/api/flows');
+      if (got.changed) renderHome(listModel = got.data);
+    });
+  }
+  if (!graphSlot?.isConnected || currentFlow?.id !== flowId) {
+    seenRows = new Set();
+    scrollDone = null;
+    content.replaceChildren(
+      h('nav', { class: 'crumbs', 'aria-label': 'Breadcrumb' }, h('a', { href: '/flows' }, 'Flows'), h('span', null, '/'), h('span', null, flowId)),
+      graphSlot = h('div', null),
+      traceSlot = h('div', null));
+  }
+  lastBytes.flow = null;
+  lastBytes.trace = null;
+  schedule(refresh);
+}
+
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]');
+  if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const url = new URL(a.href);
+  if (url.origin !== location.origin || !url.pathname.startsWith('/flows')) return;
+  e.preventDefault();
+  if (url.href !== location.href) history.pushState(null, '', url);
+  start();
+});
+addEventListener('popstate', start);
+mount();
+start();
+</script>
+</body>
+</html>

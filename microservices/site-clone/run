@@ -1,0 +1,278 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+ATOMS = ROOT.parent.parent / "atoms"
+ENV = {**os.environ, "TOOL_FACTORY_CALLER": "site-clone"}
+HOME = Path(os.environ.get("TOOL_FACTORY_HOME") or "~/.local/share/tool-factory").expanduser().absolute()
+MAX_WALK_STOPS = 200
+MIN_WALK_STEP = 200
+MAX_STOPS = 10
+MAX_HOVERS = 12
+MAX_CLICKS = 8
+MAX_FINE = 4
+UP_WHEEL_PX = 60
+SLOW_PX_S = 150
+
+
+class Failed(Exception):
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+def log(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
+
+
+def atom(name: str, verb: str, *args: str) -> dict:
+    p = subprocess.run([str(ATOMS / name / "bin" / name), verb, *args, "--json"], capture_output=True, text=True, env=ENV)
+    try:
+        out = json.loads(p.stdout)
+    except json.JSONDecodeError:
+        raise Failed("atom_failed", f"{name} {verb} printed no JSON: {p.stderr[-400:]}") from None
+    if p.returncode:
+        raise Failed(out["error"]["code"], f"{name} {verb}: {out['error']['message']}")
+    return out
+
+
+def workspace(name: str) -> Path:
+    if not re.fullmatch(r"[A-Za-z0-9][\w.-]*", name):
+        raise Failed("invalid_args", f"{name!r} is not a workspace name")
+    return HOME / "microservices" / "site-clone" / name
+
+
+def write(path: Path, value) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=1), encoding="utf-8")
+    return path
+
+
+def coarse_walk(facts: dict) -> dict:
+    step = max(MIN_WALK_STEP, round(facts["scrollHeight"] / MAX_WALK_STOPS))
+    return {"id": "walk", "kind": "walk", "from": 0, "to": "end", "step": step}
+
+
+def choose_stops(walk: dict, limit: int = MAX_STOPS) -> list[int]:
+    """The top of the page, the middle of each stretch that moves at rest, and the middle of each still stretch."""
+    ys, ranges = walk["ys"], walk["activeRanges"]
+    if not ys:
+        return [0]
+    mids, last = [], min(ys)
+    for lo, hi in ranges:
+        if lo - last > 0:
+            mids.append((last + lo) / 2)
+        mids.append((lo + hi) / 2)
+        last = hi
+    if max(ys) > last:
+        mids.append((last + max(ys)) / 2)
+    # The middle of a colour change is usually the gap between sections, where a page keeps its background effects.
+    mids += [(t["fromY"] + t["toY"]) / 2 for t in walk["transitions"]]
+    mids = sorted({0, *(round(m) for m in mids)})
+    if len(mids) > limit:
+        mids = [mids[i * (len(mids) - 1) // (limit - 1)] for i in range(limit)]
+    return mids
+
+
+def pick_targets(targets: list, limit: int, safe_only: bool) -> list:
+    """One target per distinct look, in page order, since a list of cards shares one hover."""
+    seen, out = set(), []
+    # Buttons first, because a page's links are many and alike, and its buttons open its other states.
+    for t in sorted(targets, key=lambda t: (t["kind"] == "link", t["y"])):
+        if (safe_only and not t["safe"]) or t["signature"] in seen:
+            continue
+        seen.add(t["signature"])
+        out.append(t)
+    if len(out) > limit:
+        out = [out[i * (len(out) - 1) // (limit - 1)] for i in range(limit)]
+    return out
+
+
+def rest_for(target: dict, facts: dict) -> int:
+    vh = facts["viewport"][1]
+    return max(0, round(target["y"] + target["rect"][3] / 2 - vh / 2))
+
+
+def full_plan(url: str, facts: dict, walk: dict, load_ms: int, idle_ms: int) -> dict:
+    w, h = facts["viewport"]
+    stops = choose_stops(walk)
+    frame = [[w * 0.14, h * 0.22], [w * 0.86, h * 0.22], [w * 0.86, h * 0.78], [w * 0.14, h * 0.78], [w * 0.14, h * 0.4], [w * 0.7, h * 0.4], [w * 0.7, h * 0.6], [w * 0.3, h * 0.6]]
+    runs = [{"id": "load", "kind": "load", "forMs": max(load_ms + 2000, 4000)}, coarse_walk(facts)]
+    for k, t in enumerate(walk["transitions"][:MAX_FINE]):
+        pad = max(abs(t["toY"] - t["fromY"]), 200)
+        lo = max(0, min(t["fromY"], t["toY"]) - pad)
+        runs.append({"id": f"fine-{k}", "kind": "pass", "at": lo, "distance": abs(t["toY"] - t["fromY"]) + 2 * pad, "afterMs": 400})
+    end = walk["ys"][-1] if walk["ys"] else 0
+    runs.append({"id": "pass-up", "kind": "pass", "at": end, "distance": -end, "wheelPx": UP_WHEEL_PX, "afterMs": 800})
+    runs.append({"id": "pass", "kind": "pass", "at": stops[len(stops) // 2], "distance": 600})
+    runs += [{"id": f"idle-{y}", "kind": "idle", "at": y, "forMs": idle_ms} for y in stops]
+    runs += [{"id": f"path-{y}", "kind": "path", "at": y, "points": frame} for y in stops[: min(3, len(stops))]]
+    # A slow approach as well, since a pointer effect can fire only above some speed and a person reaches for a target slowly.
+    runs += [{"id": f"slow-{y}", "kind": "path", "at": y, "speed": SLOW_PX_S, "points": [[w * 0.3, h * 0.35], [w * 0.7, h * 0.35], [w * 0.7, h * 0.65]]} for y in stops[:2]]
+    for t in pick_targets(facts["targets"], MAX_HOVERS, False):
+        runs.append({"id": f"hover-{t['id']}", "kind": "hover", "at": rest_for(t, facts), "target": {"selector": t["selector"]}})
+    for t in pick_targets(facts["targets"], MAX_CLICKS, True):
+        runs.append({"id": f"click-{t['id']}", "kind": "click", "at": rest_for(t, facts), "target": {"selector": t["selector"]}})
+    return {"url": url, "viewport": {"width": w, "height": h}, "loadMs": load_ms, "runs": runs}
+
+
+def sweep(plan_file: Path, url: str, out: Path) -> dict:
+    swept = atom("page-sweep", "capture", str(plan_file), "--url", url)
+    write(out / "sweep.json", swept)
+    measures = atom("motion-measure", "measure", swept["sweep"])
+    write(out / "measures.json", measures)
+    prune(Path(swept["sweep"]).parent, measures)
+    return measures
+
+
+def prune(frames: Path, measures: dict) -> None:
+    """Keep only the key frames. A long page's raw frames run to gigabytes, and a rerun makes them again."""
+    keep = {k for r in measures["runs"] for k in r["keyFrames"]}
+    for f in frames.glob("*/*.png"):
+        if str(f) not in keep:
+            f.unlink()
+
+
+def brief(facts: dict, measures: dict) -> str:
+    runs = {r["id"]: r for r in measures["runs"]}
+    walk = runs["walk"]["values"]
+    lines = [
+        f"{facts.get('title', '')}: {facts['scrollHeight']:.0f} px tall, {len(facts['sections'])} sections, {len(facts['canvases'])} canvases, {facts['media'].get('video', 0)} videos.",
+        f"Animations at rest: {facts['animations']['scrollDriven']} scroll-driven, {facts['animations']['clock']} on the clock.",
+        f"Moves at rest in scroll ranges {walk['activeRanges']}.",
+        "Colour changes: " + ("; ".join(f"{t['from']} to {t['to']} around {t['fromY']:.0f}" for t in walk["transitions"]) or "none") + ".",
+    ]
+    for r in measures["runs"]:
+        v = r["values"]
+        if r["kind"] == "idle" and v.get("events"):
+            lines.append(f"Rest at {r['id'][5:]}: {v['events']} firings, {v['ratePerS']}/s, gap spread {v.get('gapCv')}, order {v.get('order')}, top colour {v['colours'][0]['hex'] if v['colours'] else 'none'}.")
+        elif r["kind"] in ("hover", "click") and v.get("responseMs") is not None:
+            lines.append(f"{r['id']}: reacts in {v['responseMs']} ms, covers {v['peak']:.4f} of the screen, worst stall {v.get('worstGapMs')} ms.")
+        elif r["status"] != "ok":
+            lines.append(f"{r['id']}: {r['status']}. {r.get('detail', '')}")
+    return "\n".join(lines)
+
+
+def study(url: str, name: str, loadMs: int, idleMs: int) -> dict:
+    started = time.time()
+    root = workspace(name)
+    if not re.match(r"(https?|file)://", url):
+        raise Failed("invalid_args", f"{url} is not a page URL")
+    log("reading the shipped files")
+    problems = []
+    try:
+        write(root / "bundle.json", atom("page-bundle", "fetch", url))
+    except Failed as e:
+        problems.append(f"page-bundle: {e}")
+    log("reading the live page")
+    facts = atom("page-read", "facts", url, "--load-ms", str(loadMs))
+    write(root / "facts.json", facts)
+    log("walking the whole scroll range")
+    first = write(root / "walk-plan.json", {"url": url, "viewport": {"width": facts["viewport"][0], "height": facts["viewport"][1]}, "loadMs": loadMs, "runs": [coarse_walk(facts)]})
+    walked = sweep(first, url, root / "first-walk")
+    plan = write(root / "plan.json", full_plan(url, facts, walked["runs"][0]["values"], loadMs, idleMs))
+    runs = len(json.loads(plan.read_text())["runs"])
+    log(f"sweeping {runs} runs")
+    measures = sweep(plan, url, root / "original")
+    log("sweeping again for the noise floor")
+    sweep(plan, url, root / "original-repeat")
+    for f, empty in (("map.json", {}), ("departures.json", [])):
+        if not (root / f).exists():
+            write(root / f, empty)
+    text = brief(facts, measures)
+    (root / "brief.md").write_text(text + "\n", encoding="utf-8")
+    return {
+        "name": name, "url": url, "dir": str(root), "phase": "study", "minutes": round((time.time() - started) / 60, 1), "brief": text, "problems": problems,
+        "summary": {"runs": runs, "failed": [r["id"] for r in measures["runs"] if r["status"] != "ok"]},
+        "files": {"facts": str(root / "facts.json"), "bundle": str(root / "bundle.json"), "plan": str(plan), "measures": str(root / "original" / "measures.json"), "brief": str(root / "brief.md"), "map": str(root / "map.json"), "departures": str(root / "departures.json")},
+    }
+
+
+def apply_map(plan: dict, mapping: dict, clone: str) -> dict:
+    runs = []
+    for r in plan["runs"]:
+        fields = mapping.get(r["id"], {})
+        if fields == "skip":
+            continue
+        runs.append({**r, **fields})
+    unknown = set(mapping) - {r["id"] for r in plan["runs"]}
+    if unknown:
+        raise Failed("invalid_args", f"map.json names runs the plan does not have: {sorted(unknown)}")
+    return {**plan, "url": clone, "runs": runs}
+
+
+def compare(name: str, clone: str) -> dict:
+    started = time.time()
+    root = workspace(name)
+    if not (root / "plan.json").is_file():
+        raise Failed("invalid_args", f"No study named {name}. Run study first.")
+    plan = json.loads((root / "plan.json").read_text())
+    rounds = sorted(int(p.name.split("-")[1]) for p in root.glob("round-*"))
+    out = root / f"round-{(rounds[-1] + 1) if rounds else 1}"
+    log(f"sweeping the rebuild into {out.name}")
+    plan_file = write(out / "plan.json", apply_map(plan, json.loads((root / "map.json").read_text()), clone))
+    facts = atom("page-read", "facts", clone, "--load-ms", str(plan.get("loadMs", 6000)))
+    original = json.loads((root / "facts.json").read_text())
+    problems = []
+    if abs(facts["scrollHeight"] - original["scrollHeight"]) > facts["viewport"][1] / 2 and not json.loads((root / "map.json").read_text()):
+        problems.append(f"The rebuild is {facts['scrollHeight']:.0f} px tall and the original is {original['scrollHeight']:.0f} px, so the runs land at different content. Fill map.json with each run's offset or target on the rebuild.")
+    problems += [f"page error on load: {e}" for e in facts["errors"]]
+    sweep(plan_file, clone, out)
+    diff = atom("motion-diff", "compare", str(root / "original" / "measures.json"), str(out / "measures.json"), "--baseline", str(root / "original-repeat" / "measures.json"), "--departures", str(root / "departures.json"))
+    write(out / "diff.json", diff)
+    return {
+        "name": name, "url": plan["url"], "clone": clone, "dir": str(out), "phase": "compare", "minutes": round((time.time() - started) / 60, 1),
+        "summary": diff["summary"], "differences": diff["differences"], "problems": problems,
+        "files": {"diff": str(out / "diff.json"), "measures": str(out / "measures.json")},
+    }
+
+
+def text_of(result: dict) -> str:
+    if result["phase"] == "study":
+        return "\n".join([result["brief"], "", f"workspace {result['dir']}", f"took {result['minutes']} minutes", *result["problems"]])
+    s = result["summary"]
+    lines = [f"{s['major']} major, {s['minor']} minor, {s['departures']} departures over {s['runsCompared']} runs, in {result['minutes']} minutes"]
+    lines += [f"{d['severity']} {d['run']} {d['metric']}: {json.dumps(d['a'])[:60]} vs {json.dumps(d['b'])[:60]}. {d['meaning']}" for d in result["differences"]]
+    lines += result["problems"]
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="site-clone", description=__doc__)
+    verbs = parser.add_subparsers(dest="verb", required=True)
+    s = verbs.add_parser("study")
+    s.add_argument("url")
+    s.add_argument("--name", required=True)
+    s.add_argument("--load-ms", dest="loadMs", type=int, default=6000)
+    s.add_argument("--idle-ms", dest="idleMs", type=int, default=6000)
+    s.add_argument("--json", action="store_true")
+    c = verbs.add_parser("compare")
+    c.add_argument("name")
+    c.add_argument("--clone", required=True)
+    c.add_argument("--json", action="store_true")
+    args = vars(parser.parse_args())
+    verb, as_json = args.pop("verb"), args.pop("json")
+    try:
+        result = {"study": study, "compare": compare}[verb](**args)
+    except Failed as e:
+        if as_json:
+            print(json.dumps({"error": {"code": e.code, "message": str(e)}}))
+        else:
+            print(f"site-clone: {e.code}: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(result) if as_json else text_of(result))
+
+
+if __name__ == "__main__":
+    main()

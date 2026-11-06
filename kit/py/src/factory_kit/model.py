@@ -53,16 +53,22 @@ def _dollars(name: str, default: str) -> float:
     return dollars
 
 
-def _call_cap() -> float:
-    budget = _dollars("TOOL_FACTORY_BUDGET_USD", "3")
-    ceiling = _dollars("TOOL_FACTORY_CALL_BUDGET_USD", "0.25")
-    spent = spent_today()
-    if spent >= budget:
-        raise AtomError(
-            "budget_exceeded",
-            f"Model spend today is ${spent:.4f} of the ${budget:.4f} budget. Set TOOL_FACTORY_BUDGET_USD to raise it.",
-        )
-    cap = round(min(budget - spent, ceiling), 6)
+def _call_cap() -> float | None:
+    caps = []
+    if "TOOL_FACTORY_CALL_BUDGET_USD" in os.environ:
+        caps.append(_dollars("TOOL_FACTORY_CALL_BUDGET_USD", ""))
+    if "TOOL_FACTORY_BUDGET_USD" in os.environ:
+        budget = _dollars("TOOL_FACTORY_BUDGET_USD", "")
+        spent = spent_today()
+        if spent >= budget:
+            raise AtomError(
+                "budget_exceeded",
+                f"Model spend today is ${spent:.4f} of the ${budget:.4f} budget. Set TOOL_FACTORY_BUDGET_USD to raise it.",
+            )
+        caps.append(budget - spent)
+    if not caps:
+        return None
+    cap = round(min(caps), 6)
     if cap <= 0:
         raise AtomError(
             "budget_exceeded",
@@ -87,8 +93,10 @@ def ask(spec: Spec, schema: dict, content: list[str | Path]) -> tuple[dict, floa
         "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
         "--json-schema", json.dumps(schema),
         "--system-prompt", spec.prompt, "--tools", "", "--no-session-persistence",
-        "--max-budget-usd", f"{cap:.6f}",
     ]
+    if cap is not None:
+        command += ["--max-budget-usd", f"{cap:.6f}"]
+    unknown_cost = cap or 0.0
     try:
         done = subprocess.run(
             command,
@@ -101,7 +109,7 @@ def ask(spec: Spec, schema: dict, content: list[str | Path]) -> tuple[dict, floa
     except FileNotFoundError:
         raise AtomError("model_error", "The claude CLI is not on PATH.")
     except subprocess.TimeoutExpired:
-        raise AtomError("model_error", f"claude did not answer within {TIMEOUT_SEC} seconds.", cap)
+        raise AtomError("model_error", f"claude did not answer within {TIMEOUT_SEC} seconds.", unknown_cost)
     reply = None
     for line in done.stdout.splitlines():
         try:
@@ -112,12 +120,12 @@ def ask(spec: Spec, schema: dict, content: list[str | Path]) -> tuple[dict, floa
             reply = event
     if reply is None:
         detail = done.stderr.strip() or done.stdout.strip()
-        raise AtomError("model_error", f"claude exited {done.returncode} with no result: {detail}", cap)
+        raise AtomError("model_error", f"claude exited {done.returncode} with no result: {detail}", unknown_cost)
     cost = reply.get("total_cost_usd")
     if type(cost) not in (int, float) or not 0 <= cost < math.inf:
-        cost = cap
+        cost = unknown_cost
     if reply.get("subtype") == "error_max_budget_usd":
-        raise AtomError("budget_exceeded", f"The call reached its ${cap:.4f} cap.", cost)
+        raise AtomError("budget_exceeded", "The call reached its --max-budget-usd cap.", cost)
     if reply.get("is_error") or not isinstance(reply.get("structured_output"), dict):
         raise AtomError("model_error", f"claude returned no structured output: {reply.get('errors') or reply.get('result')}", cost)
     return reply["structured_output"], cost

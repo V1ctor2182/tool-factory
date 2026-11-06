@@ -70,7 +70,7 @@ test('every verb carries its CLI usage, and each output names a contract with it
 });
 
 test('microservices come first, the microservice with the most atoms leading', () => {
-  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'podcast', 'ui-clone', 'clipper', 'meeting-notes', 'writing-style']);
+  assert.deepEqual(model.microservices.map((t) => t.name), ['youtube', 'site-clone', 'ui-clone', 'podcast', 'clipper', 'meeting-notes', 'writing-style']);
   assert.deepEqual(row('youtube').uses, ['find-url', 'captions', 'download', 'transcribe', 'frames', 'see', 'digest']);
 });
 
@@ -84,14 +84,21 @@ test('each atom lists the microservices whose uses name it', () => {
     see: ['youtube', 'clipper'],
     transcribe: ['youtube', 'podcast', 'meeting-notes'],
     'ui-catalog': ['ui-clone'],
-    'ui-diff': ['ui-clone'],
-    'ui-record': ['ui-clone'],
+    'motion-diff': ['site-clone'],
+    'motion-measure': ['site-clone'],
+    'motion-trace': ['site-clone'],
+    'page-bundle': ['site-clone'],
+    'page-read': ['site-clone'],
+    'page-sweep': ['site-clone'],
+    'page-diff': ['ui-clone'],
+    'page-record': ['ui-clone'],
+    'ui-draft': ['ui-clone'],
     'ui-source': ['ui-clone'],
   });
 });
 
 test('spend counts today against the budget and charges atom spend to the calling microservice', () => {
-  assert.deepEqual(model.budget, { capUsd: 3, spentTodayUsd: 0.011 });
+  assert.deepEqual(model.budget, { capUsd: 'none', spentTodayUsd: 0.011 });
   assert.deepEqual(
     ['youtube', 'podcast', 'meeting-notes', 'digest', 'see', 'transcribe'].map((n) => [n, row(n).spentUsd]),
     [['youtube', 0.013], ['podcast', 0.004], ['meeting-notes', 0], ['digest', 0.0145], ['see', 0.0025], ['transcribe', 0]],

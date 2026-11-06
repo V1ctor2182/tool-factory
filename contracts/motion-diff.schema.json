@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/motion-diff.schema.json",
+  "title": "Motion diff",
+  "description": "How a rebuild's motion differs from the original's, run by run, ranked with the largest first. Noise from a repeat of the original widens each tolerance.",
+  "type": "object",
+  "required": [
+    "a",
+    "b",
+    "summary",
+    "differences",
+    "runs"
+  ],
+  "properties": {
+    "a": {
+      "type": "string"
+    },
+    "b": {
+      "type": "string"
+    },
+    "cacheHit": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "major",
+        "minor",
+        "departures",
+        "runsCompared"
+      ],
+      "properties": {
+        "major": {
+          "type": "integer"
+        },
+        "minor": {
+          "type": "integer"
+        },
+        "departures": {
+          "type": "integer"
+        },
+        "runsCompared": {
+          "type": "integer"
+        }
+      }
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "run",
+          "kind",
+          "metric",
+          "a",
+          "b",
+          "severity",
+          "meaning"
+        ],
+        "properties": {
+          "run": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "a": {},
+          "b": {},
+          "severity": {
+            "enum": [
+              "major",
+              "minor",
+              "departure"
+            ]
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "sheet": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "sheet"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "sheet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

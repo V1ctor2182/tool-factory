@@ -1,0 +1,20 @@
+<!doctype html>
+<title>Original</title>
+<style>
+  body { margin: 0; background: #0a24b4; color: white; font: 16px sans-serif; }
+  section { height: 900px; }
+  #two { background: linear-gradient(#0a24b4, #680cae 40%, #680cae); }
+  #three { background: #680cae; }
+  #dot { position: fixed; left: 40px; top: 60px; width: 40px; height: 40px; background: #4bf08e; opacity: 0; }
+  #box { width: 240px; height: 80px; background: #345; transition: background 150ms; cursor: pointer; }
+  #box:hover { background: #fc3; }
+</style>
+<div id="dot"></div>
+<section id="one"><div id="box">hover me</div><a id="jump" href="#three">jump</a> <a href="https://example.com/">leave</a></section>
+<section id="two"></section>
+<section id="three"></section>
+<script>
+  const dot = document.getElementById('dot');
+  const blink = () => { dot.style.opacity = '1'; setTimeout(() => { dot.style.opacity = '0'; setTimeout(blink, 300 + Math.random() * 300); }, 120); };
+  blink();
+</script>

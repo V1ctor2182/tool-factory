@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/page-bundle.schema.json",
+  "title": "Page bundle",
+  "description": "The files a web page ships, and the facts read from them without running them: stack, routes, source modules, keys, storage, design tokens, motion, fonts, and assets.",
+  "type": "object",
+  "$defs": {
+    "strings": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+  },
+  "properties": {
+    "source": { "type": "string", "description": "The page URL or folder the caller passed." },
+    "dir": { "type": "string", "description": "Folder that holds the files. For fetch, a folder in the data home. For parse, the folder the caller passed." },
+    "files": {
+      "type": "array",
+      "description": "Every file read, page first, in the order found.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Path relative to dir." },
+          "url": { "type": ["string", "null"], "description": "Where fetch got the file. Null for parse." },
+          "type": { "enum": ["html", "script", "stylesheet", "sourcemap"] },
+          "bytes": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["path", "url", "type", "bytes"],
+        "additionalProperties": false
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "The page title and each <meta> name or property with its content.",
+      "additionalProperties": { "type": "string" }
+    },
+    "stack": {
+      "type": "array",
+      "description": "Each library or service whose signature matched, in the order of the signature table.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "layer": { "enum": ["build", "view", "render", "style", "analytics"] },
+          "evidence": { "type": "string", "description": "The text that matched, and the file it matched in." }
+        },
+        "required": ["name", "layer", "evidence"],
+        "additionalProperties": false
+      }
+    },
+    "modules": {
+      "type": "array",
+      "description": "Source files named in the bundle or its source maps, sorted by path. names holds the function or message names a string tags with path#name.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "names": { "$ref": "#/$defs/strings" }
+        },
+        "required": ["path", "names"],
+        "additionalProperties": false
+      }
+    },
+    "routes": { "$ref": "#/$defs/strings", "description": "String literals that look like app paths, such as /settings. Candidates, sorted." },
+    "keys": { "$ref": "#/$defs/strings", "description": "Keys a keyboard handler compares against, from case labels and .key or .code comparisons in scripts that listen for keydown or keyup. Candidates, sorted." },
+    "storageKeys": { "$ref": "#/$defs/strings", "description": "Keys passed to localStorage or sessionStorage, sorted." },
+    "tokens": {
+      "type": "object",
+      "description": "CSS custom properties by the selector that declares them, for :root, :host, html, and theme selectors. A rule inside @media, @supports, or @container is keyed by those conditions and the selector, such as \"@media (prefers-color-scheme: dark) :root\".",
+      "additionalProperties": { "type": "object", "additionalProperties": { "type": "string" } }
+    },
+    "keyframes": { "$ref": "#/$defs/strings", "description": "@keyframes names in stylesheet order." },
+    "easings": {
+      "type": "array",
+      "description": "cubic-bezier curves, most used first.",
+      "items": {
+        "type": "object",
+        "properties": { "value": { "type": "string" }, "count": { "type": "integer", "minimum": 1 } },
+        "required": ["value", "count"],
+        "additionalProperties": false
+      }
+    },
+    "fonts": { "$ref": "#/$defs/strings", "description": "Font families from @font-face rules and Google Fonts links, sorted." },
+    "assets": { "$ref": "#/$defs/strings", "description": "Image, font, audio, and video URLs the files reference, sorted. Absolute for fetch, as written for parse." },
+    "cacheHit": { "type": "boolean", "description": "Always false. A page is read fresh on every call." }
+  },
+  "required": ["source", "dir", "files", "meta", "stack", "modules", "routes", "keys", "storageKeys", "tokens", "keyframes", "easings", "fonts", "assets", "cacheHit"],
+  "additionalProperties": false
+}

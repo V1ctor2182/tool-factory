@@ -1,0 +1,28 @@
+{
+  "name": "page-diff",
+  "type": "atom",
+  "kind": "transform",
+  "description": "How close two page-recordings of the same steps file are, state by state, and what differs: pixels, frames, computed styles, and animations. Cached by content.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/page-diff",
+  "contract": "page-diff",
+  "verbs": [
+    {
+      "name": "compare",
+      "description": "Compare recording b against recording a, such as a rebuild against the original. Prints one line per state with its score and pixel mismatch, then the overall score, or the diff with --json. Cached by the content of both recordings and the tolerance.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "a": { "type": "string", "description": "recording.json of the reference, such as the original component." },
+          "b": { "type": "string", "description": "recording.json to judge against a, such as the rebuild, recorded with the same steps file." },
+          "tolerance": { "type": "integer", "default": 24, "description": "Largest per-channel difference, from 0 to 255, that still counts as the same pixel." }
+        },
+        "required": ["a", "b"]
+      },
+      "output": "page-diff"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

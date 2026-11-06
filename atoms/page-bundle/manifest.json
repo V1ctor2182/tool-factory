@@ -1,0 +1,38 @@
+{
+  "name": "page-bundle",
+  "type": "atom",
+  "kind": "observe",
+  "description": "The files a web page ships and what they say about it without running them: stack, routes, source modules, keys, storage, design tokens, motion, fonts, and assets. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/page-bundle",
+  "contract": "page-bundle",
+  "verbs": [
+    {
+      "name": "fetch",
+      "description": "Download a page's HTML, same-origin scripts and stylesheets, the chunks they import, and their source maps into the data home, then read them. Prints the stack, one entry per line, or the bundle with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Page URL, such as https://quorum.elianiva.com/." }
+        },
+        "required": ["url"]
+      },
+      "output": "page-bundle"
+    },
+    {
+      "name": "parse",
+      "description": "Read a page bundle from a folder already on disk. The folder holds index.html and the files it loads, at the paths the page names.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "dir": { "type": "string", "description": "Folder with index.html at its root." }
+        },
+        "required": ["dir"]
+      },
+      "output": "page-bundle"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

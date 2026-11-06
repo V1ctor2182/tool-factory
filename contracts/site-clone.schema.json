@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/site-clone.schema.json",
+  "title": "Site clone report",
+  "description": "What one step of cloning a site produced: where its work lives, the facts of the original, and, after a compare, the differences to fix next.",
+  "type": "object",
+  "required": [
+    "name",
+    "url",
+    "dir",
+    "phase",
+    "minutes",
+    "files"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "clone": {
+      "type": "string"
+    },
+    "dir": {
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "study",
+        "compare"
+      ]
+    },
+    "minutes": {
+      "type": "number"
+    },
+    "files": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "object"
+    },
+    "differences": {
+      "type": "array"
+    },
+    "brief": {
+      "type": "string"
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

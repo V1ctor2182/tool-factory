@@ -53,11 +53,11 @@ def test_returns_structured_output_and_cost(atom):
     spend(home, 1.0)
     assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.02)
     assert passed(calls, "--model") == "haiku"
-    assert passed(calls, "--max-budget-usd") == "0.250000"
+    assert "--max-budget-usd" not in (calls / "argv").read_text().splitlines()
 
 
 @pytest.mark.parametrize(
-    ("budget", "ceiling", "cap"), [("3", None, "0.250000"), ("1.1", None, "0.100000"), ("3", "0.05", "0.050000")]
+    ("budget", "ceiling", "cap"), [("3", None, "2.000000"), ("1.1", None, "0.100000"), ("3", "0.05", "0.050000")]
 )
 def test_caps_each_call_at_the_ceiling_or_the_rest_of_the_budget(atom, monkeypatch, budget, ceiling, cap):
     spec, home, calls, _ = atom
@@ -98,17 +98,25 @@ def test_maps_the_backend_budget_stop_to_budget_exceeded_with_its_cost(atom):
 
 
 @pytest.mark.parametrize("reply", [{"type": "assistant"}, {"type": "result", "is_error": True, "result": "boom"}])
-def test_charges_the_call_cap_when_the_cost_is_unknown(atom, reply):
+def test_charges_the_call_cap_when_the_cost_is_unknown(atom, monkeypatch, reply):
     spec, _, _, backend = atom
+    monkeypatch.setenv("TOOL_FACTORY_CALL_BUDGET_USD", "0.25")
     backend(reply)
     with pytest.raises(AtomError) as failed:
         model.ask(spec, SCHEMA, ["question"])
     assert (failed.value.code, failed.value.cost_usd) == ("model_error", 0.25)
 
 
-@pytest.mark.parametrize("cost", [-5, True])
-def test_charges_the_call_cap_for_a_cost_that_is_not_dollars(atom, cost):
+def test_charges_nothing_for_an_unknown_cost_with_no_cap(atom):
     spec, _, _, backend = atom
+    backend({"type": "result", "subtype": "success", "structured_output": {"answer": "yes"}})
+    assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.0)
+
+
+@pytest.mark.parametrize("cost", [-5, True])
+def test_charges_the_call_cap_for_a_cost_that_is_not_dollars(atom, monkeypatch, cost):
+    spec, _, _, backend = atom
+    monkeypatch.setenv("TOOL_FACTORY_CALL_BUDGET_USD", "0.25")
     backend({"type": "result", "subtype": "success", "total_cost_usd": cost, "structured_output": {"answer": "yes"}})
     assert model.ask(spec, SCHEMA, ["question"]) == ({"answer": "yes"}, 0.25)
 

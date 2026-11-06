@@ -2,12 +2,12 @@
   "name": "ui-clone",
   "type": "microservice",
   "kind": "pipeline",
-  "description": "Copy a site's UI components into Victor's private shadcn registry. Keeps each component whose code the site exposes and whose written terms allow keeping, and reports the rest as locked so a browser can rebuild them later.",
+  "description": "Copy a site's UI components into Victor's private shadcn registry. Keeps each component whose code the site exposes and whose written terms allow keeping, reports the rest as locked, and rebuilds a locked one from how it looks and moves.",
   "status": "alpha",
   "runtime": "uv",
   "entry": "run",
   "contract": "ui-clone-report",
-  "uses": ["ui-catalog", "ui-source", "ui-record", "ui-diff"],
+  "uses": ["ui-catalog", "ui-source", "page-record", "page-diff", "ui-draft"],
   "verbs": [
     {
       "name": "collect",
@@ -27,19 +27,36 @@
     },
     {
       "name": "judge",
-      "description": "Score a rebuilt component against its original. Records the original page and the rebuild's preview URL with the same ui-record steps file, then compares the two with ui-diff. Makes no model call.",
+      "description": "Score a rebuilt component against its original. Records the original page and the rebuild's preview URL with the same page-record steps file, then compares the two with page-diff. Makes no model call.",
       "input": {
         "type": "object",
         "properties": {
-          "steps": { "type": "string", "description": "A ui-record steps file, as contracts/ui-steps.schema.json defines it. Its url is the original page." },
+          "steps": { "type": "string", "description": "A page-record steps file, as contracts/page-steps.schema.json defines it. Its url is the original page." },
           "rebuild": { "type": "string", "x-flag": true, "description": "URL of the rebuild in the victor-ui preview, such as http://localhost:5173/input-otp-rebuild." },
-          "original": { "type": "string", "description": "recording.json of an earlier ui-record capture of the original, to skip recording it again." }
+          "original": { "type": "string", "description": "recording.json of an earlier page-record capture of the original, to skip recording it again." }
         },
         "required": ["steps", "rebuild"]
       },
-      "output": "ui-diff"
+      "output": "page-diff"
+    },
+    {
+      "name": "rebuild",
+      "description": "Rebuild a locked component from how it looks and moves, never from its code. Records the original once. Each round, ui-draft writes the component and its demo, add.mjs installs them into victor-ui, npm run typecheck checks them, and judge scores the demo in the preview against the original. The next round revises the last draft from its page-diff or its error. Stops at the target score or after the last round, leaves the best round installed, and records each round's model cost in the item's meta. Paid: one ui-draft call per round.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "steps": { "type": "string", "description": "A page-record steps file for the original, written by hand per component. Its target and action selectors must also work on the demo." },
+          "into": { "type": "string", "x-flag": true, "description": "Path of the victor-ui repo. It must hold scripts/add.mjs." },
+          "name": { "type": "string", "x-flag": true, "description": "The registry item's name, such as input-otp-rebuild. The demo is judged at <preview>/<name>." },
+          "preview": { "type": "string", "default": "http://localhost:5173", "description": "Base URL of the running victor-ui preview, from npm run preview:dev." },
+          "rounds": { "type": "integer", "default": 5, "description": "Most rounds to run." },
+          "target": { "type": "number", "default": 0.9, "description": "Stop once a round scores this or more. At 0.9 a rebuild looks like the original to Victor, who decides whether to push it further." }
+        },
+        "required": ["steps", "into", "name"]
+      },
+      "output": "ui-rebuild"
     }
   ],
-  "needs": { "bin": ["node"], "secrets": [], "paid": [] },
+  "needs": { "bin": ["node", "npm"], "secrets": [], "paid": [] },
   "adapters": ["cli", "skill", "mcp"]
 }

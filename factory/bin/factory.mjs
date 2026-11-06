@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { doctor } from '../lib/doctor.mjs';
 import { link, SOCKETS, unlink } from '../lib/links.mjs';
@@ -109,7 +109,7 @@ const COMMANDS = {
     ]);
     console.log(table([['name', 'type', 'kind', 'health', 'runs 7d', 'failed', 'median', 'spent 7d', 'uses or used by', 'links'], ...rows]));
     const { capUsd, spentTodayUsd } = model.budget;
-    console.log(`\nbudget: ${spentTodayUsd === null ? 'unknown' : `$${spentTodayUsd.toFixed(4)}`} spent today of ${capUsd === null ? 'an unreadable cap' : `$${capUsd.toFixed(2)}`}`);
+    console.log(`\nbudget: ${spentTodayUsd === null ? 'unknown' : `$${spentTodayUsd.toFixed(4)}`} spent today${capUsd === 'none' ? ', no daily cap' : ` of ${capUsd === null ? 'an unreadable cap' : `$${capUsd.toFixed(2)}`}`}`);
     for (const t of model.external) console.log(`external: ${t.name} at ${t.where}`);
     return reportProblems(model.problems);
   },
@@ -194,6 +194,21 @@ const COMMANDS = {
     }
   },
 
+  async push(registry, args) {
+    const { values, positionals } = options(args, { sources: { type: 'string' }, scan: { type: 'boolean' }, state: { type: 'string' } });
+    if (!values.sources) throw new UsageError('Name the sources, as in factory push https://host --sources game-studio,tools.');
+    if (positionals.length !== (values.scan ? 0 : 1)) throw new UsageError(values.scan ? '--scan sends nothing, so it takes no URL.' : 'Name one URL, as in factory push https://host --sources game-studio,tools.');
+    const names = values.sources.split(',');
+    try {
+      const { push, scan } = await import('../lib/push.mjs');
+      if (values.scan) return await scan(registry.root, names, console.log);
+      return await push(registry.root, positionals[0], names, { log: console.log, warn: console.error, statePath: values.state && resolve(values.state) });
+    } catch (e) {
+      console.error(`factory: ${e.message}`);
+      return 1;
+    }
+  },
+
   async mcp(registry, args) {
     const entries = pick(registry, args);
     const closed = entries.filter((e) => !e.manifest.adapters.includes('mcp') || !e.entry);
@@ -212,7 +227,11 @@ const USAGE = `usage: factory <command>
   link <names...> --into <project> | --global | --bin
   unlink <names...> [--into <project> | --global | --bin]
   mcp <names...>            stdio MCP server with one tool per verb
-  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each microservice`;
+  dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each microservice
+  push <url> --sources <a,b> [--state <file>]
+                            send this machine's public flows to the public flows page. Only game-studio and tools are public
+  push --scan --sources <a,b>
+                            shape what a push would send and report the publish guard's findings, sending nothing`;
 
 const [command, ...args] = process.argv.slice(2);
 try {
