@@ -216,9 +216,7 @@ test('a 32-character token boots, on PORT, for any Host, and the flows open with
     assert.equal(res.status, 200, path);
     assert.equal(res.headers.get('www-authenticate'), null, path);
   }
-  const home302 = await get(url, '/');
-  assert.equal(home302.status, 302);
-  assert.equal(home302.headers.get('location'), '/flows');
+  assert.equal((await get(url, '/')).status, 200);
   assert.equal((await (await get(url, '/healthz')).text()), 'ok\n');
 });
 
@@ -241,9 +239,9 @@ test('ingest refuses no token and a wrong token on every route', async () => {
   assert.equal((await calls[1](bearer())).status, 200);
 });
 
-test('only the flows surface answers: other pages, runs, and repo files are 404, and nothing but ingest writes', async () => {
+test('only the public pages answer: runs and repo files are 404, and nothing but ingest writes', async () => {
   const { url } = await hosted('pages-home');
-  const paths = ['/try', '/wiring', '/docs', '/docs/youtube', '/docs/youtube/transcript', '/elsewhere', '/external.json', '/flows.html', '/factory/lib/runs.mjs', '/hosted.mjs', '/%2e%2e/external.json', '/api/status', '/api/flows/x/y/z', '/run/youtube/transcript'];
+  const paths = ['/external.json', '/flows.html', '/factory/lib/runs.mjs', '/hosted.mjs', '/%2e%2e/external.json', '/api/status', '/api/flows/x/y/z', '/run/youtube/transcript'];
   for (const path of paths) {
     const res = await get(url, path);
     assert.equal(res.status, 404, path);
@@ -479,7 +477,7 @@ test('the pusher\'s guard stops a leaking source before its first byte, names th
     assert.match(pushed.stderr, /tools rejected by the publish guard/);
     assert.match(pushed.stderr, /tools list\.flows\[0\]\.title broke rule email/);
     assert.equal(`${pushed.stdout}${pushed.stderr}`.includes('someone'), false, 'the matched value stays out of the report');
-    assert.deepEqual(seen.filter((path) => path !== '/ingest/catalog'), [], 'nothing was sent for that source');
+    assert.deepEqual(seen.filter((path) => path !== '/ingest/status'), [], 'nothing was sent for that source');
 
     const both = await pushTo(`http://127.0.0.1:${recorder.address().port}`, pushHome, 'tools,game-studio');
     assert.equal(both.code, 1);
@@ -606,7 +604,7 @@ test('a second push reads no finished trace and sends one heartbeat per unchange
     seen.length = 0;
     const second = await pushTo(through, pushHome, 'tools');
     assert.equal(second.code, 0, second.stderr);
-    assert.deepEqual(seen, ['POST /ingest/heartbeat/tools', 'PUT /ingest/catalog']);
+    assert.deepEqual(seen, ['POST /ingest/heartbeat/tools']);
     assert.equal(statSync(manifest).mtimeMs, stamp, 'the manifest was not rewritten');
     assert.ok(Date.parse((await sourceOf(url, 'tools')).lastPush) > Date.parse(beforeBeat), 'the receipt time moved');
     assert.match(second.stdout, /tools: .*\b0 traces read/);
@@ -723,44 +721,72 @@ test('a machine gone for five minutes reads as stalled, and a question to Victor
   assert.equal(back.flows.find((f) => f.id === 'game-studio:night').state, 'running');
 });
 
-test('a push lists the tools from their manifests, and the page and API answer with no login', async () => {
-  const pushHome = pushHomeFrom('catalog-push-home');
-  const { url, home } = await hosted('catalog-home');
-  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [] });
+const statusIn = async (url, path = '/') => JSON.parse((await (await get(url, path)).text()).match(/<script id="status" type="application\/json">(.*?)<\/script>/s)[1]);
+
+test('a push fills every status page from the manifests, with no cost, path, or run route', async () => {
+  const pushHome = pushHomeFrom('status-push-home');
+  const { url, home } = await hosted('status-home');
+  assert.equal(await statusIn(url), null, 'before a push the page has no model');
   const first = await pushTo(url, pushHome);
   assert.equal(first.code, 0, first.stderr);
-  assert.match(first.stdout, /tool catalog: \d+ tools sent/);
-  const { tools } = await getJson(url, '/api/tools');
-  const youtube = tools.find((tool) => tool.name === 'youtube');
-  assert.deepEqual(Object.keys(youtube), ['name', 'type', 'kind', 'description', 'verbs', 'uses']);
-  assert.equal(youtube.type, 'microservice');
-  assert.ok(youtube.verbs.includes('get'));
-  assert.ok(tools.some((tool) => tool.type === 'atom'));
-  assert.equal((await get(url, '/tools')).status, 200);
-  rmSync(hostedFile(home, 'catalog.json'));
-  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [] });
+  assert.match(first.stdout, /status pages: \d+ tools sent/);
+  for (const path of ['/', '/try', '/wiring', '/docs', '/docs/youtube', '/docs/youtube/get', '/elsewhere']) {
+    const res = await get(url, path);
+    assert.equal(res.status, 200, path);
+    assert.match(await res.text(), /<body data-hosted>/, path);
+  }
+  const status = await statusIn(url);
+  const raw = JSON.stringify(status);
+  const keys = new Set();
+  JSON.stringify(status, (key, value) => (keys.add(key), value));
+  assert.ok(status.microservices.some((row) => row.name === 'youtube' && row.verbs.some((verb) => verb.name === 'get' && verb.input.properties.input.description)));
+  assert.ok(status.atoms.length > 0);
+  for (const banned of ['spentUsd', 'spentTodayUsd', 'budget', 'capUsd', 'home', 'links', 'where', 'x-flag']) assert.equal(keys.has(banned), false, banned);
+  for (const banned of ['/Users', 'job-applier']) assert.equal(raw.includes(banned), false, banned);
+  assert.equal((await fetch(`${url}/run/youtube/get`, { method: 'POST', body: '{}' })).status, 404);
+  const repeat = await pushTo(url, pushHome);
+  assert.match(repeat.stdout, /status pages: nothing changed/, 'an unchanged status is not sent again');
+  const page = await get(url, '/try');
+  assert.equal((await fetch(`${url}/try`, { headers: { 'if-none-match': page.headers.get('etag') } })).status, 304);
+  rmSync(hostedFile(home, 'status.json'));
+  for (const name of readdirSync(hostedFile(home, 'sources'))) rmSync(hostedFile(home, join('sources', name)));
+  assert.equal(await statusIn(url), null);
   assert.equal((await pushTo(url, pushHome)).code, 0);
-  assert.deepEqual((await getJson(url, '/api/tools')).tools, tools, 'the next push restores a lost catalog');
+  assert.deepEqual((await statusIn(url)).microservices, status.microservices, 'the next push after a lost volume restores the status');
 });
 
-test('the public catalog keeps every kind and type the registry knows', () => {
+test('the public status keeps every kind and type the registry knows, and is the same when shaped twice', () => {
   for (const [kind, { type }] of Object.entries(KINDS)) {
-    assert.deepEqual(shape.shapeCatalog({ tools: [{ kind, type }] }), { tools: [{ type, kind }] }, kind);
+    const once = shape.shapeStatus({ microservices: [{ kind, type }] });
+    assert.equal(once.microservices[0].kind, kind);
+    assert.equal(once.microservices[0].type, type);
+    assert.deepEqual(shape.shapeStatus(once), once);
   }
 });
 
-test('the catalog ingest needs the token and refuses extra fields and anything the guard catches', async () => {
-  const { url } = await hosted('catalog-ingest-home');
-  const put = (body, headers = bearer()) => fetch(`${url}/ingest/catalog`, { method: 'PUT', headers, body: JSON.stringify(body) });
-  const tool = { name: 'a', type: 'atom', kind: 'transform', description: 'Does one thing.', verbs: ['get'], uses: [] };
-  assert.equal((await put({ tools: [tool] }, {})).status, 401);
-  assert.equal((await put({ tools: [{ ...tool, needs: ['secret'] }] })).status, 400);
-  assert.equal((await put({ tools: [tool], extra: 1 })).status, 400);
-  assert.equal((await put({ tools: [{ ...tool, description: 'see /Users/someone/project' }] })).status, 422);
-  assert.equal((await put({ tools: [{ ...tool, description: 'see https://example.com' }] })).status, 422);
-  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [] });
-  assert.equal((await put({ tools: [tool] })).status, 200);
-  assert.deepEqual(await getJson(url, '/api/tools'), { tools: [tool] });
+test('the public status drops example addresses and every external entry outside its list', () => {
+  const param = { type: 'string', description: 'URL of the rebuild, such as http://localhost:4400/.', default: 'http://localhost:5173' };
+  const verb = { name: 'get', input: { properties: { clone: param, depth: { type: 'integer', default: 2 } }, required: ['clone'] } };
+  const shaped = shape.shapeStatus({ microservices: [{ name: 'a', verbs: [verb] }], external: [{ name: 'job-applier', description: 'x', where: 'http://127.0.0.1:8765' }, { name: 'art-desk', description: 'y', where: '~/victor/art-desk' }] });
+  const { clone, depth } = shaped.microservices[0].verbs[0].input.properties;
+  assert.equal(clone.description, 'URL of the rebuild.');
+  assert.equal(JSON.stringify(clone).includes('localhost'), false);
+  assert.equal(depth.default, 2);
+  assert.deepEqual(shaped.external, [{ name: 'art-desk', description: 'y' }]);
+  assert.deepEqual(shape.scanPublic(shaped, 'status'), []);
+});
+
+test('the status ingest needs the token and refuses extra fields and anything the guard catches', async () => {
+  const { url } = await hosted('status-ingest-home');
+  const put = (body, headers = bearer()) => fetch(`${url}/ingest/status`, { method: 'PUT', headers, body: JSON.stringify(body) });
+  const good = shape.shapeStatus({ microservices: [{ name: 'a', type: 'atom', kind: 'transform', description: 'Does one thing.' }] });
+  assert.equal((await put(good, {})).status, 401);
+  assert.equal((await put({ ...good, budget: { spentTodayUsd: 1 } })).status, 400);
+  assert.equal((await put({ ...good, microservices: [{ ...good.microservices[0], spentUsd: 1 }] })).status, 400);
+  assert.equal((await put({ ...good, microservices: [{ ...good.microservices[0], description: 'see /Users/someone/project' }] })).status, 422);
+  assert.equal(await statusIn(url), null);
+  assert.equal((await put(good)).status, 200);
+  assert.deepEqual(await statusIn(url), good);
 });
 
 test('a repeat read of the flows API with its ETag answers 304 and no body', async () => {
@@ -907,7 +933,7 @@ test('default local mode is unchanged: localhost only, no ingest, runs answered,
   const html = await (await fetch(`${url}/flows`)).text();
   assert.match(html, /<body>/);
   assert.match(html, /\['Spent', usd\(cost\)\]/, 'the local page still draws spend');
-  const embedded = JSON.parse((await (await fetch(`${url}/`)).text()).match(/<script id="status" type="application\/json">(.*?)<\/script>/s)[1]);
+  const embedded = await statusIn(url);
   assert.ok('budget' in embedded);
   const rebound = spawnSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', 'Host: attacker.example', `${url}/`], { encoding: 'utf8' });
   assert.equal(rebound.stdout, '421');

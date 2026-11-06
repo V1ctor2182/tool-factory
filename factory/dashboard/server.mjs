@@ -1,23 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { getFlow, getTrace, listFlows } from '../lib/flows/index.mjs';
-import { FLOWS_API, FLOWS_PAGE, replier } from './http.mjs';
+import { FLOWS_API, FLOWS_PAGE, replier, STATUS_PAGE, withStatus } from './http.mjs';
 import { validate } from '../lib/manifest.mjs';
 import { argv, load } from '../lib/registry.mjs';
 import { invoke } from '../lib/runs.mjs';
 import { statusModel } from '../lib/status.mjs';
 
 const HOST = '127.0.0.1';
-const OPEN = '<script id="status" type="application/json">';
 const RUN = /^\/run\/([^/]+)\/([^/]+)$/;
-// Every page is the same HTML. The page picks its view from the path.
-const PAGE = /^\/(?:try|wiring|elsewhere|docs(?:\/[^/]+){0,2})?$/;
 const MAX_BODY = 64 * 1024;
-
-function page(template, root) {
-  const json = JSON.stringify(statusModel(load(root))).replaceAll('<', '\\u003c');
-  return template.replace(`${OPEN}</script>`, () => `${OPEN}${json}</script>`);
-}
 
 function body(req) {
   return new Promise((resolve, reject) => {
@@ -95,9 +87,9 @@ export function dashboard(root, port) {
       }
     }
     if (FLOWS_PAGE.test(path)) return reply(200, 'text/html', readFileSync(flowsPage, 'utf8'));
-    if (!PAGE.test(path)) return refuse(404, 'Not found. The pages are /, /try, /wiring, /docs, /elsewhere, and /flows.\n');
+    if (!STATUS_PAGE.test(path)) return refuse(404, 'Not found. The pages are /, /try, /wiring, /docs, /elsewhere, and /flows.\n');
     try {
-      reply(200, 'text/html', page(template, root));
+      reply(200, 'text/html', withStatus(template, statusModel(load(root))));
     } catch (e) {
       reply(500, 'text/plain', `The status model failed: ${e.message}\n`);
     }

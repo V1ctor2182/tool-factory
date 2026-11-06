@@ -26,6 +26,10 @@ const KINDS = new Set(['step', 'group']);
 const EDGE_LABELS = new Set(['rejected', 'rework', 'replan']);
 const TOOL_TYPES = new Set(['microservice', 'atom']);
 const TOOL_KINDS = new Set(['pipeline', 'skill', 'transform', 'model', 'observe', 'act']);
+const HEALTH = new Set(['ok', 'warn', 'red']);
+const GUARDS = new Set(['budget', 'confirm']);
+// Job Applier stays off the public site, and an entry appears here only when it may be seen.
+const PUBLIC_ELSEWHERE = new Set(['art-desk', 'vh-personal', 'game-studio']);
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const TOKEN_LIKE_ID = /[A-Za-z0-9]{24,}|[0-9a-f]{8}-[0-9a-f]{4}-/;
 const PLAIN_ID = /^[\w.:-]{1,80}$/;
@@ -106,8 +110,52 @@ const shapeNode = shaper({
 
 export const shapeTrace = shaper({ title: text, subtitle: text, startedAt: time, live: flag, state: oneOf(STATES), root: shapeNode });
 
-const shapeTool = shaper({ name: text, type: oneOf(TOOL_TYPES), kind: oneOf(TOOL_KINDS), description: text, verbs: list(text), uses: list(text) });
-export const shapeCatalog = shaper({ tools: list(shapeTool) });
+const nullable = (shape) => (value) => (value === null ? null : shape(value));
+const mapOf = (shape) => (value) => (value === null || typeof value !== 'object' ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shape(item)])));
+const typeName = (value) => (Array.isArray(value) ? list(text)(value) : text(value));
+// A parameter's example address says nothing about the tool and may name a site or a local port, so it stays on the Mac.
+const withoutExample = (value) => (typeof value === 'string' ? value.replace(/,? such as https?:\/\/\S*/g, '.') : null);
+const safeDefault = (value) => (['number', 'boolean'].includes(typeof value) || (typeof value === 'string' && !rulesHitBy(value).length) ? value : undefined);
+
+const shapeParam = shaper({ type: typeName, description: withoutExample, default: safeDefault });
+const shapeInput = shaper({ properties: mapOf(shapeParam), required: list(text) });
+const shapeVerb = shaper({ name: text, usage: text, cli: mapOf(text), description: text, input: shapeInput, output: text });
+const shapeDay = shaper({ day: text, runs: count, failed: count, atomCalls: count, atomFailed: count });
+const shapeRow = shaper({
+  name: text,
+  type: oneOf(TOOL_TYPES),
+  kind: oneOf(TOOL_KINDS),
+  status: text,
+  description: text,
+  health: oneOf(HEALTH),
+  notes: () => [],
+  guard: oneOf(GUARDS),
+  adapters: list(text),
+  verbs: list(shapeVerb),
+  uses: list(text),
+  usedBy: list(text),
+  runs: number,
+  failed: number,
+  medianMs: number,
+  atomCalls: number,
+  atomFailed: number,
+  lastRunAt: time,
+  perDay: nullable(list(shapeDay)),
+});
+const shapeField = shaper({ name: text, type: text, required: flag, description: text });
+const shapeContract = shaper({ description: text, fields: list(shapeField) });
+const shapeElsewhere = shaper({ name: text, description: text });
+
+export const shapeStatus = shaper({
+  days: list(text),
+  log: shaper({ lines: number, unreadable: number, firstUnreadable: number }),
+  calls: nullable(shaper({ runs: count, failed: count })),
+  microservices: list(shapeRow),
+  atoms: list(shapeRow),
+  contracts: mapOf(nullable(shapeContract)),
+  external: (value) => (Array.isArray(value) ? value.filter((entry) => PUBLIC_ELSEWHERE.has(entry?.name)).map(shapeElsewhere) : []),
+  problems: () => [],
+});
 
 // A raw exception can hold a path, so an error crosses as one of these sentences or as READ_FAILED.
 const sourceError = (error) => (error ? (SOURCE_ERRORS.has(error) ? error : READ_FAILED) : null);

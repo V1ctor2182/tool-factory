@@ -7,9 +7,10 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getFlow, getTrace, listSource, SOURCES } from './flows/index.mjs';
 import { sha256, writeAtomic } from './hosted-store.mjs';
-import { GUARD_RULES, isPublicSource, PUBLIC_SOURCES, rulesHitBy, scanPublic, SHAPE_VERSION, shapeCatalog, shapeFlow, shapeSourceList, shapeTrace, walkStrings } from './public-flows.mjs';
+import { GUARD_RULES, isPublicSource, PUBLIC_SOURCES, rulesHitBy, scanPublic, SHAPE_VERSION, shapeFlow, shapeSourceList, shapeStatus, shapeTrace, walkStrings } from './public-flows.mjs';
 import { home } from './home.mjs';
 import { load } from './registry.mjs';
+import { statusModel } from './status.mjs';
 
 const PARALLEL_UPLOADS = 8;
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -175,27 +176,25 @@ function reportHits(source, hits, warn) {
   if (hits.length > HITS_PRINTED) warn(`  and ${hits.length - HITS_PRINTED} more. Run factory push --scan for the rest.`);
 }
 
-function catalogOf(root) {
-  const tools = [...load(root).entries.values()].map(({ name, type, kind, manifest }) => ({
-    name,
-    type,
-    kind,
-    description: manifest.description,
-    verbs: (manifest.verbs ?? []).map((verb) => verb.name),
-    uses: manifest.uses ?? [],
-  }));
-  return shapeCatalog({ tools });
-}
+const publicStatus = (root) => shapeStatus(statusModel(load(root)));
 
-async function pushCatalog(root, send, log, warn) {
-  const catalog = catalogOf(root);
-  const hits = scanPublic(catalog, 'catalog');
+// A source's lost manifest means a lost volume, so the status goes again even when it has not changed.
+async function pushStatus(root, send, state, volumeLost, log, warn) {
+  const status = publicStatus(root);
+  const hits = scanPublic(status, 'status');
   if (hits.length) {
-    reportHits('the tool catalog', hits, warn);
+    reportHits('the status pages', hits, warn);
     return 1;
   }
-  ok(await send('PUT', '/ingest/catalog', JSON.stringify(catalog)), 'the tool catalog');
-  log(`tool catalog: ${catalog.tools.length} tools sent`);
+  const body = JSON.stringify(status);
+  const digest = sha256(body);
+  if (state.sent.status === digest && !volumeLost) {
+    log('status pages: nothing changed');
+    return 0;
+  }
+  ok(await send('PUT', '/ingest/status', body), 'the status pages');
+  state.sent.status = digest;
+  log(`status pages: ${status.microservices.length + status.atoms.length} tools sent`);
   return 0;
 }
 
@@ -237,9 +236,11 @@ export async function push(root, rawUrl, names, { log, warn, statePath = join(ho
   const state = remembered?.version === SHAPE_VERSION ? remembered : { version: SHAPE_VERSION, traces: {}, sent: {} };
   file.destinations = { ...file.destinations, [url]: state };
   let code = 0;
+  let manifestSent = false;
   try {
     for (const entry of entries) {
       const done = await pushSource(root, entry, send, state);
+      manifestSent ||= done.action === 'manifest';
       if (done.hits) {
         reportHits(done.source, done.hits, warn);
         code = 1;
@@ -248,7 +249,7 @@ export async function push(root, rawUrl, names, { log, warn, statePath = join(ho
       const said = done.reason ? `read failed, sent a generic error. Here it said: ${done.reason}` : `${done.flows} flows, ${done.traces} traces, ${done.reads} traces read`;
       log(`${done.source}: ${said}, ${done.blobs} blobs (${done.bytes} bytes) uploaded, ${done.action === 'heartbeat' ? 'nothing changed, heartbeat sent' : 'manifest sent'}`);
     }
-    code = await pushCatalog(root, send, log, warn) || code;
+    code = await pushStatus(root, send, state, manifestSent, log, warn) || code;
   } finally {
     saveStateFile(statePath, file);
   }
@@ -301,9 +302,9 @@ export async function scan(root, names, log) {
       });
     }
   }
-  const catalog = catalogOf(root);
-  log(`tool catalog: ${catalog.tools.length} tools`);
-  tally(scanPublic(catalog, 'catalog'), fieldOf);
+  const status = publicStatus(root);
+  log(`status pages: ${status.microservices.length + status.atoms.length} tools`);
+  tally(scanPublic(status, 'status'), fieldOf);
   const total = [...ruleCounts.values()].reduce((sum, n) => sum + n, 0);
   log(`\nGuard rules, ${total} hits in all:`);
   for (const [rule, n] of ruleCounts) log(`  ${rule}: ${n}`);

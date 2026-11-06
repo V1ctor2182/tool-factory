@@ -1,18 +1,18 @@
-// The public dashboard. Its whole surface is this file's routes: /healthz, the flows page and API with no login, and a
-// token-guarded ingest. It imports nothing that reads the Mac, so the deployed image holds only what the page needs.
+// The public dashboard. Its whole surface is this file's routes: /healthz, the status pages, the flows page and API with
+// no login, and a token-guarded ingest. It has no route that runs a tool. It imports nothing that reads the Mac, so the deployed image holds only what the page needs.
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { heartbeat, hostedFlows, missingBlobs, missingFromManifest, prepareStore, putBlob, readCatalog, sha256, storedListSource, writeCatalog, writeManifest } from '../lib/hosted-store.mjs';
-import { isPublicSource, isSha, manifestProblem, readBlob, scanPublic, shapeCatalog } from '../lib/public-flows.mjs';
-import { FLOWS_API, FLOWS_PAGE, replier } from './http.mjs';
+import { heartbeat, hostedFlows, missingBlobs, missingFromManifest, prepareStore, putBlob, readStatus, sha256, storedListSource, writeManifest, writeStatus } from '../lib/hosted-store.mjs';
+import { isPublicSource, isSha, manifestProblem, readBlob, scanPublic, shapeStatus } from '../lib/public-flows.mjs';
+import { FLOWS_API, FLOWS_PAGE, replier, STATUS_PAGE, withStatus } from './http.mjs';
 
 const MIN_TOKEN = 32;
 const MAX_BODY = 8 * 1024 * 1024;
 const API_CACHE = 'public, max-age=2';
 const BIND_HOST = '0.0.0.0';
-const INGEST = /^\/ingest\/(?:(missing|catalog)|(blob|source|heartbeat)\/([^/]+))$/;
-const INGEST_METHOD = { missing: 'POST', catalog: 'PUT', blob: 'PUT', source: 'PUT', heartbeat: 'POST' };
+const INGEST = /^\/ingest\/(?:(missing|status)|(blob|source|heartbeat)\/([^/]+))$/;
+const INGEST_METHOD = { missing: 'POST', status: 'PUT', blob: 'PUT', source: 'PUT', heartbeat: 'POST' };
 const NOT_PUBLIC = 'That source is not on the public allowlist.';
 
 function pushTokenFrom(env) {
@@ -77,11 +77,11 @@ async function ingest(req, path, reply, token) {
   }
   const parsed = parseJson(bytes);
   if (!parsed) return refuse(400, 'The body is not JSON.');
-  if (plain === 'catalog') {
-    if (!Array.isArray(parsed.value?.tools) || JSON.stringify(shapeCatalog(parsed.value)) !== bytes.toString('utf8')) return refuse(400, 'The catalog holds something outside the allowlist.');
-    const hits = scanPublic(parsed.value, 'catalog');
+  if (plain === 'status') {
+    if (!Array.isArray(parsed.value?.microservices) || JSON.stringify(shapeStatus(parsed.value)) !== bytes.toString('utf8')) return refuse(400, 'The status holds something outside the allowlist.');
+    const hits = scanPublic(parsed.value, 'status');
     if (hits.length) return rejectHit(hits);
-    writeCatalog(bytes);
+    writeStatus(bytes);
     return json(200, { ok: true });
   }
   if (plain === 'missing') {
@@ -104,26 +104,30 @@ export async function hostedDashboard(port) {
   const pushToken = pushTokenFrom(process.env);
   prepareStore();
   const flows = hostedFlows();
-  const page = readFileSync(new URL('flows.html', import.meta.url), 'utf8').replace('<body>', '<body data-hosted>');
+  const hostedPage = (name) => readFileSync(new URL(name, import.meta.url), 'utf8').replace('<body>', '<body data-hosted>');
+  const page = hostedPage('flows.html');
+  const statusTemplate = hostedPage('index.html');
 
   const handle = async (req, res) => {
     const reply = replier(req, res);
+    const tagged = (type, body) => {
+      const etag = `"${sha256(body)}"`;
+      const headers = { 'cache-control': API_CACHE, etag };
+      return req.headers['if-none-match'] === etag ? reply(304, type, undefined, headers) : reply(200, type, body, headers);
+    };
     const notFound = () => reply(404, 'text/plain', 'Not found.\n');
     const path = new URL(req.url, 'http://hosted').pathname;
     if (path.startsWith('/ingest/')) return await ingest(req, path, reply, pushToken);
     if (req.method !== 'GET' && req.method !== 'HEAD') return notFound();
     if (path === '/healthz') return reply(200, 'text/plain', 'ok\n');
-    if (path === '/') return reply(302, 'text/plain', '', { location: '/flows' });
-    if (FLOWS_PAGE.test(path) || path === '/tools') return reply(200, 'text/html', page);
+    if (STATUS_PAGE.test(path)) return tagged('text/html', withStatus(statusTemplate, readStatus()));
+    if (FLOWS_PAGE.test(path)) return reply(200, 'text/html', page);
     const api = path.match(FLOWS_API);
-    if (!api && path !== '/api/tools') return notFound();
-    const [flow, agent] = api ? api.slice(1).map((part) => part && decodeURIComponent(part)) : [];
-    const answer = !api ? readCatalog() : agent ? flows.trace(flow, agent) : flow ? flows.flow(flow) : flows.list();
+    if (!api) return notFound();
+    const [flow, agent] = api.slice(1).map((part) => part && decodeURIComponent(part));
+    const answer = agent ? flows.trace(flow, agent) : flow ? flows.flow(flow) : flows.list();
     if (!answer) return notFound();
-    const body = JSON.stringify(answer);
-    const etag = `"${sha256(body)}"`;
-    const headers = { 'cache-control': API_CACHE, etag };
-    return req.headers['if-none-match'] === etag ? reply(304, 'application/json', undefined, headers) : reply(200, 'application/json', body, headers);
+    return tagged('application/json', JSON.stringify(answer));
   };
 
   // A bad URL or escape from the open internet must cost one request, never the process. The answer names no cause,
