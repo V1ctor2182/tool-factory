@@ -1,0 +1,29 @@
+{
+  "name": "motion-trace",
+  "type": "atom",
+  "kind": "transform",
+  "description": "One region of one swept run over time: how far it moves or turns, each move's length and overshoot, its period, and the curve that fits. Cached by the sweep's content and the question asked.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/motion-trace",
+  "contract": "motion-trace",
+  "verbs": [
+    {
+      "name": "trace",
+      "description": "Follow a box in one run of a full-frame sweep. Prints one line per move, or the whole trace with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "sweep": { "type": "string", "description": "The sweep.json from page-sweep capture, which keeps every frame." },
+          "run": { "type": "string", "x-flag": true, "description": "The run id." },
+          "box": { "type": "string", "x-flag": true, "description": "The region in page pixels, as x0,y0,x1,y1. Centre it on a part that turns." },
+          "bundle": { "type": "string", "x-flag": true, "description": "A bundle.json whose easings join the curves tried." }
+        },
+        "required": ["sweep", "run", "box"]
+      },
+      "output": "motion-trace"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

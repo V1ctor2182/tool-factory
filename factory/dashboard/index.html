@@ -92,6 +92,7 @@ h2.big { font-size: 48px; }
 
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 64px; }
 .kpi { background: var(--well); border: 3px solid var(--well); border-radius: 20px; padding: 24px 24px 22px; min-width: 0; }
+@media (min-width: 761px) { .kpis:has(> :last-child:nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .kpi.lead { background: var(--blue-wash); border-color: var(--blue-edge); }
 .kpi .l { font-size: 15px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
 .kpi .v { font-size: 40px; font-weight: 600; letter-spacing: -0.05em; line-height: 1.1; margin: 14px 0 16px; font-variant-numeric: tabular-nums; }
@@ -116,6 +117,7 @@ h2.big { font-size: 48px; }
 .field input::placeholder { color: var(--muted); opacity: 0.7; }
 .send { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; border-radius: 12px; background: var(--blue); color: #fff; cursor: pointer; }
 .send:disabled { opacity: 0.4; cursor: default; }
+.field .usage { flex: 1; min-width: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .menu { margin-top: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 6px; }
 .menu button { display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left; border: 0; background: none; border-radius: 10px; padding: 10px 12px; cursor: pointer; font-size: 17px; }
 .menu button:hover { background: var(--well); }
@@ -233,6 +235,9 @@ h2.big { font-size: 48px; }
   .divider { margin-top: 64px; }
   .split { padding-top: 56px; }
   .kpis { grid-template-columns: minmax(0, 1fr); margin-top: 40px; }
+  .field:has(.usage) { flex-wrap: wrap; }
+  .field .usage { flex-basis: 100%; order: 1; }
+  .send.github { margin-left: auto; }
   .window { padding: 16px; border-radius: 18px; }
   .stage { grid-template-columns: minmax(0, 1fr); }
   .wires, .port, .socket { display: none; }
@@ -324,6 +329,10 @@ h2.big { font-size: 48px; }
 <script>
 const model = JSON.parse(document.getElementById('status').textContent || 'null');
 const app = document.getElementById('app');
+// The public site draws these pages from a pushed snapshot. It has no route that runs a tool, and no cost or local path.
+const HOSTED = document.body.hasAttribute('data-hosted');
+const REPO_TREE = 'https://github.com/V1ctor2182/victor-tool-factory/tree/main';
+const githubHref = (row) => `${REPO_TREE}/${row.type === 'atom' ? 'atoms' : 'microservices'}/${encodeURIComponent(row.name)}`;
 const HEALTH = { ok: 'Healthy', warn: 'Warning', red: 'Broken' };
 const SOCKET = { into: 'Project', global: 'Global skill', bin: 'On PATH' };
 const KINDS = ['transform', 'model', 'observe', 'act'];
@@ -355,6 +364,7 @@ function icon(size, paths) {
 }
 
 const LOGO = '<circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M7 8h3.5c2 0 2 8 4 8H17M7 16h3.5c2 0 2-8 4-8H17" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="7" cy="8" r="1.3" fill="currentColor"/><circle cx="7" cy="16" r="1.3" fill="currentColor"/><circle cx="17" cy="8" r="1.3" fill="currentColor"/><circle cx="17" cy="16" r="1.3" fill="currentColor"/>';
+const GITHUB = '<path transform="scale(1.5)" fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>';
 const SEND = '<path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
 
 const usd = (n) => (n === null ? 'unknown' : `$${n.toFixed(4)}`);
@@ -414,7 +424,7 @@ function serviceStat(service) {
   return h('div', { class: 'stat' },
     h('span', null, counted(total(service), 'call')),
     h('span', { class: failed(service) ? 'bad' : '' }, h('b', null, failed(service)), ' failed'),
-    h('span', null, usd(service.spentUsd)),
+    'spentUsd' in service && h('span', null, usd(service.spentUsd)),
     h('span', null, ago(service.lastRunAt)),
     total(service) ? bars(service.perDay) : null);
 }
@@ -469,11 +479,11 @@ function panelFor(name) {
       h('dt', null, 'Health'), h('dd', { class: row.health === 'ok' ? '' : 'bad' }, HEALTH[row.health]),
       unmetered(row) ? null : [
         h('dt', null, 'Median'), h('dd', null, seconds(row.medianMs)),
-        h('dt', null, `Spent, ${period}`), h('dd', null, usd(row.spentUsd)),
+        'spentUsd' in row && [h('dt', null, `Spent, ${period}`), h('dd', null, usd(row.spentUsd))],
         h('dt', null, 'Last run'), h('dd', null, ago(row.lastRunAt)),
         row.atomCalls ? [h('dt', null, 'Direct atom calls'), h('dd', null, row.atomCalls)] : null,
       ],
-      h('dt', null, 'Linked'), h('dd', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')),
+      'links' in row && [h('dt', null, 'Linked'), h('dd', null, row.links === null ? 'unknown' : row.links.map((l) => `${SOCKET[l.socket]} ${l.where}`).join('; ') || 'nowhere')]),
     service && !unmetered(row) && total(row) ? h('div', { class: 'chart' }, bars(row.perDay)) : null,
     h('div', { class: 'sources' }, h('span', null, `${service ? 'Uses' : 'Used by'} ${plural(near.length, service ? 'atom' : 'microservice')}`)),
     h('div', { class: 'chips' }, service && row.verbs.length ? h('button', { type: 'button', class: 'go', onclick: () => { history.pushState(null, '', tryHref(row.name)); show(); } }, `Try ${row.name}`) : null, near.map((n) => h('button', { type: 'button', onclick: () => select(n) }, n))),
@@ -548,11 +558,16 @@ function drawComposer() {
     h('div', { class: 'field' },
       h('span', { class: 'token' }, service.name),
       h('span', { class: 'token verb' }, verb.name),
-      h('input', { name: lead, required: '', autocomplete: 'off', placeholder: properties[lead].description, 'aria-label': `${service.name} ${verb.name} ${lead}` }),
-      h('button', { class: 'send', type: 'submit', 'aria-label': `Run ${service.name} ${verb.name}`, ...(trying.busy ? { disabled: '' } : {}) }, icon(20, SEND))),
+      HOSTED ? [
+        h('span', { class: 'usage mono' }, verb.usage),
+        h('a', { class: 'send github', href: githubHref(service), target: '_blank', rel: 'noopener', 'aria-label': `${service.name} on GitHub` }, icon(24, GITHUB)),
+      ] : [
+        h('input', { name: lead, required: '', autocomplete: 'off', placeholder: properties[lead].description, 'aria-label': `${service.name} ${verb.name} ${lead}` }),
+        h('button', { class: 'send', type: 'submit', 'aria-label': `Run ${service.name} ${verb.name}`, ...(trying.busy ? { disabled: '' } : {}) }, icon(20, SEND)),
+      ]),
     h('div', { class: 'menu', role: 'group', 'aria-label': 'Verb' }, service.verbs.map((v) => h('button', { type: 'button', 'aria-pressed': String(v === verb), title: v.description, onclick: () => { trying.verb = v; drawComposer(); } },
       h('span', { class: 'vn' }, v.name), h('span', { class: 'vd' }, v.description), h('span', { class: 'vo' }, v.output)))),
-    extras.length ? h('div', { class: 'extras' }, extras.map(field)) : '');
+    extras.length && !HOSTED ? h('div', { class: 'extras' }, extras.map(field)) : '');
 }
 
 function inputFrom(form) {
@@ -688,9 +703,9 @@ function verbPage(row, v) {
   const request = [
     ['CLI', `${v.usage.replace(/ \[[^\]]*\]/g, '')} --json`],
     ...(row.adapters.includes('mcp') ? [['MCP', json({ method: 'tools/call', params: { name: `${row.name}_${v.name}`, arguments: placeholders } })]] : []),
-    ['Dashboard', `POST /run/${row.name}/${v.name}\ncontent-type: application/json\n\n${json(placeholders)}`],
+    ...(HOSTED ? [] : [['Dashboard', `POST /run/${row.name}/${v.name}\ncontent-type: application/json\n\n${json(placeholders)}`]]),
   ];
-  const guard = row.guard === 'confirm' ? 'Asks for confirmation on every run' : row.guard === 'budget' ? 'Spends the daily model budget' : null;
+  const guard = row.guard === 'confirm' ? 'Asks for confirmation on every run' : row.guard === 'budget' ? 'Spends on the model' : null;
   const pager = (d, label) => d ? h('a', { class: `pager-link ${label.toLowerCase()}`, href: docPath(d.row, d.verb) }, h('span', null, label), `${d.row.name} ${d.verb.name}`) : h('span');
   return [
     h('article', { class: 'doc-main' },
@@ -732,7 +747,7 @@ function introPage() {
     h('h1', null, 'Every verb, one reference'),
     h('p', { class: 'doc-lede' }, `${plural(model.microservices.length, 'microservice')} and ${plural(model.atoms.length, 'atom')}. Each page comes from the verb's manifest and its output contract, so it matches what the CLI does.`),
     h('h2', null, 'Call a verb'),
-    h('p', null, 'Run the CLI with --json and read one JSON object from stdout. Progress goes to stderr. An agent can call the same verb through MCP after factory mcp <names>, and the Try page calls it from here. Every call lands in the run log.'),
+    h('p', null, `Run the CLI with --json and read one JSON object from stdout. Progress goes to stderr. An agent can call the same verb through MCP after factory mcp <names>${HOSTED ? '' : ', and the Try page calls it from here'}. Every call lands in the run log.`),
     h('h2', null, 'Read an error'),
     h('p', null, 'A failed call exits 1 and prints {"error": {"code", "message"}}. Each tool\'s SKILL.md lists its codes and what to do about each.'),
     docGroups().map(([label, list]) => [h('h2', null, label), h('div', { class: 'doc-cards' }, list.map((row) => h('a', { class: 'doc-card', href: docPath(row) }, h('div', { class: 'doc-card-name' }, row.name), h('p', null, row.description))))]));
@@ -814,7 +829,7 @@ function headline(sick, calls) {
     h('span', { class: `mark${sick ? ' bad' : ''}` }, sick ? `${sick} need a look.` : 'all healthy.'));
 }
 
-const PAGES = [['/', 'Overview'], ['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere']];
+const PAGES = [['/', 'Overview'], ['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere'], ['/flows', 'Flows']];
 // The server serves these paths, so a link to one is handled here without reloading.
 const PAGE_PATH = /^\/(?:try|wiring|elsewhere|docs(?:\/[^/]+){0,2})?$/;
 const pageOf = (path) => {
@@ -823,22 +838,23 @@ const pageOf = (path) => {
 };
 
 function overviewView() {
-  const { capUsd, spentTodayUsd } = model.budget;
-  const share = capUsd && spentTodayUsd !== null ? spentTodayUsd / capUsd : 0;
+  const { capUsd, spentTodayUsd } = model.budget ?? {};
+  const capped = typeof capUsd === 'number';
+  const share = capped && capUsd && spentTodayUsd !== null ? spentTodayUsd / capUsd : 0;
   const sick = rows.length - counts.ok;
   const calls = model.calls;
   return h('main', { class: 'wrap' },
     h('section', { class: 'hero' },
       headline(sick, calls),
-      h('p', { class: 'say' }, 'Spent ', h('b', null, usd(spentTodayUsd)), capUsd === null ? ' today, and the budget is unreadable.' : capUsd === 0 ? ' today, and no model spend is allowed.' : ` of today's $${capUsd.toFixed(2)} budget.`),
+      model.budget && h('p', { class: 'say' }, 'Spent ', h('b', null, usd(spentTodayUsd)), capUsd === 'none' ? ' today.' : capUsd === null ? ' today, and the budget is unreadable.' : capUsd === 0 ? ' today, and no model spend is allowed.' : ` of today's $${capUsd.toFixed(2)} budget.`),
       model.problems.length
         ? h('div', { class: 'problems', role: 'alert' }, `${plural(model.problems.length, 'problem')} found`,
           h('ul', null, model.problems.map((p) => h('li', null, h('span', { class: 'mono' }, p.path), ` ${p.message}`))))
         : null,
       h('div', { class: 'kpis' },
-        h('div', { class: 'kpi lead', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
-          meter(share, spentTodayUsd !== null && capUsd !== null && spentTodayUsd >= capUsd),
-          h('div', { class: 's' }, capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
+        model.budget && h('div', { class: 'kpi lead', 'data-tile': 'spend' }, h('div', { class: 'l' }, 'Spent today'), h('div', { class: 'v' }, usd(spentTodayUsd)),
+          meter(share, spentTodayUsd !== null && capped && spentTodayUsd >= capUsd),
+          h('div', { class: 's' }, capUsd === 'none' ? 'No daily cap' : capUsd === null ? 'Budget unreadable' : capUsd === 0 ? 'No model spend allowed' : `of the $${capUsd.toFixed(2)} daily budget`)),
         h('div', { class: 'kpi' }, h('div', { class: 'l' }, `Calls, ${period}`), h('div', { class: 'v' }, calls?.runs ?? 'unknown'), meter(calls?.runs ? (calls.runs - calls.failed) / calls.runs : 0), h('div', { class: 's' }, calls?.runs ? `${calls.runs - calls.failed} succeeded` : 'Microservice runs and direct atom calls')),
         h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'Failed'), h('div', { class: `v${calls?.failed ? ' bad' : ''}` }, calls?.failed ?? 'unknown'),
           meter(calls?.runs ? calls.failed / calls.runs : 0, calls?.failed), h('div', { class: 's' }, calls?.runs ? `${Math.round((calls.failed / calls.runs) * 100)}% of calls` : 'No calls')),
@@ -846,7 +862,7 @@ function overviewView() {
           meter(rows.length ? counts.ok / rows.length : 0), h('div', { class: 's' }, sick ? `${counts.warn} warning, ${counts.red} broken` : 'Every microservice and atom passes doctor'))),
       h('div', { class: 'sources' }, h('span', null, `Sources: ${plural(model.log.lines ?? 0, 'log line')}, ${plural(rows.length, 'manifest')}, ${model.days.length}-day window`))),
     h('div', { class: 'jump' },
-      [['/try', 'Try', 'Run any verb from the browser.'], ['/wiring', 'Wiring', 'See which atoms each microservice calls.'], ['/docs', 'Docs', 'Every verb, its arguments, and its response.'], ['/elsewhere', 'Elsewhere', 'Microservices in other repos.']]
+      [['/try', 'Try', HOSTED ? 'Pick a verb and open its code on GitHub.' : 'Run any verb from the browser.'], ['/wiring', 'Wiring', 'See which atoms each microservice calls.'], ['/docs', 'Docs', 'Every verb, its arguments, and its response.'], ['/elsewhere', 'Elsewhere', 'Microservices in other repos.']]
         .map(([href, title, text]) => h('a', { href }, h('b', null, title), h('span', null, text)))),
     footer());
 }
@@ -864,9 +880,9 @@ function tryView() {
     h('section', { id: 'try', 'aria-label': 'Try a verb' },
       h('div', { class: 'split' },
         h('div', null,
-          h('h1', { class: 'big' }, 'Try one. ', h('span', { class: 'soft' }, 'Paste a link, get the answer.')),
-          h('p', { class: 'say' }, 'Pick a microservice or an atom, then a verb. Runs go through the same budget and land in the run log.')),
-        composer = h('form', { class: 'composer', onsubmit: submit })),
+          h('h1', { class: 'big' }, 'Try one. ', h('span', { class: 'soft' }, HOSTED ? 'Install it and run it yourself.' : 'Paste a link, get the answer.')),
+          h('p', { class: 'say' }, HOSTED ? 'Pick a microservice or an atom, then a verb. The code is on GitHub, and each tool runs on your own machine.' : 'Pick a microservice or an atom, then a verb. Runs go through the same budget and land in the run log.')),
+        composer = h('form', { class: 'composer', onsubmit: HOSTED ? null : submit })),
       thread = h('div', { class: 'thread', 'aria-live': 'polite' })),
     footer());
 }
@@ -896,13 +912,13 @@ function elsewhereView() {
     h('section', { id: 'elsewhere', 'aria-label': 'Microservices in other repos' },
       h('h1', { class: 'big' }, 'Elsewhere. ', h('span', { class: 'soft' }, 'Microservices that live in other repos.')),
       model.external.length
-        ? h('div', { class: 'elsewhere' }, model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), h('div', { class: 'mono' }, t.where), h('p', null, t.description))))
+        ? h('div', { class: 'elsewhere' }, model.external.map((t) => h('div', { 'data-external': t.name }, h('div', { class: 'name' }, t.name), t.where && h('div', { class: 'mono' }, t.where), h('p', null, t.description))))
         : h('p', { class: 'say muted' }, 'external.json lists nothing.')),
     footer());
 }
 
 function footer() {
-  return h('footer', { class: 'foot' }, h('span', null, 'Data home ', h('span', { class: 'mono' }, model.home)), h('span', null, `Run log ${logSummary(model.log)}`));
+  return h('footer', { class: 'foot' }, model.home && h('span', null, 'Data home ', h('span', { class: 'mono' }, model.home)), h('span', null, `Run log ${logSummary(model.log)}`));
 }
 
 const VIEWS = { '/': overviewView, '/try': tryView, '/wiring': wiringView, '/docs': docsView, '/elsewhere': elsewhereView };
@@ -942,7 +958,7 @@ function show() {
 
 function render() {
   if (!model) {
-    app.append(h('p', { style: 'padding:24px' }, 'No status model. Open this page through factory dashboard.'));
+    app.append(h('p', { style: 'padding:24px' }, HOSTED ? 'No data pushed yet.' : 'No status model. Open this page through factory dashboard.'));
     return;
   }
   const nav = h('nav', null, PAGES.slice(1).filter(([path]) => path !== '/try' || runnable.length).map(([path, label]) => h('a', { href: path }, label)));

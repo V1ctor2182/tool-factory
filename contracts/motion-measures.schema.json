@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/motion-measures.schema.json",
+  "title": "Motion measures",
+  "description": "The numbers a page sweep comes down to. One entry per run: where an effect exists, its span, its curve, its peak colour, and its rhythm.",
+  "type": "object",
+  "required": [
+    "source",
+    "url",
+    "runs"
+  ],
+  "properties": {
+    "source": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "cacheHit": {
+      "type": "boolean"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "values",
+          "keyFrames"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object"
+          },
+          "keyFrames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

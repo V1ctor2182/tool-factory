@@ -1,0 +1,16 @@
+<!doctype html>
+<title>Sweep fixture</title>
+<style>
+  body { margin: 0; background: #123; color: white; }
+  section { height: 900px; }
+  #two { background: #513; }
+  #dot { position: fixed; left: 40px; top: 40px; width: 30px; height: 30px; background: #4bf08e; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { to { opacity: 0; } }
+  #box { width: 200px; height: 80px; background: #345; transition: background 200ms; }
+  #box:hover { background: #fc3; }
+  #jump { display: block; width: 200px; height: 40px; }
+</style>
+<div id="dot"></div>
+<section id="one"><div id="box">hover me</div><a id="jump" href="#two">jump</a><a id="away" href="https://example.com/">leave</a>
+<button id="write" onclick="fetch('/nope', { method: 'POST' }).catch(() => {})">write</button></section>
+<section id="two"></section>

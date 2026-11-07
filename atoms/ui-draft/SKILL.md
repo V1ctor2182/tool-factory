@@ -34,7 +34,7 @@ It sends everything in one call to headless Claude Code on `sonnet` through the 
 
 A draft is cached by the content of every image, text, and file it sends, plus the model and the prompt hash. On a cache hit `cacheHit` is true and `costUsd` is 0.
 
-The daily budget, `TOOL_FACTORY_BUDGET_USD`, is $3 by default and shared with every model atom. Each call has a ceiling of $0.25 by default, set by `TOOL_FACTORY_CALL_BUDGET_USD`. A revision with a large component and many images can pass $0.25 and stop with `budget_exceeded`, so raise the ceiling for a rebuild rather than shrinking what the model sees.
+There is no daily budget by default. `TOOL_FACTORY_BUDGET_USD` adds one, shared with every model atom. Each call has no ceiling by default. `TOOL_FACTORY_CALL_BUDGET_USD` adds one.
 
 On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 

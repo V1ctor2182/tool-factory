@@ -3,7 +3,8 @@ import { health } from './doctor.mjs';
 import { ledger, ledgerPath, linkedTo } from './links.mjs';
 import { readJson } from './manifest.mjs';
 import { cliArgs, usage } from './registry.mjs';
-import { budget, home, lastDays, logPath, readLog, spend, today } from './runs.mjs';
+import { home } from './home.mjs';
+import { budget, lastDays, logPath, readLog, spend, today } from './runs.mjs';
 
 const WINDOW = 7;
 const dollars = (usd) => Math.round(usd * 1e6) / 1e6;
@@ -125,7 +126,7 @@ export function statusModel(registry) {
     home: home(),
     log: { lines: records?.length ?? null, unreadable: log?.bad.length ?? null, firstUnreadable: log?.bad[0]?.line ?? null },
     calls: records && { runs: calls.length, failed: failures(calls) },
-    budget: { capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
+    budget: { capUsd: capUsd === Infinity ? 'none' : capUsd, spentTodayUsd: log && !log.bad.length ? dollars(spend(today(records))) : null },
     microservices: microservices.map(row),
     atoms: all.filter((e) => e.type === 'atom').map(row),
     contracts: contracts(registry.root, all, problems),

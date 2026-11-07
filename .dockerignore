@@ -1,0 +1,8 @@
+*
+!factory/dashboard/hosted.mjs
+!factory/dashboard/http.mjs
+!factory/dashboard/flows.html
+!factory/dashboard/index.html
+!factory/lib/hosted-store.mjs
+!factory/lib/public-flows.mjs
+!factory/lib/home.mjs

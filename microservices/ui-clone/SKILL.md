@@ -95,7 +95,7 @@ A `locked` component is rebuilt from how it looks and behaves, never from its co
 3. Run `rebuild`. It loops until a round scores the target or the rounds run out:
 
 ```sh
-TOOL_FACTORY_CALL_BUDGET_USD=1 <this skill's folder>/run rebuild steps.json --into ~/victor/victor-ui --name input-otp-rebuild
+<this skill's folder>/run rebuild steps.json --into ~/victor/victor-ui --name input-otp-rebuild
 <this skill's folder>/run rebuild steps.json --into ~/victor/victor-ui --name input-otp-rebuild --rounds 3 --target 0.95 --json
 ```
 
@@ -118,7 +118,7 @@ round 2  0.9094  $0.14
 total    $0.40  best round 2 at 0.9094, passed 0.9
 ```
 
-Cost per round is ui-draft's `costUsd`, 0 on a cache hit. The total is their sum. The run log also records each call. Each ui-draft call has the kit's ceiling of $0.25 unless `TOOL_FACTORY_CALL_BUDGET_USD` says more, and five rounds of a large component can pass it, so raise the ceiling for a rebuild. The daily budget still applies.
+Cost per round is ui-draft's `costUsd`, 0 on a cache hit. The total is their sum. The run log also records each call. There is no ceiling per call or per day unless `TOOL_FACTORY_CALL_BUDGET_USD` or `TOOL_FACTORY_BUDGET_USD` is set.
 
 To judge a rebuild by hand, score it, then fix the largest difference and score again:
 

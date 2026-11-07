@@ -1,0 +1,234 @@
+{
+ "source": "x",
+ "url": "file:///x",
+ "runs": [
+  {
+   "id": "walk",
+   "kind": "walk",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "ys": [
+     0,
+     100,
+     200,
+     300,
+     400
+    ],
+    "activeRanges": [
+     [
+      0,
+      100
+     ]
+    ],
+    "transitions": [],
+    "overflow": {
+     "scrollWidth": 1440,
+     "viewport": 1440,
+     "sidewaysPx": 0
+    }
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "fine",
+   "kind": "pass",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "inertiaMs": 400,
+    "travelPx": 1000,
+    "transitions": [
+     {
+      "fromY": 0,
+      "toY": 1000,
+      "from": "#0a24b4",
+      "to": "#680cae",
+      "spanPx": 400,
+      "largestStepPer40Px": 0.1,
+      "resolution": 40
+     }
+    ]
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "rest",
+   "kind": "idle",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "events": 20,
+    "litPeak": 0.004,
+    "everLit": 0.05,
+    "ratePerS": 3.0,
+    "gapCv": 0.6,
+    "order": 0.3,
+    "periodicity": 0.2,
+    "hues": [
+     0,
+     0,
+     0,
+     0,
+     0.05,
+     0,
+     0,
+     0,
+     0.4,
+     0,
+     0,
+     0
+    ]
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "random",
+   "kind": "idle",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "events": 20,
+    "litPeak": 0.004,
+    "everLit": 0.05,
+    "ratePerS": 3.0,
+    "gapCv": 0.3,
+    "order": 0.3,
+    "periodicity": 0.2,
+    "hues": [
+     0,
+     0,
+     0,
+     0,
+     0.05,
+     0,
+     0,
+     0,
+     0.4,
+     0,
+     0,
+     0
+    ]
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "sparse",
+   "kind": "idle",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "events": 8,
+    "litPeak": 0.004,
+    "everLit": 0.05,
+    "ratePerS": 3.0,
+    "gapCv": 0.3,
+    "order": 0.3,
+    "periodicity": 0.2,
+    "hues": [
+     0,
+     0,
+     0,
+     0,
+     0.05,
+     0,
+     0,
+     0,
+     0.4,
+     0,
+     0,
+     0
+    ]
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "press",
+   "kind": "click",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "responseMs": 10,
+    "riseMs": 20,
+    "peak": 0.5,
+    "worstGapMs": 17,
+    "state": {
+     "scrollY": 0,
+     "hash": "#two",
+     "blocked": {
+      "navigations": []
+     }
+    }
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "card",
+   "kind": "hover",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "responseMs": 10,
+    "riseMs": 100,
+    "peak": 0.01,
+    "colours": [
+     {
+      "hex": "#ffcc33",
+      "share": 1.0
+     }
+    ],
+    "cursor": "pointer",
+    "residualAfterExit": 0.0
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "drag",
+   "kind": "path",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "reaction": 0.01,
+    "reachPx": 200
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  },
+  {
+   "id": "same",
+   "kind": "load",
+   "status": "ok",
+   "detail": "",
+   "errors": [],
+   "values": {
+    "settleMs": 2000
+   },
+   "keyFrames": [
+    "@FIXTURES@/a.png"
+   ]
+  }
+ ]
+}

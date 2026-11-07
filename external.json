@@ -8,5 +8,17 @@
     "name": "vh-personal",
     "description": "Personal ticket hub. One zero-dependency Node file that is both the CLI and a local MCP server, so agents manage tickets.",
     "where": "~/victor/vibehub-personal"
+  },
+  {
+    "name": "game-studio",
+    "description": "Zombie Farm's production pipeline. Agents plan, build, and verify each game feature, recorded in a local SQLite store.",
+    "where": "~/victor/zombie-farm",
+    "flows": "game-studio"
+  },
+  {
+    "name": "job-applier",
+    "description": "Claude Applier runs. One agent fills one job application in the browser and asks Victor before it submits.",
+    "where": "http://127.0.0.1:8765",
+    "flows": "job-applier"
   }
 ]

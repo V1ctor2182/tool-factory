@@ -45,7 +45,7 @@ const atCap = [
 ];
 for (const [what, command, name] of atCap) {
   test(`at the cap, ${what} is blocked`, () => {
-    assert.deepEqual(guard(command, { data: home([spent(3)]) }), { code: 2, stdout: '', stderr: `Blocked ${name}: ${CAP}` });
+    assert.deepEqual(guard(command, { data: home([spent(3)]), budget: '3' }), { code: 2, stdout: '', stderr: `Blocked ${name}: ${CAP}` });
   });
 }
 

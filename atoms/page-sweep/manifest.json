@@ -1,0 +1,27 @@
+{
+  "name": "page-sweep",
+  "type": "atom",
+  "kind": "observe",
+  "description": "Lossless real-time frames of a page while each input is swept across its range: load, scroll, rest, hover, a pointer path, and click. Runs in headless Chrome on the real clock, unlike page-record, whose virtual clock cannot hold WebGL, video, or scroll inertia. Needs Google Chrome. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/page-sweep",
+  "contract": "page-sweep",
+  "verbs": [
+    {
+      "name": "capture",
+      "description": "Run a sweep-plan file against its page and save frames, timings, page errors, and the state after each click. Clicks run on fresh pages that refuse writes and navigation away. Prints one line per run, or the sweep with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "plan": { "type": "string", "description": "A sweep-plan JSON file, as contracts/sweep-plan.schema.json defines it." },
+          "url": { "type": "string", "description": "Sweep this URL instead of the plan's url, such as a rebuild's preview." }
+        },
+        "required": ["plan"]
+      },
+      "output": "page-sweep"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

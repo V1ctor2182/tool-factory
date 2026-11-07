@@ -99,7 +99,7 @@ export function doctor(entries) {
   try {
     const cap = budget();
     const spent = spentToday();
-    spend = { name: 'budget', status: spent >= cap ? 'red' : 'ok', notes: [`spent $${spent.toFixed(4)} of the $${cap.toFixed(2)} daily cap today`] };
+    spend = { name: 'budget', status: spent >= cap ? 'red' : 'ok', notes: [cap === Infinity ? `spent $${spent.toFixed(4)} today, no daily cap` : `spent $${spent.toFixed(4)} of the $${cap.toFixed(2)} daily cap today`] };
   } catch (e) {
     spend = { name: 'budget', status: 'red', notes: [e.message] };
   }

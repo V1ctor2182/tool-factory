@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/motion-trace.schema.json",
+  "title": "Motion trace",
+  "description": "One region of one swept run over time. Each channel lists its moves, with length, overshoot, and the curves that fit best.",
+  "type": "object",
+  "required": [
+    "source",
+    "run",
+    "box",
+    "activeBox",
+    "frames",
+    "spanS",
+    "wheelEndS",
+    "channels"
+  ],
+  "properties": {
+    "source": {
+      "type": "string"
+    },
+    "cacheHit": {
+      "type": "boolean"
+    },
+    "run": {
+      "type": "string"
+    },
+    "box": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "activeBox": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "The bounds of what changed inside the box. A turn reads only when the box is centred on the part, so use this to centre it."
+    },
+    "frames": {
+      "type": "integer"
+    },
+    "spanS": {
+      "type": "number"
+    },
+    "wheelEndS": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "unit",
+          "rigid",
+          "coast",
+          "periodS",
+          "periodCv",
+          "moves",
+          "samples"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "x",
+              "y",
+              "angle",
+              "activity"
+            ]
+          },
+          "unit": {
+            "enum": [
+              "px",
+              "deg",
+              "share"
+            ]
+          },
+          "rigid": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "How much of the frame difference a pure shift explains, 0 to 1. Null on activity."
+          },
+          "coast": {
+            "description": "The motion after the wheel stops, fitted on its own. Null when the run has no wheel or nothing moves after it.",
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "ms",
+              "delta",
+              "fits"
+            ],
+            "properties": {
+              "ms": {
+                "type": "integer"
+              },
+              "delta": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "fits": {
+                "$ref": "#/$defs/fits"
+              }
+            }
+          },
+          "periodS": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "periodCv": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "moves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "startS",
+                "durationS",
+                "delta",
+                "overshoot",
+                "fits"
+              ],
+              "properties": {
+                "startS": {
+                  "type": "number"
+                },
+                "durationS": {
+                  "type": "number"
+                },
+                "delta": {
+                  "type": "number",
+                  "description": "The net change. On activity, the peak share of the box changing per frame."
+                },
+                "overshoot": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "fits": {
+                  "$ref": "#/$defs/fits"
+                }
+              }
+            }
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ease",
+          "durationS",
+          "tauMs",
+          "error"
+        ],
+        "properties": {
+          "ease": {
+            "type": "string"
+          },
+          "durationS": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tauMs": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "number",
+            "description": "Root mean square, as a share of the move."
+          }
+        }
+      }
+    }
+  }
+}

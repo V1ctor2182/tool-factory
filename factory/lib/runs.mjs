@@ -1,12 +1,7 @@
 import { spawn } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
-
-export function home() {
-  const raw = process.env.TOOL_FACTORY_HOME || join(homedir(), '.local', 'share', 'tool-factory');
-  return resolve(raw.replace(/^~(?=\/|$)/, homedir()));
-}
+import { join } from 'node:path';
+import { home } from './home.mjs';
 
 export const logPath = () => join(home(), 'runs.jsonl');
 
@@ -75,7 +70,8 @@ export function spentToday() {
 const DECIMAL = /^[+-]?(?:\d+(?:_\d+)*(?:\.(?:\d+(?:_\d+)*)?)?|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?$/;
 
 export function budget() {
-  const raw = process.env.TOOL_FACTORY_BUDGET_USD ?? '3';
+  const raw = process.env.TOOL_FACTORY_BUDGET_USD;
+  if (raw === undefined) return Infinity;
   const text = raw.trim();
   const value = DECIMAL.test(text) ? Number(text.replaceAll('_', '')) : NaN;
   if (!(value >= 0 && value < Infinity)) throw new Error(`TOOL_FACTORY_BUDGET_USD is not a finite number of dollars, 0 or more: ${raw}`);
