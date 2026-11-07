@@ -8,22 +8,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yt_dlp
-from yt_dlp.extractor import gen_extractor_classes
 
 from factory_kit import cli, paths
 from factory_kit.cache import Cache
-from factory_kit.ytdlp import atom_error
+from factory_kit.ytdlp import atom_error, offline_key
 
 # Single-file formats only, so no download needs ffmpeg to merge streams.
 FORMATS = {"audio": "bestaudio[ext=m4a]/bestaudio/best", "video": "best[ext=mp4]/best"}
-
-
-def _offline_key(url: str) -> str | None:
-    for ie in gen_extractor_classes():
-        if ie.suitable(url):
-            video_id = ie.get_temp_id(url)
-            return f"{ie.ie_key()}-{video_id}" if video_id else None
-    return None
 
 
 def _intact(media: dict) -> bool:
@@ -44,7 +35,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
         media = cache.get(f"{key}-{kind}")
         return {**media, "source": url} if media and _intact(media) else None
 
-    if (key := _offline_key(url)) and (media := hit(key)):
+    if (key := offline_key(url)) and (media := hit(key)):
         return media
     settings = {
         "quiet": True,

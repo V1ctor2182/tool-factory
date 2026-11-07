@@ -12,7 +12,7 @@ import numpy as np
 from factory_kit import cli
 from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
-from PIL import Image, UnidentifiedImageError
+from factory_kit.image import best_shift, load_image
 
 MAX_SHIFT = 90
 MAX_TURN = 60
@@ -42,20 +42,11 @@ def _bad(message: str) -> cli.AtomError:
 
 
 def _grey(path: Path) -> np.ndarray:
-    try:
-        with Image.open(path) as im:
-            return np.asarray(im.convert("L"), dtype=np.float32)
-    except (UnidentifiedImageError, OSError) as e:
-        raise _bad(f"{path} is not an image: {e}") from None
+    return load_image(path, "L", np.float32)
 
 
 def _best_shift(ref: np.ndarray, now: np.ndarray) -> tuple[int, float]:
-    """The shift that best lines up two profiles, with the mismatch at that shift."""
-    n = len(ref)
-    reach = min(MAX_SHIFT, n // 3)
-    costs = [np.abs(ref[max(0, -s) : n - max(0, s)] - now[max(0, s) : n - max(0, -s)]).mean() for s in range(-reach, reach + 1)]
-    best = int(np.argmin(costs))
-    return best - reach, float(costs[best])
+    return best_shift(ref, now, min(MAX_SHIFT, len(ref) // 3))
 
 
 def _best_turn(ref: np.ndarray, now: np.ndarray) -> tuple[int, float]:

@@ -16,8 +16,9 @@ import numpy as np
 from factory_kit import cli, paths
 from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
+from factory_kit.image import load_image
 from jsonschema import Draft202012Validator
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 RECORDING_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "page-recording.schema.json").read_text(encoding="utf-8"))
@@ -78,11 +79,7 @@ def _fingerprint(recording: dict) -> list:
 
 
 def _rgba(path: Path) -> np.ndarray:
-    try:
-        with Image.open(path) as im:
-            return np.asarray(im.convert("RGBA"), dtype=np.int16)
-    except (UnidentifiedImageError, OSError) as e:
-        raise cli.AtomError("invalid_source", f"{path} is not an image: {e}") from None
+    return load_image(path, "RGBA", np.int16)
 
 
 def _css(n: int) -> int | float:

@@ -13,8 +13,9 @@ from pathlib import Path
 import numpy as np
 from factory_kit import cli
 from factory_kit.cache import Cache
+from factory_kit.color import rgb_to_lab
 from factory_kit.hash import file_sha256
-from PIL import Image, UnidentifiedImageError
+from factory_kit.image import best_shift, load_image
 
 CHANGED = 16
 LIT = 40
@@ -38,23 +39,11 @@ COAST_GAP_S = 0.35
 
 
 def _load(path: Path) -> np.ndarray:
-    try:
-        with Image.open(path) as im:
-            return np.asarray(im.convert("RGB"), dtype=np.int16)
-    except (UnidentifiedImageError, OSError) as e:
-        raise cli.AtomError("invalid_source", f"{path} is not an image: {e}") from None
+    return load_image(path, "RGB", np.int16)
 
 
 def _hex(rgb) -> str:
     return "#%02x%02x%02x" % tuple(int(round(float(v))) for v in rgb)
-
-
-def _lab(rgb) -> np.ndarray:
-    c = np.asarray(rgb, dtype=float) / 255
-    c = np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92)
-    xyz = c @ np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]]).T / np.array([0.9505, 1.0, 1.089])
-    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
-    return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
 
 
 def _delta(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -141,7 +130,7 @@ def _segments(flags: list, ys: list) -> list:
 
 def _transitions(ys: list, page: np.ndarray, curves: dict) -> list:
     """Each stretch between two stable page colours, with the 10% to 90% span at each fixed screen point."""
-    labs = np.array([_lab(c) for c in page])
+    labs = np.array([rgb_to_lab(c) for c in page])
     out, i = [], 0
     while i < len(ys) - 1:
         if np.linalg.norm(labs[i + 1] - labs[i]) < PLATEAU_LAB:
@@ -405,13 +394,6 @@ def _curve(frames: list, root: Path) -> dict | None:
     return {"fromY": picked[0]["y"], "toY": picked[-1]["y"], "from": _hex(a), "to": _hex(b), "spanPx": round(float(np.median(spans))) if spans else None, "largestStepPer40Px": round(float(np.median(steps)), 3) if steps else None, "resolution": PASS_SAMPLE_PX}
 
 
-def _shift(a: np.ndarray, b: np.ndarray) -> int:
-    """The offset that best lines up two brightness profiles."""
-    n = len(a)
-    costs = [np.abs(a[max(0, -s) : n - max(0, s)] - b[max(0, s) : n - max(0, -s)]).mean() for s in range(-MAX_SHIFT, MAX_SHIFT + 1)]
-    return int(np.argmin(costs)) - MAX_SHIFT
-
-
 def _coast(frames: list, root: Path, end: float) -> int | None:
     """How long content keeps moving after the wheel stops, found by lining up each frame with the next."""
     after = [f for f in frames if f["t"] >= end - 0.1]
@@ -419,7 +401,7 @@ def _coast(frames: list, root: Path, end: float) -> int | None:
         return None
     grey = [_load(root / f["file"]).astype(float).mean(axis=2) for f in after]
     by_axis = [[g.mean(axis=0) for g in grey], [g.mean(axis=1) for g in grey]]
-    steps = [[_shift(p[k], p[k + 1]) for k in range(len(p) - 1)] for p in by_axis]
+    steps = [[best_shift(p[k], p[k + 1], MAX_SHIFT)[0] for k in range(len(p) - 1)] for p in by_axis]
     moving = max(steps, key=lambda s: sum(abs(v) for v in s))
     # A coast keeps one direction. A flash elsewhere on a plain page lines up at a large shift that flips sign from frame to frame.
     last, sign = None, 0
