@@ -8,6 +8,7 @@ export const SHAPE_VERSION = 2;
 
 export const PUBLIC_SOURCES = [
   { source: 'game-studio', label: 'Game Studio' },
+  { source: 'job-applier', label: 'Job Applier' },
   { source: 'tools', label: 'Factory tools' },
 ];
 export const isPublicSource = (name) => PUBLIC_SOURCES.some((entry) => entry.source === name);
@@ -19,7 +20,7 @@ const READ_FAILED = 'This source could not be read on the Mac.';
 const SOURCE_ERRORS = new Set([NOTHING_PUSHED, LIST_LOST, READ_FAILED]);
 
 const STATES = new Set(['running', 'blocked', 'stalled', 'failed', 'pending', 'done']);
-const ROLES = new Set(['planner', 'worker', 'verifier', 'image', 'coordinator', 'you', 'transform', 'model', 'observe', 'act']);
+const ROLES = new Set(['planner', 'worker', 'verifier', 'image', 'coordinator', 'applier', 'you', 'transform', 'model', 'observe', 'act']);
 const CATEGORIES = new Set(['model', 'browser', 'backend', 'shell', 'file', 'agent', 'human']);
 const OUTCOMES = new Set(['ok', 'failed']);
 const KINDS = new Set(['step', 'group']);
@@ -28,7 +29,7 @@ const TOOL_TYPES = new Set(['microservice', 'atom']);
 const TOOL_KINDS = new Set(['pipeline', 'skill', 'transform', 'model', 'observe', 'act']);
 const HEALTH = new Set(['ok', 'warn', 'red']);
 const GUARDS = new Set(['budget', 'confirm']);
-// Job Applier stays off the public site, and an entry appears here only when it may be seen.
+// An entry appears on the status pages only when it may be seen. Job Applier shows its runs on Flows and nothing here.
 const PUBLIC_ELSEWHERE = new Set(['art-desk', 'vh-personal', 'game-studio']);
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const TOKEN_LIKE_ID = /[A-Za-z0-9]{24,}|[0-9a-f]{8}-[0-9a-f]{4}-/;
@@ -76,11 +77,37 @@ function shaper(fields) {
   };
 }
 
+// A job's title, company, and step names come from Jobfeed and can name an employer. Only its number, roles, and
+// categories leave, so what those fields hold does not matter and the publish guard does not have to recognize a company.
+const STATUS_ONLY = 'job-applier';
+const STATUS_NAMES = {
+  coordinator: 'Launch', applier: 'Applier', you: 'Ask Victor', act: 'Submit', worker: 'Job',
+  model: 'Model', browser: 'Browser', backend: 'Backend', shell: 'Shell', file: 'File', agent: 'Agent', human: 'Ask Victor',
+};
+const JOB_TITLE = /^Job #\d+$/;
+const statusNodes = (nodes) => (Array.isArray(nodes) ? nodes.map(statusNode) : nodes);
+
+function statusNode(node) {
+  return { ...node, name: STATUS_NAMES[node?.category ?? node?.role] ?? 'Step', ...(node?.children && { children: statusNodes(node.children) }) };
+}
+
+function statusOnly(value) {
+  if (value?.source !== STATUS_ONLY) return value;
+  const { title, stages, root } = value;
+  return {
+    ...value,
+    title: JOB_TITLE.test(title) ? title : 'Job',
+    subtitle: 'Claude Applier',
+    ...(Array.isArray(stages) && { stages: stages.map((stage) => ({ ...stage, agents: statusNodes(stage?.agents) })) }),
+    ...(root && { root: statusNode(root) }),
+  };
+}
+
 const shapeAgent = shaper({ id: publicId, name: publicName, role: oneOf(ROLES), state: oneOf(STATES), startedAt: time, endedAt: time, traced: flag });
 const shapeStage = shaper({ id: text, title: text, state: oneOf(STATES), loops: count, agents: list(shapeAgent) });
 const shapeEdge = shaper({ from: text, to: text, count, label: oneOf(EDGE_LABELS) });
 
-export const shapeFlow = shaper({
+const flowFields = shaper({
   id: publicFlowId,
   source: text,
   title: text,
@@ -95,6 +122,7 @@ export const shapeFlow = shaper({
   backEdges: list(shapeEdge),
   stages: list(shapeStage),
 });
+export const shapeFlow = (value) => flowFields(statusOnly(value));
 
 const shapeNode = shaper({
   kind: oneOf(KINDS),
@@ -108,7 +136,8 @@ const shapeNode = shaper({
   children: list((child) => shapeNode(child)),
 });
 
-export const shapeTrace = shaper({ title: text, subtitle: text, startedAt: time, live: flag, state: oneOf(STATES), root: shapeNode });
+const traceFields = shaper({ source: text, title: text, subtitle: text, startedAt: time, live: flag, state: oneOf(STATES), root: shapeNode });
+export const shapeTrace = (value) => traceFields(statusOnly(value));
 
 const nullable = (shape) => (value) => (value === null ? null : shape(value));
 const mapOf = (shape) => (value) => (value === null || typeof value !== 'object' ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shape(item)])));
