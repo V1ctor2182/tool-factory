@@ -226,6 +226,12 @@ The result goes to `harvest/latest.json` in the data home. Transcripts hold pers
 
 Harvest only proposes. It builds nothing and schedules nothing, it adds no dashboard page, and it keeps no status on a candidate. An approval flow may add those later.
 
+## Atom audit
+
+`atom-audit` shows the evidence for changing how atoms are cut. `atom-audit scan` calls `code-clone`, an `observe` atom that parses Python and finds runs of statements with the same syntax across atoms. Names, attributes, and literal values are ignored, because most real copies in this repo differ in those, such as one image loader repeated with three color modes. From the clones, the audit reports the atom pairs that share the most code and the atoms over 300 source lines.
+
+The audit holds no verdict. A clone can be coincidence, and whether an atom owns one noun needs judgment, so Victor decides. It makes no model call and covers Python only.
+
 ## Design alternatives considered
 
 | Candidate | Why not |
