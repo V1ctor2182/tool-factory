@@ -34,7 +34,7 @@
     "title": "Applier loop",
     "statusOnly": {
       "names": "^(?:Job #\\d+|[A-Z][a-z]{2} \\d{1,2} · \\d+ (?:found|scored))$",
-      "subtitle": "^\\d+ jobs, \\d+ done$",
+      "subtitle": "^\\d+ jobs, \\d+ done(?:, autopilot paused)?$",
       "fallbackTitle": "Job",
       "fallbackSubtitle": "Claude Applier"
     },
