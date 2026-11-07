@@ -416,6 +416,20 @@ test('a job reads as launch, apply, you, and submit stages', async () => {
   assert.equal(await getFlow(root, 'job-applier:../../x'), null);
 });
 
+test('every job folds into one loop, and a chip opens that job\'s trace', async () => {
+  const { loop } = await source('job-applier');
+  assert.equal(loop.id, 'job-applier:loop');
+  assert.equal(loop.title, 'Applier loop');
+  assert.equal(loop.subtitle, '5 jobs, 1 done');
+  assert.deepEqual(loop.stages.map((s) => s.id), ['launch', 'apply', 'you', 'submit']);
+  assert.ok(loop.stages.flatMap((s) => s.agents).every((a) => /^Job #\d+$/.test(a.name) && a.id.startsWith(a.name.slice(5))));
+  assert.deepEqual(loop.backEdges, [{ from: 'apply', to: 'apply', count: 2 }]);
+  assert.equal((await getFlow(root, 'job-applier:loop')).agents, loop.agents);
+  assert.deepEqual(await getTrace(root, 'job-applier:loop', '829.launch'), await getTrace(root, 'job-applier:829', 'launch'));
+  assert.equal(await getTrace(root, 'job-applier:loop', '829.nope'), null);
+  assert.equal(await getTrace(root, 'job-applier:loop', 'launch'), null);
+});
+
 test('an ended job ends at its last call, not at Jobfeed\'s last sweep', async () => {
   const trace = await getTrace(root, 'job-applier:829', 'launch');
   assert.equal(trace.root.end, 195);
