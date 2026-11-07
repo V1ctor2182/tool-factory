@@ -28,6 +28,13 @@ def test_returns_none_for_an_expected_status(server):
     assert raised.value.code == "unavailable"
 
 
+@pytest.mark.parametrize("url", ["ftp://example.test", "https://", "not-a-url"])
+def test_check_url_rejects_anything_but_an_http_url(url):
+    with pytest.raises(AtomError) as raised:
+        web.check_url(url)
+    assert (raised.value.code, str(raised.value)) == ("invalid_source", f"Not an http or https URL: {url}")
+
+
 def test_rejects_a_non_http_url():
     with pytest.raises(AtomError) as raised:
         web.get_json("not-a-url", "ui-source")

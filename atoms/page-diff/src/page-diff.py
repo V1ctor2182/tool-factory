@@ -51,7 +51,7 @@ def _r(x: float) -> float:
 
 def _load(path: str) -> dict:
     file = Path(path).expanduser().resolve()
-    recording = cli.read_json(file, "invalid_source", f"Cannot read {path} as JSON")
+    recording = cli.read_json(path, "invalid_source", f"Cannot read {path} as JSON")
     schema.check(recording, RECORDING_SCHEMA, "invalid_source", f"{path} is not a page-recording")
     states = {}
     for st in recording["states"]:

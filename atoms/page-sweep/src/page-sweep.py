@@ -306,9 +306,8 @@ RUNNERS = {"load": _load, "walk": _walk, "pass": _pass, "idle": _idle, "hover": 
 
 
 def capture(plan: str, url: str | None) -> dict:
-    file = Path(plan).expanduser()
-    spec = cli.read_json(file, "invalid_args", f"{plan} is not a readable JSON file")
-    schema.check(spec, PLAN_SCHEMA, "invalid_args", f"{plan} is not a sweep plan", limit=5)
+    spec = cli.read_json(plan, "invalid_args", f"{plan} is not a readable JSON file")
+    schema.check(spec, PLAN_SCHEMA, "invalid_args", f"{plan} is not a sweep plan")
     target = url or spec["url"]
     ids = [r["id"] for r in spec["runs"]]
     if len(set(ids)) != len(ids):

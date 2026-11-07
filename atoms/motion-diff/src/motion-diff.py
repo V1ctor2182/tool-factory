@@ -194,10 +194,7 @@ def _rules(kind: str, a: dict, b: dict, base: dict | None) -> list:
 
 
 def _read(path: str, what: str) -> dict:
-    try:
-        return json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
-        raise cli.AtomError("invalid_source", f"{what} {path} is not readable JSON: {e}") from None
+    return cli.read_json(path, "invalid_source", f"{what} {path} is not readable JSON")
 
 
 def _sheet(a: dict, b: dict, out: Path) -> str | None:

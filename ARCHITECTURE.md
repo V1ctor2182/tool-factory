@@ -128,13 +128,13 @@ The kit is plumbing every atom would otherwise copy.
 
 | Module | Does |
 |---|---|
-| `cli` | Parse argv, check URL and file inputs, read a JSON input file, print the result or the error object, set the exit code |
+| `cli` | Parse argv, check a file input, read a JSON input file, print the result or the error object, set the exit code |
 | `paths` | Find the atom's folder in the data home |
 | `cache` | Read and write results by key, atomically |
 | `hash` | Stream a SHA-256 for cache keys |
 | `secrets` | Read a secret from the environment, else the keychain |
-| `web` | Fetch bytes or JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
-| `ytdlp` | Map yt-dlp failures to error codes, and find a URL's cache key without a network call |
+| `web` | Check a URL, fetch bytes or JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
+| `ytdlp` | Map yt-dlp failures to error codes, find a URL's cache key without a network call, and find a fetched video's cache key, refusing a playlist |
 | `chrome` | Start headless Google Chrome, load a page, and map failures to error codes |
 | `image` | Load an image as an array, and line up two brightness profiles |
 | `color` | Convert RGB to Lab |

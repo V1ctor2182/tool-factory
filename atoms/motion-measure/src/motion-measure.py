@@ -438,7 +438,7 @@ MEASURES = {
 
 def measure(sweep: str) -> dict:
     file = Path(sweep).expanduser()
-    spec = cli.read_json(file, "invalid_source", f"{sweep} is not a sweep")
+    spec = cli.read_json(sweep, "invalid_source", f"{sweep} is not a sweep")
     cache = Cache("motion-measure")
     key = file_sha256(file)
     if cached := cache.get(key):

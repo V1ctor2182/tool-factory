@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yt_dlp
 
-from factory_kit import cli, paths
+from factory_kit import cli, paths, web
 from factory_kit.cache import Cache
 from factory_kit.ytdlp import atom_error, offline_key, video_key
 
@@ -25,7 +25,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
     if audio and video:
         raise cli.AtomError("invalid_args", "Pass --audio or --video, not both.")
     kind = "video" if video else "audio"
-    cli.require_http_url(url)
+    web.check_url(url)
     cache = Cache("download")
 
     def hit(key: str) -> dict | None:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yt_dlp
 
-from factory_kit import cli, paths
+from factory_kit import cli, paths, web
 from factory_kit.ytdlp import atom_error
 
 
@@ -75,7 +75,7 @@ def search(words: str, limit: int, site: str) -> dict:
 
 def list_(url: str, limit: int | None) -> dict:
     _check_limit(limit)
-    cli.require_http_url(url)
+    web.check_url(url)
     info = _flat(url, limit)
     if info.get("_type") != "playlist":
         raise cli.AtomError("invalid_source", f"One video, not a playlist or channel: {url}")

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yt_dlp
 
-from factory_kit import cli, paths
+from factory_kit import cli, paths, web
 from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
 from factory_kit.ytdlp import atom_error, offline_key, video_key
@@ -42,7 +42,7 @@ def _transcript(source: str, lang: str, json3: dict) -> dict:
 
 
 def get(url: str, lang: str) -> dict:
-    cli.require_http_url(url)
+    web.check_url(url)
     cache = Cache("captions")
 
     def hit(key: str) -> dict | None:
@@ -85,10 +85,7 @@ def parse(path: str, lang: str) -> dict:
     cache = Cache("captions")
     if cached := cache.get(key):
         return {**cached, "source": str(file)}
-    try:
-        json3 = json.loads(file.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise cli.AtomError("invalid_source", f"Not a readable json3 file: {path}: {e}")
+    json3 = cli.read_json(path, "invalid_source", f"Not a readable json3 file: {path}")
     try:
         transcript = _transcript(str(file), lang, json3)
     except (AttributeError, KeyError, TypeError) as e:
