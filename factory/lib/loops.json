@@ -1,0 +1,76 @@
+{
+  "game-studio": {
+    "title": "Studio loop",
+    "stages": [
+      { "id": "plan", "title": "Plan" },
+      { "id": "concept2d", "title": "Concept" },
+      { "id": "model3d", "title": "Model" },
+      { "id": "animation", "title": "Animation" },
+      { "id": "implementation", "title": "Code" },
+      { "id": "interaction", "title": "Interaction" },
+      { "id": "verify", "title": "Verify" },
+      { "id": "you", "title": "You review" }
+    ],
+    "edges": [
+      { "from": "concept2d", "to": "concept2d" },
+      { "from": "model3d", "to": "model3d" },
+      { "from": "animation", "to": "animation" },
+      { "from": "implementation", "to": "implementation" },
+      { "from": "interaction", "to": "interaction" },
+      { "from": "verify", "to": "concept2d", "label": "rejected" },
+      { "from": "verify", "to": "model3d", "label": "rejected" },
+      { "from": "verify", "to": "animation", "label": "rejected" },
+      { "from": "verify", "to": "implementation", "label": "rejected" },
+      { "from": "verify", "to": "interaction", "label": "rejected" },
+      { "from": "you", "to": "concept2d", "label": "rework" },
+      { "from": "you", "to": "model3d", "label": "rework" },
+      { "from": "you", "to": "animation", "label": "rework" },
+      { "from": "you", "to": "implementation", "label": "rework" },
+      { "from": "you", "to": "interaction", "label": "rework" },
+      { "from": "you", "to": "plan", "label": "replan" }
+    ]
+  },
+  "job-applier": {
+    "title": "Applier loop",
+    "statusOnly": {
+      "names": "^(?:Job #\\d+|[A-Z][a-z]{2} \\d{1,2} · \\d+ (?:found|scored))$",
+      "subtitle": "^\\d+ jobs, \\d+ done$",
+      "fallbackTitle": "Job",
+      "fallbackSubtitle": "Claude Applier"
+    },
+    "stages": [
+      { "id": "scan", "title": "Scan" },
+      { "id": "evaluate", "title": "Evaluate" },
+      { "id": "apply", "title": "Apply" },
+      { "id": "you", "title": "You" },
+      { "id": "submit", "title": "Submit" }
+    ],
+    "edges": [
+      { "from": "apply", "to": "apply" }
+    ]
+  },
+  "ui-clone": {
+    "title": "UI Clone",
+    "stages": [
+      { "id": "collect", "title": "Collect" },
+      { "id": "steps", "title": "Steps" },
+      { "id": "draft", "title": "Draft" },
+      { "id": "judge", "title": "Judge" }
+    ],
+    "edges": [
+      { "from": "judge", "to": "draft", "label": "revise" },
+      { "from": "draft", "to": "draft", "label": "error" }
+    ]
+  },
+  "site-clone": {
+    "title": "Site Clone",
+    "stages": [
+      { "id": "study", "title": "Study" },
+      { "id": "build", "title": "Build" },
+      { "id": "compare", "title": "Compare" }
+    ],
+    "edges": [
+      { "from": "compare", "to": "build", "label": "differs" }
+    ]
+  }
+}

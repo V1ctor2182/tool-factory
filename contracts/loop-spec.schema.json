@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/loop-spec.schema.json",
+  "title": "Loop spec",
+  "description": "Every workflow the Flows page can draw, keyed by flow source. factory/lib/loops.json holds the one copy.",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "title": { "type": "string", "description": "The loop's name on the page." },
+      "statusOnly": {
+        "type": "object",
+        "description": "Makes the source status only. These are the words it may publish besides its title.",
+        "properties": {
+          "names": { "type": "string", "description": "Regular expression for a trace title or a chip name that may stay." },
+          "subtitle": { "type": "string", "description": "Regular expression for a subtitle that may stay." },
+          "fallbackTitle": { "type": "string", "description": "Replaces a title that names does not allow." },
+          "fallbackSubtitle": { "type": "string", "description": "Replaces a subtitle that subtitle does not allow." }
+        },
+        "required": ["names", "subtitle", "fallbackTitle", "fallbackSubtitle"],
+        "additionalProperties": false
+      },
+      "stages": {
+        "type": "array",
+        "minItems": 1,
+        "description": "The phases in page order. The page always draws all of them.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-z0-9]+$" },
+            "title": { "type": "string" }
+          },
+          "required": ["id", "title"],
+          "additionalProperties": false
+        }
+      },
+      "edges": {
+        "type": "array",
+        "description": "The ways the work can go back. An adapter supplies only a measured count for each.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" },
+            "label": { "type": "string" }
+          },
+          "required": ["from", "to"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["title", "stages", "edges"],
+    "additionalProperties": false
+  }
+}

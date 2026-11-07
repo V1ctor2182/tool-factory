@@ -375,7 +375,9 @@ test('job-applier is pushed through the status-only shape', async () => {
   };
   const jobfeed = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify(req.url === '/api/applier-runs' ? { runs } : raw));
+    if (req.url === '/api/applier-runs') return res.end(JSON.stringify({ runs }));
+    if (req.url.startsWith('/api/runs')) return res.end(JSON.stringify({ runs: [{ run_id: '320009a8-3f4e-4a1b-9c21-0d6e8f7a1b2c', source: 'evaluate', status: 'failed', started_at: '2026-10-02T08:00:00Z', finished_at: '2026-10-02T08:30:00Z', jobs_scored: 7, verdict_counts: { apply: 1 }, total_llm_cost_usd: 1.5, failure_message: 'Schonfeld timed out' }] }));
+    return res.end(JSON.stringify(raw));
   });
   await new Promise((resolve) => jobfeed.listen(0, '127.0.0.1', resolve));
   const external = join(root, 'external.json');
@@ -387,10 +389,19 @@ test('job-applier is pushed through the status-only shape', async () => {
     assert.equal(pushed.code, 0, pushed.stderr);
     assert.equal(pushed.stdout.includes('status pages'), false, '--flows-only leaves the status pages alone');
     const listed = await sourceOf(url, 'job-applier');
-    assert.deepEqual([listed.loop.title, listed.loop.subtitle, listed.loop.stages[1].agents[0].name], ['Applier loop', '1 jobs, 1 done', 'Job #829']);
-    const loopTrace = await getJson(url, `/api/flows/job-applier:loop/agents/${listed.loop.stages[1].agents[0].id}`);
+    const inLoop = (id) => listed.loop.stages.find((s) => s.id === id);
+    assert.deepEqual([listed.loop.title, listed.loop.subtitle, inLoop('apply').agents[0].name], ['Applier loop', '1 jobs, 1 done', 'Job #829']);
+    assert.deepEqual(inLoop('evaluate').agents.map((a) => [a.name, a.role, a.state, a.traced]), [['Oct 2 · 7 scored', 'model', 'failed', false]]);
+    assert.match(inLoop('evaluate').agents[0].id, /^x[0-9a-f]{16}$/);
+    assert.equal(JSON.stringify(listed).includes('Schonfeld'), false);
+    assert.equal(JSON.stringify(listed).includes('consider'), false);
+    const loopTrace = await getJson(url, `/api/flows/job-applier:loop/agents/${inLoop('apply').agents[0].id}`);
     assert.equal(loopTrace.title, 'Job #829');
     assert.equal(JSON.stringify(loopTrace).includes('Schonfeld'), false);
+    const passChip = inLoop('evaluate').agents[0];
+    const passTrace = await getJson(url, `/api/flows/job-applier:loop/agents/${passChip.id}`);
+    assert.deepEqual([passTrace.title, passTrace.subtitle, passTrace.root.name, passTrace.root.children], ['Applier loop', 'Claude Applier', passChip.name, []]);
+    assert.equal(JSON.stringify(passTrace).includes('consider'), false);
     assert.deepEqual(listed.flows.map((f) => [f.id, f.title, f.subtitle, f.state, f.startedAt]), [['job-applier:829', 'Job #829', 'Claude Applier', 'done', '2026-10-02T09:00:00.000Z']]);
     const flow = await getJson(url, '/api/flows/job-applier:829');
     assert.deepEqual(flow.stages.map((s) => s.title), ['Launch', 'Apply', 'You', 'Submit']);

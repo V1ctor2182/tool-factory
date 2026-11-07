@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 import { home } from '../home.mjs';
 import { iso } from './transcript.mjs';
+import { declaredLoop, LOOP_KEY } from './loop.mjs';
 import { callerRecords, chipTrace, dirNames, fieldsOf, findChip, lastEndIn, logTrace, mtime, newestLive, roundNumbers, stage } from './workspace.mjs';
 
 const CALLER = 'ui-clone';
-const LOOP_KEY = 'loop';
 const TARGET = 0.9;
 const ATOMS_OF_STAGE = { collect: new Set(['ui-catalog', 'ui-source']), draft: new Set(['ui-draft']), judge: new Set(['page-record', 'page-diff']) };
 const SPLIT_GAP_MS = 30 * 60_000;
@@ -137,8 +137,6 @@ function stepsAgents(where) {
   }));
 }
 
-const newestFirst = (a, b) => b.startedAt.localeCompare(a.startedAt);
-
 function loopFlow(where, { calls, components, liveName }) {
   const collect = collectAgents(calls);
   const steps = stepsAgents(where);
@@ -149,19 +147,17 @@ function loopFlow(where, { calls, components, liveName }) {
   const all = [...collect, ...steps, ...draft];
   if (!all.length) return null;
   const finished = components.flatMap(({ rounds: done }) => done);
-  return {
-    key: LOOP_KEY,
-    title: 'UI Clone',
+  return declaredLoop('ui-clone', {
     subtitle: `${components.length} components, ${finished.length} rounds, ${finished.filter((round) => round.score !== null).length} scored`,
     startedAt: all.map((agent) => agent.startedAt).sort()[0],
-    stages: [
-      stage('collect', 'Collect', collect.toSorted(newestFirst)),
-      stage('steps', 'Steps', steps.toSorted(newestFirst)),
-      stage('draft', 'Draft', draft.toSorted(newestFirst), way.error),
-      stage('judge', 'Judge', judge.toSorted(newestFirst), way.revise),
-    ],
-    backEdges: edges(way),
-  };
+    stages: {
+      collect: { agents: collect },
+      steps: { agents: steps },
+      draft: { agents: draft, loops: way.error },
+      judge: { agents: judge, loops: way.revise },
+    },
+    edges: edges(way),
+  });
 }
 
 export function where() {

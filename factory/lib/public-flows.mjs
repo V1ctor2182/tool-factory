@@ -2,6 +2,7 @@
 // old pusher cannot publish more than the page shows. Shaping copies named fields into new objects, and it is idempotent:
 // shaping a shaped answer gives the same bytes, which is how ingest recognizes a blob that holds nothing else.
 import { createHash } from 'node:crypto';
+import LOOPS from './loops.json' with { type: 'json' };
 
 // Raise this when shaping changes, so the pusher re-reads and re-sends traces it already sent.
 export const SHAPE_VERSION = 2;
@@ -24,7 +25,7 @@ const ROLES = new Set(['planner', 'worker', 'verifier', 'image', 'coordinator', 
 const CATEGORIES = new Set(['model', 'browser', 'backend', 'shell', 'file', 'agent', 'human']);
 const OUTCOMES = new Set(['ok', 'failed']);
 const KINDS = new Set(['step', 'group']);
-const EDGE_LABELS = new Set(['rejected', 'rework', 'replan']);
+const EDGE_LABELS = new Set(Object.entries(LOOPS).filter(([source]) => isPublicSource(source)).flatMap(([, spec]) => spec.edges.map((edge) => edge.label)).filter(Boolean));
 const TOOL_TYPES = new Set(['microservice', 'atom']);
 const TOOL_KINDS = new Set(['pipeline', 'skill', 'transform', 'model', 'observe', 'act']);
 const HEALTH = new Set(['ok', 'warn', 'red']);
@@ -77,28 +78,25 @@ function shaper(fields) {
   };
 }
 
-// A job's title, company, and step names come from Jobfeed and can name an employer. Only its number, roles, and
-// categories leave, plus the loop's counts, so what those fields hold does not matter and the publish guard does not have to recognize a company.
-const STATUS_ONLY = 'job-applier';
+// A status-only source's words can name an employer. Only words that its statusOnly patterns allow leave, plus its roles and
+// categories, so what those fields hold does not matter and the publish guard does not have to recognize a company.
 const STATUS_NAMES = {
   coordinator: 'Launch', applier: 'Applier', you: 'Ask Victor', act: 'Submit', worker: 'Job',
   model: 'Model', browser: 'Browser', backend: 'Backend', shell: 'Shell', file: 'File', agent: 'Agent', human: 'Ask Victor',
 };
-const JOB_TITLE = /^(?:Job #\d+|Applier loop)$/;
-const JOB_COUNTS = /^\d+ jobs, \d+ done$/;
-const statusNodes = (nodes) => (Array.isArray(nodes) ? nodes.map(statusNode) : nodes);
-
-function statusNode(node) {
-  return { ...node, name: JOB_TITLE.test(node?.name) ? node.name : STATUS_NAMES[node?.category ?? node?.role] ?? 'Step', ...(node?.children && { children: statusNodes(node.children) }) };
-}
 
 function statusOnly(value) {
-  if (value?.source !== STATUS_ONLY) return value;
+  const spec = LOOPS[value?.source];
+  const words = spec?.statusOnly;
+  if (!words) return value;
+  const names = new RegExp(words.names);
+  const statusNode = (node) => ({ ...node, name: names.test(node?.name) ? node.name : STATUS_NAMES[node?.category ?? node?.role] ?? 'Step', ...(node?.children && { children: statusNodes(node.children) }) });
+  const statusNodes = (nodes) => (Array.isArray(nodes) ? nodes.map(statusNode) : nodes);
   const { title, subtitle, stages, root } = value;
   return {
     ...value,
-    title: JOB_TITLE.test(title) ? title : 'Job',
-    subtitle: JOB_COUNTS.test(subtitle) ? subtitle : 'Claude Applier',
+    title: title === spec.title || names.test(title) ? title : words.fallbackTitle,
+    subtitle: new RegExp(words.subtitle).test(subtitle) ? subtitle : words.fallbackSubtitle,
     ...(Array.isArray(stages) && { stages: stages.map((stage) => ({ ...stage, agents: statusNodes(stage?.agents) })) }),
     ...(root && { root: statusNode(root) }),
   };
