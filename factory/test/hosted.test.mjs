@@ -387,6 +387,10 @@ test('job-applier is pushed through the status-only shape', async () => {
     assert.equal(pushed.code, 0, pushed.stderr);
     assert.equal(pushed.stdout.includes('status pages'), false, '--flows-only leaves the status pages alone');
     const listed = await sourceOf(url, 'job-applier');
+    assert.deepEqual([listed.loop.title, listed.loop.subtitle, listed.loop.stages[1].agents[0].name], ['Applier loop', '1 jobs, 1 done', 'Job #829']);
+    const loopTrace = await getJson(url, `/api/flows/job-applier:loop/agents/${listed.loop.stages[1].agents[0].id}`);
+    assert.equal(loopTrace.title, 'Job #829');
+    assert.equal(JSON.stringify(loopTrace).includes('Schonfeld'), false);
     assert.deepEqual(listed.flows.map((f) => [f.id, f.title, f.subtitle, f.state, f.startedAt]), [['job-applier:829', 'Job #829', 'Claude Applier', 'done', '2026-10-02T09:00:00.000Z']]);
     const flow = await getJson(url, '/api/flows/job-applier:829');
     assert.deepEqual(flow.stages.map((s) => s.title), ['Launch', 'Apply', 'You', 'Submit']);

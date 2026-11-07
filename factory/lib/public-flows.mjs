@@ -78,26 +78,27 @@ function shaper(fields) {
 }
 
 // A job's title, company, and step names come from Jobfeed and can name an employer. Only its number, roles, and
-// categories leave, so what those fields hold does not matter and the publish guard does not have to recognize a company.
+// categories leave, plus the loop's counts, so what those fields hold does not matter and the publish guard does not have to recognize a company.
 const STATUS_ONLY = 'job-applier';
 const STATUS_NAMES = {
   coordinator: 'Launch', applier: 'Applier', you: 'Ask Victor', act: 'Submit', worker: 'Job',
   model: 'Model', browser: 'Browser', backend: 'Backend', shell: 'Shell', file: 'File', agent: 'Agent', human: 'Ask Victor',
 };
-const JOB_TITLE = /^Job #\d+$/;
+const JOB_TITLE = /^(?:Job #\d+|Applier loop)$/;
+const JOB_COUNTS = /^\d+ jobs, \d+ done$/;
 const statusNodes = (nodes) => (Array.isArray(nodes) ? nodes.map(statusNode) : nodes);
 
 function statusNode(node) {
-  return { ...node, name: STATUS_NAMES[node?.category ?? node?.role] ?? 'Step', ...(node?.children && { children: statusNodes(node.children) }) };
+  return { ...node, name: JOB_TITLE.test(node?.name) ? node.name : STATUS_NAMES[node?.category ?? node?.role] ?? 'Step', ...(node?.children && { children: statusNodes(node.children) }) };
 }
 
 function statusOnly(value) {
   if (value?.source !== STATUS_ONLY) return value;
-  const { title, stages, root } = value;
+  const { title, subtitle, stages, root } = value;
   return {
     ...value,
     title: JOB_TITLE.test(title) ? title : 'Job',
-    subtitle: 'Claude Applier',
+    subtitle: JOB_COUNTS.test(subtitle) ? subtitle : 'Claude Applier',
     ...(Array.isArray(stages) && { stages: stages.map((stage) => ({ ...stage, agents: statusNodes(stage?.agents) })) }),
     ...(root && { root: statusNode(root) }),
   };

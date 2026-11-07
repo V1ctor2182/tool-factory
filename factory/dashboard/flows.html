@@ -428,20 +428,25 @@ function showFailure(e) {
 // ---- Home.
 const updateTime = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 function renderHome(model) {
+  // The public page shows workflows, and a source without a loop has none. An error still shows, so a source that went away says so.
+  const sources = HOSTED ? model.sources.filter((s) => s.loop || s.error) : model.sources;
+  const loops = sources.map((s) => s.loop).filter(Boolean);
   const flows = model.sources.flatMap((s) => s.flows);
   const working = model.sources.reduce((n, s) => n + (s.loop?.working ?? s.flows.reduce((sum, f) => sum + f.working, 0)), 0);
-  const waiting = flows.filter((f) => f.state === 'blocked').length;
+  const waiting = HOSTED
+    ? loops.flatMap((l) => l.stages).flatMap((s) => s.agents).filter((a) => a.role === 'you' && a.state === 'blocked').length
+    : flows.filter((f) => f.state === 'blocked').length;
   const scrollOf = (source) => content.querySelector(`.source[data-source="${source}"] .graph-scroll`);
   const lefts = new Map(model.sources.map((s) => [s.source, scrollOf(s.source)?.scrollLeft]));
   content.replaceChildren(
     h('section', { class: 'hero' }, HOSTED ? h('p', { class: 'owner' }, 'The flows Victor is running right now.') : null, h('h1', null,
-      `${plural(flows.length, 'run')}. `,
+      `${HOSTED ? plural(loops.length, 'workflow') : plural(flows.length, 'run')}. `,
       working ? h('span', { class: 'mark' }, `${plural(working, 'agent')} working.`) : null,
       working && waiting ? ' ' : null,
       waiting ? h('span', { class: 'mark wait' }, `${waiting} waiting on ${OWNER}.`) : null,
       working || waiting ? null : h('span', { class: 'soft' }, 'Nobody is working right now.')),
       offlineLine(model)),
-    ...model.sources.map(sourceSection));
+    ...sources.map(sourceSection));
   for (const { source, loop } of model.sources) {
     const scroll = scrollOf(source);
     if (!scroll) continue;
@@ -460,18 +465,18 @@ const openSources = new Set();
 let listModel = null;
 function sourceSection(source) {
   const urgency = { blocked: 0, running: 1 };
-  const ordered = [...source.flows].sort((a, b) => (urgency[a.state] ?? 2) - (urgency[b.state] ?? 2));
+  const ordered = (HOSTED ? [] : [...source.flows]).sort((a, b) => (urgency[a.state] ?? 2) - (urgency[b.state] ?? 2));
   const live = ordered.filter((f) => isLive(f.state));
   const open = openSources.has(source.source);
   const shown = open ? ordered : live;
   const settled = ordered.length - live.length;
   const toggle = () => { if (open) openSources.delete(source.source); else openSources.add(source.source); renderHome(listModel); };
   return h('section', { class: 'source', 'data-source': source.source },
-    h('header', null, sourceMascot(source.source, live.length ? 'running' : 'done', 34), h('h2', null, source.label), source.lastPush ? h('span', { class: `last-update${source.stale ? ' stale' : ''}` }, `Last update ${updateTime.format(new Date(source.lastPush))}`) : null, h('span', { class: 'where mono muted' }, source.where ?? '')),
+    h('header', null, sourceMascot(source.source, live.length || isLive(source.loop?.state) ? 'running' : 'done', 34), h('h2', null, source.label), source.lastPush ? h('span', { class: `last-update${source.stale ? ' stale' : ''}` }, `Last update ${updateTime.format(new Date(source.lastPush))}`) : null, h('span', { class: 'where mono muted' }, source.where ?? '')),
     source.error ? h('div', { class: 'source-error' }, source.error) : null,
     !source.error && !source.flows.length ? h('p', { class: 'empty' }, 'No runs recorded yet.') : null,
     source.loop ? renderGraph(source.loop, null, true).box : null,
-    source.loop && source.flows.length ? h('h3', { class: 'runs-title' }, source.runsTitle ?? 'Runs') : null,
+    source.loop && ordered.length ? h('h3', { class: 'runs-title' }, source.runsTitle ?? 'Runs') : null,
     h('div', { class: 'runs' }, shown.map(runCard)),
     settled ? h('button', { type: 'button', class: 'more', 'aria-expanded': String(open), onclick: toggle }, `${open ? 'Hide' : 'Show'} ${settled} not running`) : null);
 }
