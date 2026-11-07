@@ -1,0 +1,8 @@
+{"sessions": [
+  {"id": "site-a", "project": "-synthetic-research", "prompts": ["Understand how the checkout on shop.example.test works and explain its flow to me."]},
+  {"id": "footer-typo", "project": "-synthetic-app", "prompts": ["Fix the typo in the footer of my app, it says Contcat instead of Contact."]},
+  {"id": "site-b", "project": "-synthetic-research", "prompts": ["Study how news.example.test builds its front page and explain how the site works."]},
+  {"id": "status-chat", "project": "-synthetic-app", "prompts": ["Did the deploy finish?"]},
+  {"id": "site-c", "project": "-synthetic-other", "prompts": ["Explain how video.example.test works. I want to understand the player and how the pages connect."]},
+  {"id": "site-d", "project": "-synthetic-other", "prompts": ["Can you figure out how maps.example.test is put together and explain how the site works?"]}
+]}

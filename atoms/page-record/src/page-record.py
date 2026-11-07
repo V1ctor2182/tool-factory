@@ -11,8 +11,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_kit import cli, paths
-from jsonschema import Draft202012Validator
+from factory_kit import cli, paths, schema
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
@@ -37,13 +36,8 @@ CHALLENGE_SELECTORS = "#challenge-form, #cf-challenge-running, iframe[src*='chal
 
 
 def _steps(path: str) -> dict:
-    try:
-        steps = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise cli.AtomError("invalid_args", f"Cannot read steps file {path}: {e}") from None
-    errors = sorted(Draft202012Validator(STEPS_SCHEMA).iter_errors(steps), key=str)
-    if errors:
-        raise cli.AtomError("invalid_args", f"{path} is not a page-steps file: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors))
+    steps = cli.read_json(path, "invalid_args", f"Cannot read steps file {path}")
+    schema.check(steps, STEPS_SCHEMA, "invalid_args", f"{path} is not a page-steps file")
     return {"target": "body", "viewport": {"width": 1280, "height": 800}, "colorScheme": "dark", **steps}
 
 

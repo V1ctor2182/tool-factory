@@ -68,3 +68,29 @@ def test_a_missing_required_positional_is_invalid_args(atom):
     code, out = atom("say", "--path", "a.json")
     assert code == 1
     assert out["error"]["code"] == "invalid_args"
+
+
+def test_input_checks_raise_the_error_each_atom_expects(tmp_path):
+    sys.path.insert(0, str(SRC))
+    from factory_kit import cli
+
+    good = tmp_path / "good.json"
+    good.write_text('{"a": 1}', encoding="utf-8")
+    bad = tmp_path / "bad.json"
+    bad.write_text("{", encoding="utf-8")
+
+    assert cli.existing_file(str(good)) == good.resolve()
+    assert cli.read_json(str(good), "invalid_args", "label") == {"a": 1}
+    assert cli.require_http_url("https://example.test/a") is None
+    failures = [
+        (lambda: cli.existing_file(str(tmp_path / "none")), "invalid_source", f"No such file: {tmp_path / 'none'}"),
+        (lambda: cli.require_http_url("ftp://example.test"), "invalid_source", "Not an http or https URL: ftp://example.test"),
+        (lambda: cli.require_http_url("https://"), "invalid_source", "Not an http or https URL: https://"),
+    ]
+    for call, code, message in failures:
+        with pytest.raises(cli.AtomError) as e:
+            call()
+        assert (e.value.code, str(e.value)) == (code, message)
+    with pytest.raises(cli.AtomError) as e:
+        cli.read_json(bad, "invalid_args", "label")
+    assert e.value.code == "invalid_args" and str(e.value).startswith("label: ")

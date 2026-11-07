@@ -13,8 +13,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from factory_kit import chrome, cli, paths
-from jsonschema import Draft202012Validator
+from factory_kit import chrome, cli, paths, schema
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
@@ -308,12 +307,8 @@ RUNNERS = {"load": _load, "walk": _walk, "pass": _pass, "idle": _idle, "hover": 
 
 def capture(plan: str, url: str | None) -> dict:
     file = Path(plan).expanduser()
-    try:
-        spec = json.loads(file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
-        raise cli.AtomError("invalid_args", f"{plan} is not a readable JSON file: {e}") from None
-    if errors := sorted(Draft202012Validator(PLAN_SCHEMA).iter_errors(spec), key=str):
-        raise cli.AtomError("invalid_args", f"{plan} is not a sweep plan: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors[:5]))
+    spec = cli.read_json(file, "invalid_args", f"{plan} is not a readable JSON file")
+    schema.check(spec, PLAN_SCHEMA, "invalid_args", f"{plan} is not a sweep plan", limit=5)
     target = url or spec["url"]
     ids = [r["id"] for r in spec["runs"]]
     if len(set(ids)) != len(ids):

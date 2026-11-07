@@ -6,7 +6,6 @@
 # ///
 import json
 from pathlib import Path
-from urllib.parse import urlparse
 
 import yt_dlp
 
@@ -76,9 +75,7 @@ def search(words: str, limit: int, site: str) -> dict:
 
 def list_(url: str, limit: int | None) -> dict:
     _check_limit(limit)
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise cli.AtomError("invalid_source", f"Not an http or https URL: {url}")
+    cli.require_http_url(url)
     info = _flat(url, limit)
     if info.get("_type") != "playlist":
         raise cli.AtomError("invalid_source", f"One video, not a playlist or channel: {url}")

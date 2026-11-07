@@ -1,0 +1,5 @@
+{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.02,"structured_output":{"candidates":[
+  {"slug":"site-explainer","job":"Understand how this website works.","why":"Three different sites.","citations":[{"sessionId":"site-a","object":"shop.example.test"},{"sessionId":"site-b","object":"news.example.test"},{"sessionId":"site-c","object":"maps.example.test"}],"coveredBy":null,"reuses":["page-read","no-such-part"],"missing":[{"name":"site-map","kind":"observe","noun":"site map"}]},
+  {"slug":"site-summary","job":"Summarize this site.","why":"Two sites.","citations":[{"sessionId":"site-a","object":"shop.example.test"},{"sessionId":"site-b","object":"news.example.test"}],"coveredBy":"podcast","reuses":[],"missing":[]},
+  {"slug":"thin","job":"A thin job.","why":"One session.","citations":[{"sessionId":"site-a","object":"shop.example.test"}],"coveredBy":null,"reuses":[],"missing":[]}
+]}}

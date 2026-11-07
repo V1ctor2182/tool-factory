@@ -1,0 +1,5 @@
+{"parts": [
+  {"name": "page-read", "type": "atom", "description": "Facts about one web page, read in a browser."},
+  {"name": "digest", "type": "atom", "description": "Summary, chapters, and key points from a transcript."},
+  {"name": "podcast", "type": "microservice", "description": "Summary, chapters, and transcript of a podcast episode."}
+]}

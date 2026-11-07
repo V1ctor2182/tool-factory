@@ -1,0 +1,27 @@
+{
+  "name": "code-clone",
+  "type": "atom",
+  "kind": "observe",
+  "description": "Python code repeated across the parts in a folder, matched by syntax, so renamed copies count. Never cached, because the code changes between calls.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/code-clone",
+  "contract": "code-clones",
+  "verbs": [
+    {
+      "name": "find",
+      "description": "Runs of statements with the same syntax in two or more parts, ignoring names, attributes, literal values, imports, and main guards. Prints one line per clone, largest first, or the clones with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "root": { "type": "string", "description": "Folder holding one folder per part.", "x-flag": true },
+          "minSize": { "type": "integer", "default": 25, "description": "Fewest syntax nodes a clone must hold. A one-line call with a long argument list holds about 25." }
+        },
+        "required": ["root"]
+      },
+      "output": "code-clones"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

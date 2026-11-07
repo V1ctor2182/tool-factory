@@ -1,0 +1,139 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import traceback
+from collections import defaultdict
+from itertools import combinations
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+REPO = ROOT.parent.parent
+MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+NAME = MANIFEST["name"]
+ENV = {**os.environ, "TOOL_FACTORY_CALLER": NAME}
+LARGE_LINES = 300
+TEXT_PAIRS = 10
+
+
+class AtomFailed(Exception):
+    def __init__(self, error: dict):
+        super().__init__(error["message"])
+        self.error = error
+
+
+def log(message: str) -> None:
+    print(f"{NAME}: {message}", file=sys.stderr, flush=True)
+
+
+def atom(name: str, *args: str) -> dict:
+    done = subprocess.run([str(REPO / "atoms" / name / "bin" / name), *args, "--json"], stdout=subprocess.PIPE, text=True, env=ENV)
+    try:
+        result = json.loads(done.stdout)
+    except ValueError:
+        result = None
+    if isinstance(result, dict) and isinstance(result.get("error"), dict):
+        raise AtomFailed(result["error"])
+    if done.returncode or not isinstance(result, dict):
+        wanted = "an error" if done.returncode else "a result"
+        raise AtomFailed({"code": "internal", "message": f"{name} exited {done.returncode} without {wanted} object on stdout"})
+    return result
+
+
+def pairs_of(clones: list[dict], lines: dict[str, int]) -> list[dict]:
+    shared = defaultdict(lambda: defaultdict(set))
+    for clone in clones:
+        by_part = defaultdict(set)
+        for location in clone["locations"]:
+            by_part[location["part"]].update((location["file"], n) for n in range(location["startLine"], location["endLine"] + 1))
+        for a, b in combinations(sorted(by_part), 2):
+            shared[a, b][a] |= by_part[a]
+            shared[a, b][b] |= by_part[b]
+    pairs = []
+    for (a, b), by_atom in shared.items():
+        count = min(len(by_atom[a]), len(by_atom[b]))
+        pairs.append({"atoms": [a, b], "sharedLines": count, "shareOfSmaller": round(count / min(lines[a], lines[b]), 3)})
+    return sorted(pairs, key=lambda pair: (-pair["shareOfSmaller"], pair["atoms"]))
+
+
+def verbs_of(folder: Path) -> int:
+    return len(json.loads((folder / "manifest.json").read_text(encoding="utf-8"))["verbs"])
+
+
+def audit(clones: dict) -> dict:
+    root = Path(clones["root"])
+    lines = {row["part"]: row["lines"] for row in clones["parts"]}
+    large = [{"atom": name, "lines": count, "verbs": verbs_of(root / name)} for name, count in lines.items() if count > LARGE_LINES]
+    return {
+        "minSize": clones["minSize"],
+        "clones": clones["clones"],
+        "pairs": pairs_of(clones["clones"], lines),
+        "large": sorted(large, key=lambda row: (-row["lines"], row["atom"])),
+    }
+
+
+def text_of(result: dict) -> str:
+    clones = [f"{c['size']}  " + "  ".join(f"{l['file']}:{l['startLine']}-{l['endLine']}" for l in c["locations"]) for c in result["clones"]]
+    pairs = [f"{p['shareOfSmaller']:.0%}  {p['sharedLines']} lines  {p['atoms'][0]} and {p['atoms'][1]}" for p in result["pairs"][:TEXT_PAIRS]]
+    large = [f"{row['lines']} lines  {row['verbs']} verbs  {row['atom']}" for row in result["large"]]
+    sections = [("Repeated code", clones), ("Atoms that share the most code", pairs), ("Large atoms to check for a second noun", large)]
+    return "\n\n".join("\n".join([title, *(rows or ["None."])]) for title, rows in sections)
+
+
+def scan(args, as_json: bool) -> int:
+    root = args.atoms or REPO / "atoms"
+    log(f"code-clone find --root {root}")
+    result = audit(atom("code-clone", "find", "--root", str(root), *([] if args.minSize is None else ["--min-size", str(args.minSize)])))
+    print(json.dumps(result, ensure_ascii=False) if as_json else text_of(result))
+    return 0
+
+
+RUN = {"scan": scan}
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise AtomFailed({"code": "invalid_args", "message": message})
+
+
+def flag_of(name: str) -> str:
+    return "--" + re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
+
+
+def parser() -> Parser:
+    p = Parser(prog=NAME, description=MANIFEST["description"])
+    verbs = p.add_subparsers(dest="verb", required=True, parser_class=Parser)
+    for verb in MANIFEST["verbs"]:
+        v = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
+        for name, prop in verb["input"]["properties"].items():
+            v.add_argument(flag_of(name), dest=name, type=int if prop["type"] == "integer" else str, help=prop["description"])
+        v.add_argument("--json", action="store_true", help="Print one JSON object.")
+    return p
+
+
+def main() -> int:
+    as_json = "--json" in sys.argv[1:]
+    try:
+        args = parser().parse_args()
+        return RUN[args.verb](args, as_json)
+    except AtomFailed as e:
+        error = e.error
+    except Exception as e:
+        traceback.print_exc()
+        error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+    if as_json:
+        print(json.dumps({"error": error}, ensure_ascii=False))
+    else:
+        print(f"{NAME}: {error['code']}: {error['message']}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

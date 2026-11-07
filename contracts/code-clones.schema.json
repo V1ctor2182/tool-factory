@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/code-clones.schema.json",
+  "title": "Code clones",
+  "description": "Python code repeated across the parts in a folder, largest first.",
+  "type": "object",
+  "properties": {
+    "root": { "type": "string", "description": "Absolute path of the folder holding one folder per part." },
+    "minSize": { "type": "integer", "minimum": 1, "description": "Fewest syntax nodes a clone must hold." },
+    "fileCount": { "type": "integer", "minimum": 0, "description": "Python files read from each part's src folder." },
+    "unparsed": {
+      "type": "array",
+      "description": "Files the parser refused, relative to root.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "parts": {
+      "type": "array",
+      "description": "Each part with Python source, by name.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "part": { "type": "string", "minLength": 1 },
+          "lines": { "type": "integer", "minimum": 0, "description": "Lines in the part's Python source." }
+        },
+        "required": ["part", "lines"],
+        "additionalProperties": false
+      }
+    },
+    "clones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "size": { "type": "integer", "minimum": 1, "description": "Syntax nodes in one copy." },
+          "locations": {
+            "type": "array",
+            "minItems": 2,
+            "description": "Each copy, in two or more parts.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "part": { "type": "string", "minLength": 1 },
+                "file": { "type": "string", "minLength": 1, "description": "Path relative to root." },
+                "startLine": { "type": "integer", "minimum": 1 },
+                "endLine": { "type": "integer", "minimum": 1 }
+              },
+              "required": ["part", "file", "startLine", "endLine"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["size", "locations"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false." }
+  },
+  "required": ["root", "minSize", "fileCount", "unparsed", "parts", "clones", "cacheHit"],
+  "additionalProperties": false
+}

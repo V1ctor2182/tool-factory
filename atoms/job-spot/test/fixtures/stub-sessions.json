@@ -1,0 +1,6 @@
+{"sessions": [
+  {"id": "s1", "project": "-synthetic", "prompts": ["Explain alpha."]},
+  {"id": "s2", "project": "-synthetic", "prompts": ["Explain beta."]},
+  {"id": "s3", "project": "-synthetic", "prompts": ["Explain gamma."]},
+  {"id": "s4", "project": "-synthetic", "prompts": ["Explain delta."]}
+]}
