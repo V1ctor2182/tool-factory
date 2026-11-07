@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Deploys the public flows page. It uploads only the files the Dockerfile copies, because `railway up` from the repo
-// root would send the whole working tree. Run `railway link` in the repo root once to choose the project.
+// root would send the whole working tree. Run `railway link` in the primary checkout once to choose the project.
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,11 +12,24 @@ const WAIT_MS = 5 * 60_000;
 const POLL_MS = 5_000;
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
-const railway = (...args) => execFileSync('railway', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+const linked = dirname(git('rev-parse', '--path-format=absolute', '--git-common-dir').trim());
+const railway = (...args) => execFileSync('railway', args, { cwd: linked, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
 
 function imageFiles() {
   const copies = readFileSync(join(root, 'Dockerfile'), 'utf8').split('\n').filter((line) => line.startsWith('COPY '));
   return ['Dockerfile', '.dockerignore', ...copies.flatMap((line) => line.split(/\s+/).slice(1, -1))];
+}
+
+function requireMain() {
+  git('fetch', '--quiet', 'origin', 'main');
+  try {
+    git('merge-base', '--is-ancestor', 'origin/main', 'HEAD');
+  } catch {
+    throw new Error(`HEAD ${git('rev-parse', '--short', 'HEAD').trim()} lacks origin/main, so this deploy would roll back the live site`);
+  }
+  const dirty = git('status', '--porcelain', '--', ...imageFiles()).trimEnd();
+  if (dirty) throw new Error(`commit these image files first\n${dirty}`);
 }
 
 function upload() {
@@ -26,7 +39,7 @@ function upload() {
       mkdirSync(dirname(join(dir, file)), { recursive: true });
       cpSync(join(root, file), join(dir, file));
     }
-    execFileSync('railway', ['up', dir, '--path-as-root', '--service', SERVICE, '--ci'], { cwd: root, stdio: 'inherit' });
+    execFileSync('railway', ['up', dir, '--path-as-root', '--service', SERVICE, '--ci'], { cwd: linked, stdio: 'inherit' });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -50,6 +63,7 @@ function publicUrl() {
 }
 
 try {
+  requireMain();
   upload();
   await waitForSuccess();
   const url = publicUrl();
