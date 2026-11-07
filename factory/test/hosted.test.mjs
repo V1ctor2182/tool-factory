@@ -375,7 +375,7 @@ test('job-applier is pushed through the status-only shape', async () => {
   };
   const jobfeed = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' });
-    if (req.url === '/api/applier-runs') return res.end(JSON.stringify({ runs }));
+    if (req.url === '/api/applier-runs') return res.end(JSON.stringify({ runs, autopilot_enabled: false }));
     if (req.url.startsWith('/api/runs')) return res.end(JSON.stringify({ runs: [{ run_id: '320009a8-3f4e-4a1b-9c21-0d6e8f7a1b2c', source: 'evaluate', status: 'failed', started_at: '2026-10-02T08:00:00Z', finished_at: '2026-10-02T08:30:00Z', jobs_scored: 7, verdict_counts: { apply: 1 }, total_llm_cost_usd: 1.5, failure_message: 'Schonfeld timed out' }] }));
     return res.end(JSON.stringify(raw));
   });
@@ -390,7 +390,7 @@ test('job-applier is pushed through the status-only shape', async () => {
     assert.equal(pushed.stdout.includes('status pages'), false, '--flows-only leaves the status pages alone');
     const listed = await sourceOf(url, 'job-applier');
     const inLoop = (id) => listed.loop.stages.find((s) => s.id === id);
-    assert.deepEqual([listed.loop.title, listed.loop.subtitle, inLoop('apply').agents[0].name], ['Applier loop', '1 jobs, 1 done', 'Job #829']);
+    assert.deepEqual([listed.loop.title, listed.loop.subtitle, inLoop('apply').agents[0].name], ['Applier loop', '1 jobs, 1 done, autopilot paused', 'Job #829']);
     assert.deepEqual(inLoop('evaluate').agents.map((a) => [a.name, a.role, a.state, a.traced]), [['Oct 2 · 7 scored', 'model', 'failed', false]]);
     assert.match(inLoop('evaluate').agents[0].id, /^x[0-9a-f]{16}$/);
     assert.equal(JSON.stringify(listed).includes('Schonfeld'), false);

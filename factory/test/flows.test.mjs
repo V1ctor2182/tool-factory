@@ -111,6 +111,7 @@ const liveTrace = (jobId, age = jobId === 830 ? 3600 : 100) => ({
     { kind: 'group', id: 'applier-1', name: 'Applier', meta: '', role: 'applier', start: 1, end: age, children: [
       { kind: 'step', id: 'n1', name: 'Open page', meta: '', category: 'browser', start: 2, end: 3, outcome: 'ok' },
       ...(jobId >= 831 ? [{ kind: 'step', id: 'request-0', name: 'Ask you', meta: 'captcha', category: 'human', start: 50, end: age, outcome: 'ok', note: SECRET }] : []),
+      ...(jobId === 832 ? [{ kind: 'step', id: 'submit', name: 'Submit', meta: 'requested · attempt 1', category: 'backend', start: 40, end: age, outcome: 'ok' }] : []),
     ] },
   ] },
 });
@@ -131,7 +132,7 @@ function serveJobfeed() {
   ];
   jobfeedServer = createServer((req, res) => {
     const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
-    if (req.url === '/api/applier-runs') return send(200, { runs });
+    if (req.url === '/api/applier-runs') return send(200, { runs, autopilot_enabled: false });
     if (req.url === '/api/runs?limit=100') return send(200, { runs: PIPELINE_RUNS });
     const id = Number(req.url.match(/^\/api\/applier-runs\/(\d+)\/trace$/)?.[1]);
     if (id === 829) return send(200, JOB_TRACE);
@@ -463,11 +464,23 @@ test('every loop the sources build follows the loop contract and declares only w
   assert.throws(() => declaredLoop('site-clone', { subtitle: '', startedAt: '', stages: {}, edges: [{ from: 'build', to: 'study', count: 1 }] }), /does not declare edge build to study/);
 });
 
+test('a submit a job has stopped to ask about is waiting, not working', async () => {
+  const { loop } = await source('job-applier');
+  const stage = (id) => loop.stages.find((s) => s.id === id);
+  const submit = stage('submit').agents.find((a) => a.name === 'Job #832');
+  assert.equal(submit.state, 'blocked');
+  assert.equal(stage('submit').state, 'blocked');
+  assert.equal(loop.working, 0);
+  assert.equal(loop.state, 'blocked');
+  assert.equal(stage('you').agents.filter((a) => a.state === 'blocked').length, 2);
+  assert.equal((await getFlow(root, 'job-applier:832')).stages.find((s) => s.id === 'submit').agents[0].state, 'blocked');
+});
+
 test('every job folds into one loop, and a chip opens that job\'s trace', async () => {
   const { loop } = await source('job-applier');
   assert.equal(loop.id, 'job-applier:loop');
   assert.equal(loop.title, 'Applier loop');
-  assert.equal(loop.subtitle, '5 jobs, 1 done');
+  assert.equal(loop.subtitle, '5 jobs, 1 done, autopilot paused');
   assert.deepEqual(loop.stages.map((s) => s.title), ['Scan', 'Evaluate', 'Apply', 'You', 'Submit']);
   const jobChips = loop.stages.filter((s) => !['scan', 'evaluate'].includes(s.id)).flatMap((s) => s.agents);
   assert.ok(jobChips.every((a) => /^Job #\d+$/.test(a.name) && a.id.startsWith(a.name.slice(5))));
