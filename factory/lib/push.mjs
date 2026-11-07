@@ -227,7 +227,7 @@ async function pushSource(root, entry, send, state) {
   return { source, reason, flows: Object.keys(manifest.flows).length, traces: Object.keys(manifest.traces).length, reads, action, ...sent };
 }
 
-export async function push(root, rawUrl, names, { log, warn, statePath = join(home(), 'push-state.json') }) {
+export async function push(root, rawUrl, names, { log, warn, flowsOnly = false, statePath = join(home(), 'push-state.json') }) {
   const entries = publicEntries(names);
   const url = destination(rawUrl);
   const send = client(url, pushToken());
@@ -249,7 +249,7 @@ export async function push(root, rawUrl, names, { log, warn, statePath = join(ho
       const said = done.reason ? `read failed, sent a generic error. Here it said: ${done.reason}` : `${done.flows} flows, ${done.traces} traces, ${done.reads} traces read`;
       log(`${done.source}: ${said}, ${done.blobs} blobs (${done.bytes} bytes) uploaded, ${done.action === 'heartbeat' ? 'nothing changed, heartbeat sent' : 'manifest sent'}`);
     }
-    code = await pushStatus(root, send, state, manifestSent, log, warn) || code;
+    if (!flowsOnly) code = await pushStatus(root, send, state, manifestSent, log, warn) || code;
   } finally {
     saveStateFile(statePath, file);
   }

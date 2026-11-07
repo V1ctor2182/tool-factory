@@ -10,6 +10,8 @@ const STEP_FIELDS = ['kind', 'id', 'name', 'meta', 'category', 'start', 'end', '
 const GROUP_FIELDS = ['kind', 'id', 'name', 'meta', 'role', 'start', 'end', 'outcome'];
 const LAUNCH_STATE = { finished: 'done', failed: 'failed', launch_failed: 'failed', duplicate: 'failed', stopped: 'stalled', unknown: 'stalled' };
 
+export const wholeFlowTrace = true;
+
 async function get(api, path, timeout) {
   let res;
   try {
@@ -74,7 +76,7 @@ async function readTrace(api, key, now = Date.now()) {
   const live = state === 'blocked' || state === 'running';
   if (live) reopen(raw.root, raw.root.end);
   else settle(raw.root, last);
-  return { title: raw.title, subtitle: raw.subtitle.replace(/ · [^·]*$/, ''), startedAt: raw.started_at, live, ...(state && { state }), root: raw.root };
+  return { source: 'job-applier', title: raw.title, subtitle: raw.subtitle.replace(/ · [^·]*$/, ''), startedAt: iso(parseTime(raw.started_at)), live, ...(state && { state }), root: raw.root };
 }
 
 function agentOf(node, role, startedAt, state) {
@@ -142,7 +144,7 @@ async function shape(api, run, now) {
     title: `Job #${run.job_id}`,
     subtitle: [[run.title, run.company].filter(Boolean).join(' at '), 'Claude Applier'].filter(Boolean).join(' · '),
     state: found.state,
-    startedAt: run.started_at,
+    startedAt: iso(parseTime(run.started_at)),
     backEdges: [],
     stages: [{ loops: Math.max(0, run.session_count - 1), agents: Array.from({ length: run.session_count }, () => agent) }],
   };
