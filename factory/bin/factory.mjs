@@ -195,14 +195,14 @@ const COMMANDS = {
   },
 
   async push(registry, args) {
-    const { values, positionals } = options(args, { sources: { type: 'string' }, scan: { type: 'boolean' }, state: { type: 'string' } });
+    const { values, positionals } = options(args, { sources: { type: 'string' }, scan: { type: 'boolean' }, state: { type: 'string' }, 'flows-only': { type: 'boolean' } });
     if (!values.sources) throw new UsageError('Name the sources, as in factory push https://host --sources game-studio,tools.');
     if (positionals.length !== (values.scan ? 0 : 1)) throw new UsageError(values.scan ? '--scan sends nothing, so it takes no URL.' : 'Name one URL, as in factory push https://host --sources game-studio,tools.');
     const names = values.sources.split(',');
     try {
       const { push, scan } = await import('../lib/push.mjs');
       if (values.scan) return await scan(registry.root, names, console.log);
-      return await push(registry.root, positionals[0], names, { log: console.log, warn: console.error, statePath: values.state && resolve(values.state) });
+      return await push(registry.root, positionals[0], names, { log: console.log, warn: console.error, flowsOnly: values['flows-only'], statePath: values.state && resolve(values.state) });
     } catch (e) {
       console.error(`factory: ${e.message}`);
       return 1;
@@ -228,8 +228,9 @@ const USAGE = `usage: factory <command>
   unlink <names...> [--into <project> | --global | --bin]
   mcp <names...>            stdio MCP server with one tool per verb
   dashboard [--port 4100]   the status page on 127.0.0.1, where you can try each microservice
-  push <url> --sources <a,b> [--state <file>]
-                            send this machine's public flows to the public flows page. Only game-studio and tools are public
+  push <url> --sources <a,b> [--state <file>] [--flows-only]
+                            send this machine's public flows to the public flows page. Only game-studio, job-applier, and tools are public.
+                            --flows-only leaves the status pages to another machine
   push --scan --sources <a,b>
                             shape what a push would send and report the publish guard's findings, sending nothing`;
 

@@ -65,6 +65,7 @@ a { color: inherit; }
 .hero h1 .soft { color: var(--soft); }
 .hero h1 .mark { color: var(--run); background: var(--run-wash); border-radius: 12px; padding: 0 0.12em; }
 .hero h1 .mark.wait { color: var(--warn); background: var(--warn-wash); }
+.hero .owner { color: var(--muted); font-size: 18px; margin: 0 0 12px; }
 .last-update { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .last-update.stale { color: var(--warn); background: var(--warn-wash); border-radius: 7px; padding: 2px 8px; }
 .last-update.offline { display: inline-block; margin: 10px 0 0; }
@@ -247,6 +248,7 @@ a { color: inherit; }
 <script>
 const app = document.getElementById('app');
 const HOSTED = document.body.hasAttribute('data-hosted');
+const OWNER = HOSTED ? 'Victor' : 'you';
 const NAV = [['/try', 'Try'], ['/wiring', 'Wiring'], ['/docs', 'Docs'], ['/elsewhere', 'Elsewhere'], ['/flows', 'Flows']];
 const LOGO = '<svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M7 8h3.5c2 0 2 8 4 8H17M7 16h3.5c2 0 2-8 4-8H17" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="7" cy="8" r="1.3" fill="currentColor"/><circle cx="7" cy="16" r="1.3" fill="currentColor"/><circle cx="17" cy="8" r="1.3" fill="currentColor"/><circle cx="17" cy="16" r="1.3" fill="currentColor"/></svg>';
 // The Mac pushes about once a minute, so a public visitor polling faster only costs the origin.
@@ -335,7 +337,7 @@ const ICON = {
 };
 const ic = (name) => fromHtml(`<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">${ICON[name]}</svg>`);
 const STATE_ICON = { running: 'spin', done: 'check', failed: 'fail', stalled: 'warn', blocked: 'warn', pending: 'dash' };
-const STATE_WORD = { running: 'running', done: 'done', failed: 'failed', stalled: 'stalled', blocked: 'waiting on you', pending: 'pending' };
+const STATE_WORD = { running: 'running', done: 'done', failed: 'failed', stalled: 'stalled', blocked: `waiting on ${OWNER}`, pending: 'pending' };
 const LANES = {
   model: { label: 'Model step', c: '--lane-model', fill: 'solid' },
   browser: { label: 'Browser action', c: '--lane-browser', fill: 'tint' },
@@ -343,7 +345,7 @@ const LANES = {
   shell: { label: 'Command', c: '--lane-shell', fill: 'tint' },
   file: { label: 'File', c: '--lane-file', fill: 'tint' },
   agent: { label: 'Agent', c: '--lane-agent', fill: 'tint' },
-  human: { label: 'Waiting on you', c: '--lane-human', fill: 'hatch-tint' },
+  human: { label: `Waiting on ${OWNER}`, c: '--lane-human', fill: 'hatch-tint' },
   wait: { label: 'Waiting on a child', c: '--lane-hatch', fill: 'hatch' },
 };
 const TICKS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 21600, 43200, 86400];
@@ -426,20 +428,25 @@ function showFailure(e) {
 // ---- Home.
 const updateTime = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 function renderHome(model) {
+  // The public page shows workflows, and a source without a loop has none. An error still shows, so a source that went away says so.
+  const sources = HOSTED ? model.sources.filter((s) => s.loop || s.error) : model.sources;
+  const loops = sources.map((s) => s.loop).filter(Boolean);
   const flows = model.sources.flatMap((s) => s.flows);
   const working = model.sources.reduce((n, s) => n + (s.loop?.working ?? s.flows.reduce((sum, f) => sum + f.working, 0)), 0);
-  const waiting = flows.filter((f) => f.state === 'blocked').length;
+  const waiting = HOSTED
+    ? loops.flatMap((l) => l.stages).flatMap((s) => s.agents).filter((a) => a.role === 'you' && a.state === 'blocked').length
+    : flows.filter((f) => f.state === 'blocked').length;
   const scrollOf = (source) => content.querySelector(`.source[data-source="${source}"] .graph-scroll`);
   const lefts = new Map(model.sources.map((s) => [s.source, scrollOf(s.source)?.scrollLeft]));
   content.replaceChildren(
-    h('section', { class: 'hero' }, h('h1', null,
-      `${plural(flows.length, 'run')}. `,
+    h('section', { class: 'hero' }, HOSTED ? h('p', { class: 'owner' }, 'The flows Victor is running right now.') : null, h('h1', null,
+      `${HOSTED ? plural(loops.length, 'workflow') : plural(flows.length, 'run')}. `,
       working ? h('span', { class: 'mark' }, `${plural(working, 'agent')} working.`) : null,
       working && waiting ? ' ' : null,
-      waiting ? h('span', { class: 'mark wait' }, `${waiting} waiting on you.`) : null,
+      waiting ? h('span', { class: 'mark wait' }, `${waiting} waiting on ${OWNER}.`) : null,
       working || waiting ? null : h('span', { class: 'soft' }, 'Nobody is working right now.')),
       offlineLine(model)),
-    ...model.sources.map(sourceSection));
+    ...sources.map(sourceSection));
   for (const { source, loop } of model.sources) {
     const scroll = scrollOf(source);
     if (!scroll) continue;
@@ -458,18 +465,18 @@ const openSources = new Set();
 let listModel = null;
 function sourceSection(source) {
   const urgency = { blocked: 0, running: 1 };
-  const ordered = [...source.flows].sort((a, b) => (urgency[a.state] ?? 2) - (urgency[b.state] ?? 2));
+  const ordered = (HOSTED ? [] : [...source.flows]).sort((a, b) => (urgency[a.state] ?? 2) - (urgency[b.state] ?? 2));
   const live = ordered.filter((f) => isLive(f.state));
   const open = openSources.has(source.source);
   const shown = open ? ordered : live;
   const settled = ordered.length - live.length;
   const toggle = () => { if (open) openSources.delete(source.source); else openSources.add(source.source); renderHome(listModel); };
   return h('section', { class: 'source', 'data-source': source.source },
-    h('header', null, sourceMascot(source.source, live.length ? 'running' : 'done', 34), h('h2', null, source.label), source.lastPush ? h('span', { class: `last-update${source.stale ? ' stale' : ''}` }, `Last update ${updateTime.format(new Date(source.lastPush))}`) : null, h('span', { class: 'where mono muted' }, source.where ?? '')),
+    h('header', null, sourceMascot(source.source, live.length || isLive(source.loop?.state) ? 'running' : 'done', 34), h('h2', null, source.label), source.lastPush ? h('span', { class: `last-update${source.stale ? ' stale' : ''}` }, `Last update ${updateTime.format(new Date(source.lastPush))}`) : null, h('span', { class: 'where mono muted' }, source.where ?? '')),
     source.error ? h('div', { class: 'source-error' }, source.error) : null,
     !source.error && !source.flows.length ? h('p', { class: 'empty' }, 'No runs recorded yet.') : null,
     source.loop ? renderGraph(source.loop, null, true).box : null,
-    source.loop && source.flows.length ? h('h3', { class: 'runs-title' }, source.runsTitle ?? 'Runs') : null,
+    source.loop && ordered.length ? h('h3', { class: 'runs-title' }, source.runsTitle ?? 'Runs') : null,
     h('div', { class: 'runs' }, shown.map(runCard)),
     settled ? h('button', { type: 'button', class: 'more', 'aria-expanded': String(open), onclick: toggle }, `${open ? 'Hide' : 'Show'} ${settled} not running`) : null);
 }
@@ -704,7 +711,7 @@ function traceKpis(trace, stats, agent) {
     ['Elapsed', clock(stats.elapsed)],
     ['Session', STATE_WORD[session] ?? session, tone],
     stats.fields ? ['Fields filled', stats.fields] : null,
-    ['Waiting on you', clock(stats.waiting), stats.blocked ? 'warn' : null],
+    [`Waiting on ${OWNER}`, clock(stats.waiting), stats.blocked ? 'warn' : null],
     trace.overview ? ['Agents', stepsOf(trace.root).length] : ['Tool calls', stats.tools],
     ['Errors', stats.errors, stats.errors ? 'bad' : null],
     cost ? ['Spent', usd(cost)] : null,
