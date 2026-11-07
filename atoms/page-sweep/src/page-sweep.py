@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from factory_kit import cli, paths
+from factory_kit import chrome, cli, paths
 from jsonschema import Draft202012Validator
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
@@ -21,10 +21,7 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 PLAN_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "sweep-plan.schema.json").read_text(encoding="utf-8"))
-ARGS = ["--enable-experimental-web-platform-features", "--enable-unsafe-webgpu", "--enable-features=Vulkan", "--ignore-gpu-blocklist", "--use-angle=metal"]
-LOAD_MS = 60_000
 DEFAULT_LOAD_MS = 6_000
-DEFAULT_VIEWPORT = {"width": 1440, "height": 900}
 SETTLE_MS = 150
 STILL_GAP_MS = 300
 PRE_MS = 900
@@ -271,7 +268,7 @@ def _click(c, run, out):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)[:300]))
     try:
-        page.goto(c["url"], wait_until="domcontentloaded", timeout=LOAD_MS)
+        page.goto(c["url"], wait_until="domcontentloaded", timeout=chrome.LOAD_MS)
         page.wait_for_timeout(c["loadMs"])
         y, xy = _aim(page, run, vp)
         if xy is None:
@@ -299,7 +296,7 @@ def _load(c, run, out):
     page.on("pageerror", lambda e: errors.append(str(e)[:300]))
     try:
         with Cast(page, out) as cast:
-            page.goto(c["url"], wait_until="commit", timeout=LOAD_MS)
+            page.goto(c["url"], wait_until="commit", timeout=chrome.LOAD_MS)
             page.wait_for_timeout(run.get("forMs", 8_000))
         return {"frames": cast.frames, "events": [], "errors": errors}
     finally:
@@ -321,24 +318,18 @@ def capture(plan: str, url: str | None) -> dict:
     ids = [r["id"] for r in spec["runs"]]
     if len(set(ids)) != len(ids):
         raise cli.AtomError("invalid_args", f"{plan} repeats a run id")
-    vp, load_ms = spec.get("viewport", DEFAULT_VIEWPORT), spec.get("loadMs", DEFAULT_LOAD_MS)
+    vp, load_ms = spec.get("viewport", chrome.VIEWPORT), spec.get("loadMs", DEFAULT_LOAD_MS)
     stamp = hashlib.sha256(f"{target}{time.time()}".encode()).hexdigest()[:12]
     out = paths.atom_dir("page-sweep", "files", f"{urlparse(target).netloc or 'file'}-{stamp}".replace(":", "_"))
     with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(headless=True, channel="chrome", args=ARGS)
-        except PlaywrightError as e:
-            raise cli.AtomError("missing_browser", f"Google Chrome did not start: {e.message.splitlines()[0]}") from None
+        browser = chrome.launch(p)
         try:
             context = browser.new_context(viewport=vp, service_workers="block")
             page = context.new_page()
             page.add_init_script(GAP_JS)
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)[:300]))
-            try:
-                page.goto(target, wait_until="domcontentloaded", timeout=LOAD_MS)
-            except PlaywrightError as e:
-                raise cli.AtomError("network_error", f"{target} did not load: {e.message.splitlines()[0]}") from None
+            chrome.goto(page, target)
             page.wait_for_timeout(load_ms)
             load_errors = list(errors)
             c = {"page": page, "browser": browser, "vp": vp, "url": target, "loadMs": load_ms}

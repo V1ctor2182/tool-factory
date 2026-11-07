@@ -14,4 +14,4 @@ pythonpath = ["src"]
 addopts = "-p no:cacheprovider"
 
 [dependency-groups]
-dev = ["pytest", "yt-dlp"]
+dev = ["numpy", "pillow", "playwright", "pytest", "yt-dlp"]

@@ -1,6 +1,7 @@
 import pytest
 import yt_dlp
 
+from factory_kit import ytdlp
 from factory_kit.ytdlp import atom_error
 
 
@@ -23,3 +24,7 @@ def test_maps_failures_to_error_codes(server, path, code):
 
 def test_reports_an_unreachable_host():
     assert failure("http://127.0.0.1:9/clip").code == "network_error"
+
+
+def test_finds_a_cache_key_without_the_network():
+    assert ytdlp.offline_key("https://www.youtube.com/watch?v=jNQXAC9IVRw") == "Youtube-jNQXAC9IVRw"

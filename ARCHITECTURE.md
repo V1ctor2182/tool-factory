@@ -134,11 +134,15 @@ The kit is plumbing every atom would otherwise copy.
 | `hash` | Stream a SHA-256 for cache keys |
 | `secrets` | Read a secret from the environment, else the keychain |
 | `web` | Fetch bytes or JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
+| `ytdlp` | Map yt-dlp failures to error codes, and find a URL's cache key without a network call |
+| `chrome` | Start headless Google Chrome, load a page, and map failures to error codes |
+| `image` | Load an image as an array, and line up two brightness profiles |
+| `color` | Convert RGB to Lab |
 | `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget when one is set, and logs spend. |
 
 The default `model` backend is headless Claude Code, `claude -p --output-format json --json-schema`. It runs on Victor's Claude Code login, so there is no API key. Checked 2026-10-25. A small call returned schema-valid JSON in `structured_output` with `total_cost_usd` set, in about seven seconds. The Anthropic API is the second backend when a key in the keychain is preferred.
 
-The kit never holds domain logic or anything only one atom uses. Python atoms import it through a `[tool.uv.sources]` path in their script header. Checked 2026-10-19 with uv 0.12.7.
+The kit never holds domain logic or anything only one atom uses. A kit module may import a public library, and the kit's own dependency list stays empty, so an atom that uses the module declares the library in its script header. Python atoms import it through a `[tool.uv.sources]` path in their script header. Checked 2026-10-19 with uv 0.12.7.
 
 ## Shared data shapes: contracts
 
@@ -150,7 +154,7 @@ A contract is a JSON Schema in `contracts/`. Several atoms may return the same c
 |---|---|---|
 | Microservice | CLIs of atoms in its `uses` | Atom source, the kit, other microservices |
 | Atom | Kit, contracts, public libraries | Other atoms, microservices, the factory |
-| Kit | Standard library, the model backend | Atoms, microservices |
+| Kit | Standard library, the model backend, public libraries its calling atom declares | Atoms, microservices |
 | Factory | Manifests, CLIs, contracts | Atom or microservice source |
 | Outside caller | CLI, linked skill, MCP, later HTTP | Anything inside a folder |
 
