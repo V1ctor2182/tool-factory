@@ -438,10 +438,7 @@ MEASURES = {
 
 def measure(sweep: str) -> dict:
     file = Path(sweep).expanduser()
-    try:
-        spec = json.loads(file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
-        raise cli.AtomError("invalid_source", f"{sweep} is not a sweep: {e}") from None
+    spec = cli.read_json(file, "invalid_source", f"{sweep} is not a sweep")
     cache = Cache("motion-measure")
     key = file_sha256(file)
     if cached := cache.get(key):

@@ -7,6 +7,7 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, NamedTuple
+from urllib.parse import urlparse
 
 from . import runs
 
@@ -16,6 +17,26 @@ class AtomError(Exception):
         super().__init__(message)
         self.code = code
         self.cost_usd = cost_usd
+
+
+def require_http_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise AtomError("invalid_source", f"Not an http or https URL: {url}")
+
+
+def existing_file(path: str) -> Path:
+    file = Path(path).expanduser().resolve()
+    if not file.is_file():
+        raise AtomError("invalid_source", f"No such file: {path}")
+    return file
+
+
+def read_json(path: str | Path, code: str, label: str):
+    try:
+        return json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise AtomError(code, f"{label}: {e}") from None
 
 
 class Verb(NamedTuple):

@@ -128,7 +128,7 @@ The kit is plumbing every atom would otherwise copy.
 
 | Module | Does |
 |---|---|
-| `cli` | Parse argv, print the result or the error object, set the exit code |
+| `cli` | Parse argv, check URL and file inputs, read a JSON input file, print the result or the error object, set the exit code |
 | `paths` | Find the atom's folder in the data home |
 | `cache` | Read and write results by key, atomically |
 | `hash` | Stream a SHA-256 for cache keys |
@@ -138,6 +138,7 @@ The kit is plumbing every atom would otherwise copy.
 | `chrome` | Start headless Google Chrome, load a page, and map failures to error codes |
 | `image` | Load an image as an array, and line up two brightness profiles |
 | `color` | Convert RGB to Lab |
+| `schema` | Check a value against a JSON Schema, and map failures to an error code |
 | `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget when one is set, and logs spend. |
 
 The default `model` backend is headless Claude Code, `claude -p --output-format json --json-schema`. It runs on Victor's Claude Code login, so there is no API key. Checked 2026-10-25. A small call returned schema-valid JSON in `structured_output` with `total_cost_usd` set, in about seven seconds. The Anthropic API is the second backend when a key in the keychain is preferred.

@@ -12,6 +12,12 @@ def offline_key(url: str) -> str | None:
     return None
 
 
+def video_key(info: dict, url: str) -> str:
+    if info.get("_type") == "playlist":
+        raise AtomError("invalid_source", f"A playlist, not one video: {url}")
+    return f"{info['extractor_key']}-{info['id']}"
+
+
 def _next_cause(e: BaseException) -> BaseException | None:
     if cause := getattr(e, "cause", None):
         return cause
