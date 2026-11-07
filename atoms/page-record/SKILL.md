@@ -34,7 +34,7 @@ bin/page-record capture steps.json --url http://localhost:3000/preview/input-otp
 
 `target` is the component root, and defaults to `body`. Screenshots, the DOM, and styles cover it. Pick a selector that names the component's own markup, not a wrapper the site adds.
 
-Actions are `hover`, `click`, `focus`, `scroll` (each needs `selector`), `type` and `paste` (need `text`), `press` (needs `key`, a Playwright key name such as `Backspace` or `ControlOrMeta+a`), and `wait` (needs `ms`). `type`, `press`, and `paste` act on the focused element when `selector` is absent. Each state's actions run after the previous state's, like one user session.
+Actions are `hover`, `click`, `focus`, `select` (triple-clicks to select text), `scroll` (each needs `selector`), `type` and `paste` (need `text`), `press` (needs `key`, a Playwright key name such as `Backspace` or `ControlOrMeta+a`), and `wait` (needs `ms`). `type`, `press`, and `paste` act on the focused element when `selector` is absent. Each state's actions run after the previous state's, like one user session. `drag` needs `selector` and `by` (`{x, y}` in CSS pixels) and keeps the pointer down, so the state's frames show the held motion. A later `drop` releases it, and every `drag` needs one.
 
 `paste` dispatches a paste event that carries `text`, and inserts the text when the page does not cancel the event. It never touches the system clipboard.
 
@@ -45,6 +45,20 @@ The page runs on Chromium's virtual clock from the first byte. Timers, animation
 Chromium's own animation timeline does not follow the virtual clock. It moves only when a main frame happens to be drawn, and can stall for hundreds of milliseconds after an animation starts. So the atom drives every animation itself. It pauses each running animation within 4 ms of page time of its start, sets its `currentTime` from page time to the millisecond, and calls `finish()` at its end, so `finish` and `animationend` fire as usual. The page sees a driven animation as paused. A page that pauses or resumes one itself takes it back. An animation already paused by the page, or by `animation-play-state`, stays where the page put it. Virtual time also stands still while a request is in flight, so network speed never changes a frame. The page gets 10 s of page time to load.
 
 After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`. Frame i is at exactly i × `everyMs` after the actions, so frame 0 is the instant the actions finish. Then the atom advances 100 ms at a time until no finite animation runs and no `setTimeout` is pending, for at most 5 s, and records the settled state. A page that keeps a timer pending always settles for the full 5 s.
+
+## The sweep
+
+A state can ask for a pointer sweep, for a component that answers the pointer's position and not one element. A palette that pushes its swatches away from the pointer is one. A `hover` action only ever goes to an element's center, and a settled screenshot never shows the rest of the surface.
+
+```json
+{ "name": "idle", "actions": [], "sweep": { "cols": 16, "rows": 16, "dwellMs": 800 } }
+```
+
+After the state is recorded, the pointer parks at the viewport's corner, then moves unpressed to the middle of each grid cell over the target. It waits `dwellMs` of page time at each point, plus whatever `settle` still needs. `dwellMs` defaults to 800 and must outlast the slowest transition. The state's own screenshot, styles, and animations are taken before the sweep, so the sweep changes none of them. The pointer ends parked, so a later state that needs a hover asks for it again. A sweep while a drag holds the pointer is refused.
+
+With the pointer still parked, it then takes eight later `drift` images, 1.5 s of page time apart beyond the dwell, which differ from `rest` only where the page moves on its own. Each point keeps an image at device scale 1, the CSS cursor under the pointer, and `changed`, the elements whose computed `transform`, `opacity`, `scale`, or `translate` differ from rest. A 16 by 16 sweep took 15 s on a local page and 63 s on Kobra, whose pending timer makes every point settle for the full 5 s, and came to 10 MB.
+
+A sweep sees the target plus 8 px, settled. It does not see how fast the page gets there, a press, a drag, or a tooltip outside the target. An element that keeps animating at rest makes every point read as an answer.
 
 ## The recording
 
@@ -57,7 +71,8 @@ After a state's actions, `frames` takes a screenshot every `everyMs` for `forMs`
 | `dom` | An HTML file with the target's settled `outerHTML`, script elements removed |
 | `styles` | A JSON file mapping each element path to its computed box model, colors, borders, radii, shadow, font, opacity, transform, transition, and flex or grid properties |
 | `motion` | A JSON file `{everyMs, tracks}`. `tracks` maps each element path whose computed `transform` or `opacity` changed across the frames to the value at every frame, for the properties that changed. A frame where the element is not in the DOM holds null. Empty for a state without frames |
-| `animations` | Every distinct running animation seen on the target or inside it during the state, with keyframes, duration, delay, easing, iterations, direction, and fill |
+| `sweep` | Only when the steps ask for one. A JSON file `{cols, rows, dwellMs, rest, points}`, with image paths relative to it. See The sweep above |
+| `animations` | Every distinct running animation seen on the target, inside it, or on an overlay during the state, with keyframes, duration, delay, easing, iterations, direction, and fill |
 
 An element path is a selector relative to the target, such as `:scope > :nth-child(2) > :nth-child(1)`. The target itself is `:scope`. A CSS animation's timing function sits on each keyframe's `easing`, and the animation's own `easing` reads `linear`.
 
@@ -95,3 +110,7 @@ On failure the CLI exits 1 and prints `{"error": {"code", "message"}}`.
 | `network_error` | The page could not be reached, did not load within 10 s of page time, or kept a request open for 20 s | Retry later, or record a page without a long-lived request |
 | `unavailable` | The site answered with an HTTP error, or headless Chromium is missing | Report the status, or install the browser as the message says |
 | `internal` | A bug in the atom. The traceback is on stderr | Report the message and the traceback |
+
+## Overlays
+
+A popup usually renders in a portal outside the target, so each state also lists `overlays`: every element that was not visible at load and is visible now, outside the target or hanging off it. Each has a screenshot, its DOM and styles, `offset` from the target's corner, and `at` in the viewport. A wrapper or backdrop that fills the viewport is looked through. Its CSS and Web Animations join the state's `animations`, with a target starting `:overlay(i)`. Frames still cover only the target, so a popup's entrance is known from its animations, and main-thread motion on a popup is not recorded.

@@ -1,0 +1,21 @@
+{
+  "source": "file:///fixtures/effects-half.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/effects-half",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
+      "animations": [],
+      "overlays": [],
+      "effects": {
+        "clipboard": 1
+      }
+    }
+  ],
+  "cacheHit": false
+}

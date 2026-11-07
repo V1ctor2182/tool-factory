@@ -1,0 +1,10 @@
+<!doctype html>
+<div id="stage">
+	<div class="demo" style="display: none"><button id="twin">Hidden</button></div>
+	<div class="demo" style="width: 200px; height: 100px">
+		<img src="pixel.png" srcset="pixel.png 2x" alt="" />
+		<button>Shown</button>
+	</div>
+</div>
+<div id="gone" style="display: none"></div>
+<button id="hide" onclick="document.querySelector('#stage').style.display = 'none'">Hide</button>

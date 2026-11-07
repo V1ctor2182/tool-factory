@@ -6,6 +6,7 @@
 # ///
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from factory_kit import cli, model
@@ -15,8 +16,8 @@ from factory_kit.hash import file_sha256
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = model.load(ROOT)
 FRAMES_PER_STATE = 3
-LIMITS = {"dom": 12_000, "styles": 12_000, "motion": 6_000, "animations": 8_000, "steps": 6_000, "draft": 60_000, "diff": 4_000, "problem": 6_000}
-DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion"]
+LIMITS = {"dom": 12_000, "styles": 12_000, "motion": 6_000, "animations": 8_000, "steps": 6_000, "draft": 60_000, "diff": 4_000, "sweep": 24_000, "problem": 6_000}
+DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "effects", "still"]
 
 
 def _schema(packages: list[str] | None) -> dict:
@@ -54,15 +55,41 @@ def _json(path: str, what: str) -> dict:
         raise cli.AtomError("invalid_source", f"{what} is not JSON: {path} ({e})") from None
 
 
+def _dom(path: str, what: str) -> str:
+    # A class attribute is the original's own source text. Computed styles say how it looks without it.
+    return re.sub(r'\sclass="[^"]*"', "", _read(path, what))
+
+
 def _image(path: str | None) -> list[Path]:
     return [Path(path)] if path and Path(path).is_file() else []
 
 
-def _spaced(frames: list[str]) -> list[str]:
-    if len(frames) <= FRAMES_PER_STATE:
-        return frames
-    step = (len(frames) - 1) / (FRAMES_PER_STATE - 1)
-    return [frames[round(i * step)] for i in range(FRAMES_PER_STATE)]
+def _spaced(items: list) -> list:
+    if len(items) <= FRAMES_PER_STATE:
+        return items
+    step = (len(items) - 1) / (FRAMES_PER_STATE - 1)
+    return [items[round(i * step)] for i in range(FRAMES_PER_STATE)]
+
+
+def _sweep(path: str) -> list[str | Path]:
+    file = Path(path)
+    sweep = _json(path, "sweep")
+    rest = file_sha256(file.parent / sweep["rest"])
+    # Neighboring points on one element answer the same, and the rule shows only if every distinct answer fits the clip.
+    answers: dict[str, dict] = {}
+    for p in sweep["points"]:
+        if file_sha256(file.parent / p["image"]) != rest:
+            key = json.dumps([p["cursor"], p["changed"]], sort_keys=True)
+            answers.setdefault(key, {"at": [], "cursor": p["cursor"], "changed": p["changed"], "image": p["image"]})["at"].append([p["x"], p["y"]])
+    shown = [{k: a[k] for k in ("at", "cursor", "changed")} for a in answers.values()]
+    parts: list[str | Path] = [
+        f"Pointer sweep. The pointer moved unpressed over a {sweep['cols']} by {sweep['rows']} grid on the target. Each entry is one distinct answer. at lists its [x, y] points in CSS pixels from the target's corner, and changed is what differs from the pointer being away. Any point not listed shows no answer:\n"
+        + _clip(json.dumps(shown), LIMITS["sweep"])
+    ]
+    for answer in _spaced(list(answers.values())):
+        x, y = answer["at"][0]
+        parts += [f"With the pointer at {x}, {y}:", file.parent / answer["image"]]
+    return parts
 
 
 def _recording(path: str) -> list[str | Path]:
@@ -82,11 +109,22 @@ def _recording(path: str) -> list[str | Path]:
                 index = state["frames"].index(frame)
                 parts += [f"Frame {index}, {index * every} ms after the actions:", Path(frame)]
         parts += [
-            "Rendered DOM, settled, scripts removed:\n" + _clip(_read(state["dom"], "dom"), LIMITS["dom"]),
+            "Rendered DOM, settled, scripts and class attributes removed:\n" + _clip(_dom(state["dom"], "dom"), LIMITS["dom"]),
             "Computed styles by element path, settled:\n" + _clip(_read(state["styles"], "styles"), LIMITS["styles"]),
             "Transform and opacity tracks that moved across the frames:\n" + _clip(_read(state["motion"], "motion"), LIMITS["motion"]),
             "Animations seen while the state ran:\n" + _clip(json.dumps(state["animations"]), LIMITS["animations"]),
         ]
+        if state.get("effects"):
+            parts.append("Calls the page made in this state, which no screenshot shows. playback starts sound or video, and clipboard writes to the clipboard. Your demo must make the same kinds in this state:\n" + json.dumps(state["effects"]))
+        if "sweep" in state:
+            parts += _sweep(state["sweep"])
+        for i, overlay in enumerate(state["overlays"]):
+            parts += [
+                f"Overlay {i}, outside the target, such as a popup in a portal. Its corner is at {overlay['offset']} from the target's corner and {overlay['at']} in the viewport:",
+                Path(overlay["screenshot"]),
+                "Its rendered DOM:\n" + _clip(_dom(overlay["dom"], "overlay dom"), LIMITS["dom"]),
+                "Its computed styles by element path:\n" + _clip(_read(overlay["styles"], "overlay styles"), LIMITS["styles"]),
+            ]
     return parts
 
 
@@ -106,6 +144,13 @@ def _diff(path: str) -> list[str | Path]:
             parts += ["Settled screenshots, original then draft then heatmap:", *image]
         if sheet := _image(state.get("sheet")):
             parts += ["Contact sheet of shared frames, original, draft, and heatmap stacked:", *sheet]
+        for overlay in state.get("overlays") or []:
+            if image := _image(overlay.get("image")):
+                parts += [f"Overlay {overlay['index']}, original then draft then heatmap:", *image]
+        if sweep := state.get("sweep"):
+            parts.append("How the two answer the pointer. grid holds the agreement at each point, and worst is the lowest point, with what moved in each page:\n" + _clip(json.dumps(sweep), LIMITS["sweep"]))
+            if image := _image(sweep["worst"] and sweep["worst"]["image"]):
+                parts += ["At the worst point, original then draft then heatmap:", *image]
     return parts
 
 

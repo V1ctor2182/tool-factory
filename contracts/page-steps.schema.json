@@ -35,6 +35,17 @@
             },
             "required": ["everyMs", "forMs"],
             "additionalProperties": false
+          },
+          "sweep": {
+            "type": "object",
+            "description": "After the state settles, move the pointer, unpressed, to the middle of each cell of a grid over the target, and record how the page answers at each point. The pointer ends parked at the viewport's corner, so a later state that needs a hover asks for it again.",
+            "properties": {
+              "cols": { "type": "integer", "minimum": 1, "maximum": 32 },
+              "rows": { "type": "integer", "minimum": 1, "maximum": 32 },
+              "dwellMs": { "type": "integer", "minimum": 0, "default": 800, "description": "Page time to wait at each point before it counts as settled, longer than the page's slowest pointer transition." }
+            },
+            "required": ["cols", "rows"],
+            "additionalProperties": false
           }
         },
         "required": ["name", "actions"],
@@ -48,19 +59,27 @@
     "action": {
       "type": "object",
       "properties": {
-        "do": { "enum": ["hover", "click", "focus", "type", "press", "paste", "wait", "scroll"] },
+        "do": { "enum": ["hover", "click", "focus", "select", "type", "press", "paste", "wait", "scroll", "drag", "drop"] },
         "selector": { "type": "string", "minLength": 1, "description": "CSS selector. type, press, and paste act on the focused element when it is absent." },
         "text": { "type": "string" },
         "key": { "type": "string", "minLength": 1, "description": "A Playwright key name, such as Enter or Backspace." },
-        "ms": { "type": "integer", "minimum": 0, "description": "Page time to advance. The page clock and animations move, real time does not matter." }
+        "ms": { "type": "integer", "minimum": 0, "description": "Page time to advance. The page clock and animations move, real time does not matter." },
+        "by": {
+          "type": "object",
+          "description": "How far a drag moves the pointer from the middle of its selector, in CSS pixels.",
+          "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } },
+          "required": ["x", "y"],
+          "additionalProperties": false
+        }
       },
       "required": ["do"],
       "additionalProperties": false,
       "allOf": [
-        { "if": { "properties": { "do": { "enum": ["hover", "click", "focus", "scroll"] } } }, "then": { "required": ["selector"] } },
+        { "if": { "properties": { "do": { "enum": ["hover", "click", "focus", "select", "scroll", "drag"] } } }, "then": { "required": ["selector"] } },
         { "if": { "properties": { "do": { "enum": ["type", "paste"] } } }, "then": { "required": ["text"] } },
         { "if": { "properties": { "do": { "const": "press" } } }, "then": { "required": ["key"] } },
-        { "if": { "properties": { "do": { "const": "wait" } } }, "then": { "required": ["ms"] } }
+        { "if": { "properties": { "do": { "const": "wait" } } }, "then": { "required": ["ms"] } },
+        { "if": { "properties": { "do": { "const": "drag" } } }, "then": { "required": ["by"] } }
       ]
     }
   }

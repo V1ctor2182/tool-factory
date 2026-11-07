@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/page-links.schema.json",
+  "title": "Page links",
+  "description": "The same-origin links of one rendered page, each URL once, in document order.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The URL the caller passed." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "The absolute link URL without its fragment." },
+          "text": { "type": "string", "description": "The link's rendered text at its first occurrence, whitespace collapsed. Empty for an icon link." }
+        },
+        "required": ["url", "text"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false. The page is loaded fresh on every call." }
+  },
+  "required": ["source", "items", "cacheHit"],
+  "additionalProperties": false
+}

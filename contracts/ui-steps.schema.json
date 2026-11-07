@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-steps.schema.json",
+  "title": "UI steps",
+  "description": "A page-record steps file written by a model from a recording of a component's idle state, ready to record the original and judge a rebuild with.",
+  "type": "object",
+  "properties": {
+    "model": { "type": "string", "description": "The model that wrote the states." },
+    "steps": {
+      "$ref": "https://victor-tool-factory.local/contracts/page-steps.schema.json",
+      "description": "The steps file. url, target, viewport, and colorScheme come from the recording. states starts with idle, which has no actions and a pointer sweep sized to its screenshot."
+    },
+    "notes": { "type": "string", "description": "What each state shows and why its timing is what it is." },
+    "costUsd": { "type": "number", "minimum": 0, "description": "Model spend for this call. 0 on a cache hit." },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["model", "steps", "notes", "costUsd", "cacheHit"],
+  "additionalProperties": false
+}
