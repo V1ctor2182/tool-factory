@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { after, before, test } from 'node:test';
 import { getFlow, getTrace, listFlows } from '../lib/flows/index.mjs';
+import { declaredLoop } from '../lib/flows/loop.mjs';
+import { REPO } from './repo.mjs';
 
 const SECRET = 'SECRET-form-value-555-0100';
 const base = mkdtempSync(join(tmpdir(), 'factory-flows-'));
@@ -112,6 +115,12 @@ const liveTrace = (jobId, age = jobId === 830 ? 3600 : 100) => ({
   ] },
 });
 
+const PIPELINE_RUNS = [
+  { run_id: '320009a8-3f4e-4a1b-9c21-0d6e8f7a1b2c', source: 'evaluate', status: 'succeeded', started_at: '2026-11-07T07:58:38.538601Z', finished_at: '2026-11-07T08:28:04.386854Z', jobs_scored: 578, verdict_counts: { apply: 88, consider: 98, skip: 3 }, total_llm_cost_usd: 1.5 },
+  { run_id: 'scan-new', source: 'all', status: 'succeeded', started_at: '2026-11-07T07:37:00.000000Z', finished_at: '2026-11-07T07:50:00.000000Z', jobs_discovered: 2617, jobs_inserted: 1196, verdict_counts: {}, total_llm_cost_usd: 0 },
+  { run_id: 'scan-old', source: 'all', status: 'failed', started_at: '2026-11-05T07:37:00.000000Z', finished_at: '2026-11-05T07:38:00.000000Z', jobs_discovered: 0, jobs_inserted: 0, verdict_counts: {}, total_llm_cost_usd: 0 },
+];
+
 function serveJobfeed() {
   const runs = [
     { job_id: 829, company: 'Schonfeld', title: 'Software Engineer', state: 'finished', started_at: '2026-10-02T09:00:00+00:00', updated_at: '2026-10-02T09:05:00+00:00', is_live: false, session_count: 2 },
@@ -123,6 +132,7 @@ function serveJobfeed() {
   jobfeedServer = createServer((req, res) => {
     const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
     if (req.url === '/api/applier-runs') return send(200, { runs });
+    if (req.url === '/api/runs?limit=100') return send(200, { runs: PIPELINE_RUNS });
     const id = Number(req.url.match(/^\/api\/applier-runs\/(\d+)\/trace$/)?.[1]);
     if (id === 829) return send(200, JOB_TRACE);
     if (id === 830 || id === 831 || id === 832) return send(200, liveTrace(id));
@@ -414,6 +424,58 @@ test('a job reads as launch, apply, you, and submit stages', async () => {
   assert.deepEqual(flow.backEdges, [{ from: 'apply', to: 'apply', count: 1 }]);
   assert.equal(await getFlow(root, 'job-applier:999'), null);
   assert.equal(await getFlow(root, 'job-applier:../../x'), null);
+});
+
+test('scans and evaluations open the Applier loop, and only the newest run sets a phase\'s state', async () => {
+  const { loop } = await source('job-applier');
+  const stage = (id) => loop.stages.find((s) => s.id === id);
+  assert.deepEqual(stage('scan').agents.map((a) => [a.name, a.state, a.meta, a.traced]), [['Nov 7 · 2617 found', 'done', '1196 new', false], ['Nov 5 · 0 found', 'failed', '0 new', false]]);
+  assert.equal(stage('scan').state, 'done');
+  assert.deepEqual(stage('evaluate').agents.map((a) => [a.name, a.role, a.meta, a.costUsd]), [['Nov 7 · 578 scored', 'model', '88 apply, 98 consider, 3 skip', 1.5]]);
+  assert.equal(loop.startedAt, '2026-10-02T08:00:00.000Z');
+  const chip = loop.stages.find((s) => s.id === 'scan').agents[0];
+  const opened = await getTrace(root, 'job-applier:loop', chip.id);
+  assert.deepEqual([opened.title, opened.subtitle, opened.root.children], ['Applier loop', `Scan · ${chip.name}`, []]);
+});
+
+test('every loop the sources build follows the loop contract and declares only what it measures', async () => {
+  const spec = JSON.parse(readFileSync(join(REPO, 'factory', 'lib', 'loops.json'), 'utf8'));
+  const dir = mkdtempSync(join(tmpdir(), 'loop-contract-'));
+  const contract = (name, value) => {
+    const file = join(dir, `${name}.json`);
+    writeFileSync(file, JSON.stringify(value));
+    const done = spawnSync(join(REPO, 'contracts', 'check'), [name, file], { encoding: 'utf8' });
+    assert.equal(done.status, 0, done.stderr);
+  };
+  contract('loop-spec', spec);
+  for (const [name, loop] of Object.entries(spec)) {
+    const ids = loop.stages.map((s) => s.id);
+    assert.equal(new Set(ids).size, ids.length, name);
+    for (const edge of loop.edges) assert.ok(ids.includes(edge.from) && ids.includes(edge.to), `${name} ${edge.from} to ${edge.to}`);
+  }
+  for (const name of ['game-studio', 'job-applier', 'ui-clone', 'site-clone']) {
+    const { key, title, subtitle, startedAt, state, stages, backEdges } = await getFlow(root, `${name}:loop`);
+    assert.deepEqual(stages.map((s) => s.id), spec[name].stages.map((s) => s.id));
+    contract('loop', { key: 'loop', title, subtitle, startedAt, state, stages: stages.map(({ id, title: t, state: s, loops, agents }) => ({ id, title: t, state: s, loops, agents })), backEdges });
+  }
+  rmSync(dir, { recursive: true, force: true });
+  assert.throws(() => declaredLoop('site-clone', { subtitle: '', startedAt: '', stages: { ship: { agents: [] } } }), /does not declare stage ship/);
+  assert.throws(() => declaredLoop('site-clone', { subtitle: '', startedAt: '', stages: {}, edges: [{ from: 'build', to: 'study', count: 1 }] }), /does not declare edge build to study/);
+});
+
+test('every job folds into one loop, and a chip opens that job\'s trace', async () => {
+  const { loop } = await source('job-applier');
+  assert.equal(loop.id, 'job-applier:loop');
+  assert.equal(loop.title, 'Applier loop');
+  assert.equal(loop.subtitle, '5 jobs, 1 done');
+  assert.deepEqual(loop.stages.map((s) => s.title), ['Scan', 'Evaluate', 'Apply', 'You', 'Submit']);
+  const jobChips = loop.stages.filter((s) => !['scan', 'evaluate'].includes(s.id)).flatMap((s) => s.agents);
+  assert.ok(jobChips.every((a) => /^Job #\d+$/.test(a.name) && a.id.startsWith(a.name.slice(5))));
+  assert.deepEqual(loop.backEdges, [{ from: 'apply', to: 'apply', count: 2 }]);
+  assert.equal((await getFlow(root, 'job-applier:loop')).agents, loop.agents);
+  assert.deepEqual(await getTrace(root, 'job-applier:loop', '829.launch'), await getTrace(root, 'job-applier:829', 'launch'));
+  assert.equal(await getTrace(root, 'job-applier:loop', '829.nope'), null);
+  assert.equal(await getTrace(root, 'job-applier:loop', 'launch'), null);
 });
 
 test('an ended job ends at its last call, not at Jobfeed\'s last sweep', async () => {

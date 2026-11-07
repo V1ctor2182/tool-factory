@@ -17,7 +17,7 @@
           "itemUrl": { "type": "string" },
           "outcome": {
             "enum": ["kept", "locked", "skipped", "needs-terms", "failed"],
-            "description": "kept: code written into victor-ui. locked: the site does not expose the code, as empty files or HTTP 401. skipped: a registry type other than registry:ui or registry:block. needs-terms: no written terms allow keeping code from this site. failed: any other error."
+            "description": "kept: code written into victor-ui. locked: the site does not expose the code, as empty files or HTTP 401. skipped: a registry type other than registry:ui, registry:block, or registry:component, or not tried after the site answered 429 or a bot check. needs-terms: no written terms allow keeping code from this site. failed: any other error, or the 429 or bot check that stopped the run."
           },
           "detail": { "type": ["string", "null"], "description": "What add.mjs printed, why it is locked or skipped, or the error code and message." }
         },

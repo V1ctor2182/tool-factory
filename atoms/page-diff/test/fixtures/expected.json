@@ -27,7 +27,11 @@
         "onlyB": [],
         "changed": []
       },
-      "motion": []
+      "motion": [],
+      "overlays": [],
+      "sweep": null,
+      "effects": null,
+      "still": false
     },
     {
       "name": "hover",
@@ -242,7 +246,11 @@
             "0"
           ]
         }
-      ]
+      ],
+      "overlays": [],
+      "sweep": null,
+      "effects": null,
+      "still": false
     },
     {
       "name": "open",
@@ -269,7 +277,11 @@
         "onlyB": [],
         "changed": []
       },
-      "motion": []
+      "motion": [],
+      "overlays": [],
+      "sweep": null,
+      "effects": null,
+      "still": false
     },
     {
       "name": "closed",
@@ -290,7 +302,11 @@
         "onlyB": [],
         "changed": []
       },
-      "motion": []
+      "motion": [],
+      "overlays": [],
+      "sweep": null,
+      "effects": null,
+      "still": false
     }
   ]
 }

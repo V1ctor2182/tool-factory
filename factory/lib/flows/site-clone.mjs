@@ -3,10 +3,10 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { home } from '../home.mjs';
 import { buildNodes, iso, parseTranscript } from './transcript.mjs';
+import { declaredLoop, LOOP_KEY } from './loop.mjs';
 import { callerRecords, chipTrace, dirNames, fieldsOf, findChip, inWindow, lastEndIn, logTrace, mtime, newestLive, roundNumbers, stage } from './workspace.mjs';
 
 const CALLER = 'site-clone';
-const LOOP_KEY = 'loop';
 const COMMAND_NEEDLE = Buffer.from('site-clone/run');
 const COMPARE_LIMIT_MS = 30 * 60_000;
 const SESSION_NEAR_MS = 30 * 60_000;
@@ -117,23 +117,19 @@ function card(workspace, calls, liveName) {
   };
 }
 
-const newestFirst = (a, b) => b.startedAt.localeCompare(a.startedAt);
-
 function loopFlow({ calls, workspaces, liveName }) {
   if (!workspaces.length) return null;
   const parts = workspaces.map((workspace) => chips(workspace, calls, { study: `${workspace.name} study`, build: (n) => `${workspace.name} r${n}`, compare: (n) => `${workspace.name} r${n}` }, workspace.name === liveName));
-  const pick = (field) => parts.flatMap((part) => part[field]).toSorted(newestFirst);
+  const pick = (field) => parts.flatMap((part) => part[field]);
   const count = workspaces.reduce((sum, workspace) => sum + differs(workspace), 0);
   const rounds = workspaces.reduce((sum, workspace) => sum + workspace.rounds.length, 0);
-  return {
-    key: LOOP_KEY,
-    title: 'Site Clone',
+  return declaredLoop('site-clone', {
     subtitle: `${plural(workspaces.length, 'site')}, ${plural(rounds, 'round')}`,
     startedAt: iso(Math.min(...workspaces.map((workspace) => workspace.start))),
     state: liveName ? 'running' : workspaces.every(({ rounds: done }) => done.at(-1)?.major === 0) ? 'done' : 'stalled',
-    stages: [stage('study', 'Study', pick('study')), stage('build', 'Build', pick('build')), stage('compare', 'Compare', pick('compare'), count)],
-    backEdges: edges(count),
-  };
+    stages: { study: { agents: pick('study') }, build: { agents: pick('build') }, compare: { agents: pick('compare'), loops: count } },
+    edges: edges(count),
+  });
 }
 
 const projectsRoot = () => join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects');

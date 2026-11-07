@@ -1,11 +1,11 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { declaredLoop, LOOP_KEY } from './loop.mjs';
 import { buildNodes, iso, parseTranscript, rollup, seconds } from './transcript.mjs';
 import { findChip } from './workspace.mjs';
 
-const LOOP_KEY = 'loop';
-const WORK_STAGES = [['concept2d', 'Concept'], ['model3d', 'Model'], ['animation', 'Animation'], ['implementation', 'Code'], ['interaction', 'Interaction']];
+const WORK_STAGES = ['concept2d', 'model3d', 'animation', 'implementation', 'interaction'];
 const WORK_FINISHED = new Set(['awaiting_verification', 'awaiting_review', 'publication_unknown']);
 const CONTINUATION = 'worker_continuation';
 const ENDED_AS_FAILED = new Set(['failed', 'invalid', 'cancelled', 'released']);
@@ -161,7 +161,6 @@ function buildFlows({ tasks, attempts, latestPlan }, now = Date.now()) {
   });
 }
 
-const newestFirst = (a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? '');
 const taskLabel = (key) => middleOf(key) || featureOf(key);
 
 function reviewAgent(publication, task, decision) {
@@ -184,14 +183,15 @@ function reviewAgent(publication, task, decision) {
 // The whole production system as one flow. Every attempt ever made sits in its phase, and a back
 // edge counts how often the work really went backward: a replan, a verifier's rejection, or rework after review.
 function loopFlow({ tasks, attempts, plans, publications, decisions }) {
-  const columns = new Map(WORK_STAGES.map(([id, title]) => [id, { id, title, agents: [], states: [], loops: 0, rejected: 0, rework: 0 }]));
+  const emptyColumn = (id) => ({ id, agents: [], states: [], loops: 0, rejected: 0, rework: 0 });
+  const columns = new Map(WORK_STAGES.map((id) => [id, emptyColumn(id)]));
   const attemptsByTask = Map.groupBy(attempts, (a) => a.taskId);
   const verify = [];
   const verifyStates = [];
   let waiting = 0;
   for (const task of tasks) {
     const stage = stageOf(task.key);
-    if (!columns.has(stage)) columns.set(stage, { id: stage, title: prettify(stage), agents: [], states: [], loops: 0, rejected: 0, rework: 0 });
+    if (!columns.has(stage)) columns.set(stage, emptyColumn(stage));
     const column = columns.get(stage);
     const list = attemptsByTask.get(task.id) ?? [];
     const named = taskAgents(task, list).map((agent, i) => ({
@@ -224,24 +224,22 @@ function loopFlow({ tasks, attempts, plans, publications, decisions }) {
   const accepted = current.filter((task) => task.state === 'accepted').length;
   const features = new Set(current.map((task) => featureOf(task.key))).size;
   const started = attempts.length ? attempts[0].started : Date.now() / 1000;
-  return {
-    key: LOOP_KEY,
-    title: 'Studio loop',
+  return declaredLoop('game-studio', {
     subtitle: `${features} features, ${accepted} of ${current.length} tasks accepted`,
     startedAt: iso(started * 1000),
-    stages: [
-      { id: 'plan', title: 'Plan', state: planners.at(-1)?.state ?? 'pending', loops: replans, agents: planners.toSorted(newestFirst) },
-      ...work.map(({ id, title, states, loops, agents }) => ({ id, title, state: states.length ? rollup(states) : 'done', loops, agents: agents.toSorted(newestFirst) })),
-      { id: 'verify', title: 'Verify', state: verifyStates.length ? rollup(verifyStates) : 'done', loops: rejected, agents: verify.toSorted(newestFirst) },
-      { id: 'you', title: 'You review', state: waiting ? 'blocked' : 'done', loops: rework, agents: reviews.toSorted(newestFirst) },
+    stages: {
+      plan: { state: planners.at(-1)?.state ?? 'pending', loops: replans, agents: planners },
+      ...Object.fromEntries(work.map(({ id, states, loops, agents }) => [id, { state: states.length ? rollup(states) : 'done', loops, agents }])),
+      verify: { state: verifyStates.length ? rollup(verifyStates) : 'done', loops: rejected, agents: verify },
+      you: { state: waiting ? 'blocked' : 'done', loops: rework, agents: reviews },
+    },
+    edges: [
+      ...work.map((s) => ({ from: s.id, to: s.id, count: s.loops })),
+      ...work.map((s) => ({ from: 'verify', to: s.id, count: s.rejected })),
+      ...work.map((s) => ({ from: 'you', to: s.id, count: s.rework })),
+      { from: 'you', to: 'plan', count: replans },
     ],
-    backEdges: [
-      ...work.filter((s) => s.loops).map((s) => ({ from: s.id, to: s.id, count: s.loops })),
-      ...work.filter((s) => s.rejected).map((s) => ({ from: 'verify', to: s.id, count: s.rejected, label: 'rejected' })),
-      ...work.filter((s) => s.rework).map((s) => ({ from: 'you', to: s.id, count: s.rework, label: 'rework' })),
-      ...(replans ? [{ from: 'you', to: 'plan', count: replans, label: 'replan' }] : []),
-    ],
-  };
+  });
 }
 
 const eventsPath = (where, id) => [`${id}.control`, id].map((dir) => join(production(where), 'attempts', dir, 'events.jsonl')).find(existsSync) ?? null;

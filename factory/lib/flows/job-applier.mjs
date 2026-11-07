@@ -1,4 +1,6 @@
+import { declaredLoop, LOOP_KEY, newestFirst } from './loop.mjs';
 import { iso, parseTime, TOOL_ERROR_NOTE } from './transcript.mjs';
+import { chipTrace, findChip } from './workspace.mjs';
 
 const FLOW_LIMIT = 100;
 const RUNS_TIMEOUT_MS = 5000;
@@ -9,6 +11,7 @@ const LIST_TTL_MS = 5000;
 const STEP_FIELDS = ['kind', 'id', 'name', 'meta', 'category', 'start', 'end', 'outcome', 'fieldsFilled'];
 const GROUP_FIELDS = ['kind', 'id', 'name', 'meta', 'role', 'start', 'end', 'outcome'];
 const LAUNCH_STATE = { finished: 'done', failed: 'failed', launch_failed: 'failed', duplicate: 'failed', stopped: 'stalled', unknown: 'stalled' };
+const RUN_STATE = { succeeded: 'done', running: 'running', failed: 'failed' };
 
 async function get(api, path, timeout) {
   let res;
@@ -74,7 +77,7 @@ async function readTrace(api, key, now = Date.now()) {
   const live = state === 'blocked' || state === 'running';
   if (live) reopen(raw.root, raw.root.end);
   else settle(raw.root, last);
-  return { title: raw.title, subtitle: raw.subtitle.replace(/ · [^·]*$/, ''), startedAt: raw.started_at, live, ...(state && { state }), root: raw.root };
+  return { source: 'job-applier', title: raw.title, subtitle: raw.subtitle.replace(/ · [^·]*$/, ''), startedAt: iso(parseTime(raw.started_at)), live, ...(state && { state }), root: raw.root };
 }
 
 function agentOf(node, role, startedAt, state) {
@@ -114,7 +117,28 @@ function stagesOf(trace) {
 
 const lastEnd = (trace) => iso(parseTime(trace.startedAt) + trace.root.end * 1000);
 let runsMemo = null;
-const endedMemo = new Map();
+let passesMemo = null;
+const traceMemo = new Map();
+
+// An ended run's trace never changes, so one process reads it once.
+async function traceOf(api, run, now) {
+  if (run.is_live) return readTrace(api, run.job_id, now);
+  const key = `${api}/${run.job_id}/${run.state}`;
+  const found = traceMemo.get(key) ?? await readTrace(api, run.job_id, now);
+  if (found) traceMemo.set(key, found);
+  return found;
+}
+
+async function traceByKey(api, key) {
+  const run = (await runsOf(api)).find((r) => String(r.job_id) === key);
+  return run ? traceOf(api, run, Date.now()) : readTrace(api, key);
+}
+
+async function inBatches(items, read) {
+  const done = [];
+  for (let i = 0; i < items.length; i += PARALLEL_TRACES) done.push(...await Promise.all(items.slice(i, i + PARALLEL_TRACES).map(read)));
+  return done;
+}
 
 async function runsOf(api, now = Date.now()) {
   if (runsMemo?.api === api && now - runsMemo.at < LIST_TTL_MS) return runsMemo.runs;
@@ -124,28 +148,92 @@ async function runsOf(api, now = Date.now()) {
   return runs;
 }
 
-// An ended run's trace never changes, so a dashboard reads it once. A live run's state comes from its trace.
+async function passesOf(api, now = Date.now()) {
+  if (passesMemo?.api === api && now - passesMemo.at < LIST_TTL_MS) return passesMemo.passes;
+  const answer = await get(api, `/api/runs?limit=${FLOW_LIMIT}`, RUNS_TIMEOUT_MS);
+  const passes = answer?.runs ?? [];
+  passesMemo = { api, at: now, passes };
+  return passes;
+}
+
+// A live run's state comes from its trace.
 async function shape(api, run, now) {
   const state = LAUNCH_STATE[run.state] ?? 'stalled';
-  const memoKey = `${api}/${run.job_id}/${run.state}`;
-  let found = run.is_live ? null : endedMemo.get(memoKey);
-  if (!found) {
-    const trace = await readTrace(api, run.job_id, now);
-    found = !trace ? { state: 'stalled', endedAt: null }
-      : run.is_live ? { state: trace.state, endedAt: trace.live ? null : lastEnd(trace) }
-        : { state, endedAt: lastEnd(trace) };
-    if (!run.is_live && trace) endedMemo.set(memoKey, found);
-  }
+  const trace = await traceOf(api, run, now);
+  const found = !trace ? { state: 'stalled', endedAt: null }
+    : run.is_live ? { state: trace.state, endedAt: trace.live ? null : lastEnd(trace) }
+      : { state, endedAt: lastEnd(trace) };
   const agent = { costUsd: null, endedAt: found.endedAt, state: found.state };
   return {
     key: String(run.job_id),
     title: `Job #${run.job_id}`,
     subtitle: [[run.title, run.company].filter(Boolean).join(' at '), 'Claude Applier'].filter(Boolean).join(' · '),
     state: found.state,
-    startedAt: run.started_at,
+    startedAt: iso(parseTime(run.started_at)),
     backEdges: [],
     stages: [{ loops: Math.max(0, run.session_count - 1), agents: Array.from({ length: run.session_count }, () => agent) }],
   };
+}
+
+// A scan or an evaluation is one Jobfeed run across many jobs. Its chip's name holds only a date and a count.
+function runChip(run) {
+  const evaluated = run.source === 'evaluate';
+  const verdicts = run.verdict_counts ?? {};
+  const day = new Date(parseTime(run.started_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return {
+    id: run.run_id,
+    name: evaluated ? `${day} · ${run.jobs_scored ?? 0} scored` : `${day} · ${run.jobs_discovered ?? 0} found`,
+    role: evaluated ? 'model' : 'observe',
+    state: RUN_STATE[run.status] ?? 'stalled',
+    startedAt: iso(parseTime(run.started_at)),
+    endedAt: run.finished_at ? iso(parseTime(run.finished_at)) : null,
+    meta: evaluated ? `${verdicts.apply ?? 0} apply, ${verdicts.consider ?? 0} consider, ${verdicts.skip ?? 0} skip` : `${run.jobs_inserted ?? 0} new`,
+    costUsd: run.total_llm_cost_usd ?? null,
+    traced: false,
+  };
+}
+
+// An old failed scan stays in the list, so only the newest run says how the phase is doing now.
+const runStage = (chips) => {
+  const agents = chips.map(runChip).toSorted(newestFirst);
+  return { agents, state: agents[0]?.state ?? 'pending' };
+};
+
+const passStages = (passes) => ({
+  scan: runStage(passes.filter((run) => run.source !== 'evaluate')),
+  evaluate: runStage(passes.filter((run) => run.source === 'evaluate')),
+});
+
+// A scan or an evaluation has no calls to show, so its trace is its chip alone.
+async function passTrace(api, agentId) {
+  const found = declaredLoop('job-applier', { stages: passStages(await passesOf(api)) });
+  const chip = findChip(found, agentId);
+  if (!chip) return null;
+  const { stage: inStage, agent } = chip;
+  return { source: 'job-applier', ...chipTrace(found, inStage, agent, parseTime(agent.startedAt), agent.endedAt ? parseTime(agent.endedAt) : null, []) };
+}
+
+// One loop across every job, so a chip is one job's part in a stage and opens that job's trace.
+export async function loop(api, now = Date.now()) {
+  const [runs, passes] = await Promise.all([runsOf(api, now), passesOf(api, now)]);
+  if (!runs.length && !passes.length) return null;
+  const jobs = await inBatches(runs, async (run) => ({ run, trace: await traceOf(api, run, now) }));
+  const staged = jobs.filter(({ trace: found }) => found).map(({ run, trace: found }) => ({ jobId: run.job_id, stages: stagesOf(found) }));
+  // A job whose launch failed never reached a session, so its launch stands for it in Apply.
+  const inStage = (id, fallback) => staged.flatMap(({ jobId, stages }) => ((stages.find((s) => s.id === id) ?? stages.find((s) => s.id === fallback))?.agents ?? []).map((agent) => ({ ...agent, id: `${jobId}.${agent.id}`, name: `Job #${jobId}` })));
+  const restarts = staged.reduce((sum, { stages }) => sum + (stages.find((s) => s.id === 'apply')?.loops ?? 0), 0);
+  const jobStage = (agents, loops = 0) => ({ agents, loops, state: agents.length ? stageState(agents) : 'pending' });
+  return declaredLoop('job-applier', {
+    subtitle: `${runs.length} jobs, ${runs.filter((run) => LAUNCH_STATE[run.state] === 'done').length} done`,
+    startedAt: iso(Math.min(...[...runs, ...passes].map((run) => parseTime(run.started_at)))),
+    stages: {
+      ...passStages(passes),
+      apply: jobStage(inStage('apply', 'launch'), restarts),
+      you: jobStage(inStage('you')),
+      submit: jobStage(inStage('submit')),
+    },
+    edges: [{ from: 'apply', to: 'apply', count: restarts }],
+  });
 }
 
 let listMemo = null;
@@ -153,17 +241,15 @@ let listMemo = null;
 export async function list(api, now = Date.now()) {
   if (listMemo?.api === api && now - listMemo.at < LIST_TTL_MS) return listMemo.flows;
   const runs = await runsOf(api, now);
-  const flows = [];
-  for (let i = 0; i < runs.length; i += PARALLEL_TRACES) {
-    flows.push(...await Promise.all(runs.slice(i, i + PARALLEL_TRACES).map((run) => shape(api, run, now))));
-  }
+  const flows = await inBatches(runs, (run) => shape(api, run, now));
   listMemo = { api, at: now, flows };
   return flows;
 }
 
 export async function flow(api, key) {
+  if (key === LOOP_KEY) return loop(api);
   if (!/^[1-9]\d*$/.test(key)) return null;
-  const trace = await readTrace(api, key);
+  const trace = await traceByKey(api, key);
   if (!trace) return null;
   const run = (await runsOf(api)).find((r) => String(r.job_id) === key);
   const stages = stagesOf(trace);
@@ -180,8 +266,12 @@ export async function flow(api, key) {
 }
 
 export async function trace(api, key, agentId) {
+  if (key === LOOP_KEY) {
+    const [, jobId, id] = /^(\d+)\.(.+)$/.exec(agentId) ?? [];
+    return jobId ? trace(api, jobId, id) : passTrace(api, agentId);
+  }
   if (!/^[1-9]\d*$/.test(key)) return null;
-  const found = await readTrace(api, key);
+  const found = await traceByKey(api, key);
   if (!found || !stagesOf(found).some((s) => s.agents.some((a) => a.id === agentId))) return null;
   return found;
 }

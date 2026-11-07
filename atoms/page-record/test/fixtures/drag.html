@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<body style="margin:0;background:#111">
+<div id="control" style="position:relative;width:400px;height:40px;margin:40px;touch-action:none">
+  <div id="thumb" style="position:absolute;left:0;top:0;width:40px;height:40px;background:#eee"></div>
+</div>
+<output id="value" style="color:#eee">0</output>
+<script>
+const thumb = document.getElementById("thumb")
+const value = document.getElementById("value")
+let start = null
+let target = 0
+let shown = 0
+thumb.addEventListener("pointerdown", (e) => {
+  thumb.setPointerCapture(e.pointerId)
+  start = e.clientX
+  thumb.dataset.held = "true"
+})
+thumb.addEventListener("pointermove", (e) => {
+  if (start === null) return
+  target = e.clientX - start
+  value.textContent = target
+})
+thumb.addEventListener("pointerup", () => {
+  start = null
+  delete thumb.dataset.held
+})
+const loop = () => {
+  shown += (target - shown) * 0.1
+  thumb.style.transform = `translateX(${shown}px)`
+  requestAnimationFrame(loop)
+}
+loop()
+</script>
+</body>
+</html>

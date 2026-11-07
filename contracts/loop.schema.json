@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/loop.schema.json",
+  "title": "Loop",
+  "description": "What a flow adapter's loop() returns, built from a declaration in factory/lib/loops.json.",
+  "type": "object",
+  "properties": {
+    "key": { "const": "loop" },
+    "title": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "state": { "enum": ["running", "blocked", "stalled", "failed", "pending", "done"] },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "state": { "enum": ["running", "blocked", "stalled", "failed", "pending", "done"] },
+          "loops": { "type": "integer", "minimum": 0 },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "role": { "type": "string" },
+                "state": { "enum": ["running", "blocked", "stalled", "failed", "pending", "done"] },
+                "startedAt": { "type": ["string", "null"] },
+                "endedAt": { "type": ["string", "null"] },
+                "traced": { "type": "boolean" }
+              },
+              "required": ["id", "name", "role", "state", "startedAt", "endedAt", "traced"]
+            }
+          }
+        },
+        "required": ["id", "title", "state", "loops", "agents"],
+        "additionalProperties": false
+      }
+    },
+    "backEdges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 },
+          "label": { "type": "string" }
+        },
+        "required": ["from", "to", "count"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["key", "title", "subtitle", "startedAt", "stages", "backEdges"],
+  "additionalProperties": false
+}

@@ -1,0 +1,47 @@
+{
+  "cols": 3,
+  "rows": 1,
+  "dwellMs": 800,
+  "rest": "00-idle.sweep/rest.png",
+  "points": [
+    {
+      "col": 0,
+      "row": 0,
+      "x": 12,
+      "y": 12,
+      "image": "00-idle.sweep/00-00.png",
+      "cursor": "auto",
+      "changed": {
+        ":scope > :nth-child(1)": {
+          "scale": "1.5"
+        }
+      }
+    },
+    {
+      "col": 1,
+      "row": 0,
+      "x": 36,
+      "y": 12,
+      "image": "00-idle.sweep/00-01.png",
+      "cursor": "pointer",
+      "changed": {
+        ":scope > :nth-child(2)": {
+          "scale": "1.5"
+        }
+      }
+    },
+    {
+      "col": 2,
+      "row": 0,
+      "x": 60,
+      "y": 12,
+      "image": "00-idle.sweep/00-02.png",
+      "cursor": "auto",
+      "changed": {
+        ":scope > :nth-child(3)": {
+          "scale": "1.5"
+        }
+      }
+    }
+  ]
+}

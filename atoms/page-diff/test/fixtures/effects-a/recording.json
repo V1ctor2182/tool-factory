@@ -1,0 +1,22 @@
+{
+  "source": "file:///fixtures/effects-a.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/effects-a",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
+      "animations": [],
+      "overlays": [],
+      "effects": {
+        "playback": 1,
+        "clipboard": 2
+      }
+    }
+  ],
+  "cacheHit": false
+}

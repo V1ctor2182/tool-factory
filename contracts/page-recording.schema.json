@@ -19,9 +19,12 @@
           "dom": { "type": "string", "description": "An HTML file holding the target's settled outerHTML with every script element removed." },
           "styles": { "type": "string", "description": "A JSON file mapping each element path under the target to its curated computed styles, settled." },
           "motion": { "type": "string", "description": "A JSON file {everyMs, tracks}. tracks maps each element path whose computed transform or opacity changed across the frames to {transform, opacity}, each a list of the computed value at every frame, holding only the properties that changed. everyMs is null and tracks empty for a state without frames." },
-          "animations": { "type": "array", "items": { "$ref": "#/$defs/animation" }, "description": "Every distinct animation seen on the target or inside it while the state ran." }
+          "animations": { "type": "array", "items": { "$ref": "#/$defs/animation" }, "description": "Every distinct animation seen on the target, inside it, or on an overlay while the state ran." },
+          "sweep": { "type": "string", "description": "Present when the steps ask for a sweep. A JSON file {cols, rows, dwellMs, rest, drift, points}. rest is an image with the pointer parked. drift holds later images with it still parked, which differ from rest only where the page moves on its own. Each point is {col, row, x, y, image, cursor, changed}, with x and y in CSS pixels from the target's corner, image at device scale 1 and clipped like rest, and changed mapping each element path whose computed transform, opacity, scale, or translate differs from rest to the values that differ. Image paths are relative to the JSON file." },
+          "effects": { "type": "object", "additionalProperties": { "type": "integer" }, "description": "How many times the page started sound or video (playback) or wrote to the clipboard (clipboard) since the previous state, by kind. Absent from recordings made before these were counted." },
+          "overlays": { "type": "array", "items": { "$ref": "#/$defs/overlay" }, "description": "What the state shows beyond the target and did not show at load, such as a popup in a portal, in document order. Each is settled. A wrapper or backdrop that fills the viewport is looked through." }
         },
-        "required": ["name", "screenshot", "frames", "dom", "styles", "motion", "animations"],
+        "required": ["name", "screenshot", "frames", "dom", "styles", "motion", "animations", "overlays"],
         "additionalProperties": false
       }
     },
@@ -30,10 +33,28 @@
   "required": ["source", "steps", "dir", "states", "cacheHit"],
   "additionalProperties": false,
   "$defs": {
+    "point": {
+      "type": "object",
+      "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } },
+      "required": ["x", "y"],
+      "additionalProperties": false
+    },
+    "overlay": {
+      "type": "object",
+      "properties": {
+        "screenshot": { "type": "string", "pattern": "\\.png$", "description": "The overlay, clipped to it plus a fixed margin." },
+        "dom": { "type": "string", "description": "An HTML file holding its settled outerHTML with every script element removed." },
+        "styles": { "type": "string", "description": "A JSON file mapping each element path under it to its curated computed styles, settled." },
+        "offset": { "$ref": "#/$defs/point", "description": "Its top-left corner in CSS pixels, from the target's top-left corner." },
+        "at": { "$ref": "#/$defs/point", "description": "Its top-left corner in CSS pixels, from the viewport's." }
+      },
+      "required": ["screenshot", "dom", "styles", "offset", "at"],
+      "additionalProperties": false
+    },
     "animation": {
       "type": "object",
       "properties": {
-        "target": { "type": "string", "description": "Element path, as a selector relative to the target, starting with :scope." },
+        "target": { "type": "string", "description": "Element path, as a selector relative to the target, starting with :scope, or relative to an overlay, starting with :overlay(i)." },
         "pseudoElement": { "type": ["string", "null"] },
         "type": { "enum": ["CSSAnimation", "CSSTransition", "Animation"] },
         "name": { "type": "string", "description": "The animation-name, the transitioned property, or the Web Animations id." },

@@ -336,20 +336,93 @@ test('a manifest cannot name a blob the server does not hold, another source\'s 
   assert.equal((await putManifest(url, 'game-studio', manifestFor('game-studio', 'Game Studio', sha(list)))).status, 400, 'another source\'s list');
   assert.equal((await fetch(`${url}/ingest/heartbeat/tools`, { method: 'POST', headers: bearer() })).status, 404, 'nothing stored yet');
   const { sources } = await getJson(url, '/api/flows');
-  assert.deepEqual(sources.map((s) => s.source), ['game-studio', 'tools']);
+  assert.deepEqual(sources.map((s) => s.source), ['game-studio', 'job-applier', 'tools']);
   for (const source of sources) assert.deepEqual([source.error, source.flows, source.lastPush, source.stale], ['No data pushed yet.', [], null, true], source.source);
   assert.equal((await putManifest(url, 'tools', manifestFor('tools', 'Factory tools', sha(list)))).status, 200);
   assert.ok((await sourceOf(url, 'tools')).lastPush);
 });
 
-test('job-applier and every other unlisted source are refused at both ends', async () => {
+test('a job leaves with only its number, state, times, roles, and categories', () => {
+  const step = { kind: 'step', id: 'f1', name: 'Open Schonfeld careers', category: 'browser', start: 2, end: 3, outcome: 'ok', meta: 'Schonfeld' };
+  const trace = shape.shapeTrace({
+    source: 'job-applier', title: 'Software Engineer at Schonfeld', subtitle: 'Software Engineer at Schonfeld · Claude Applier', startedAt: '2026-10-02T09:00:00.000Z', live: false, state: 'done',
+    root: { kind: 'group', id: 'worker', name: 'Schonfeld', role: 'worker', start: 0, end: 3, children: [{ kind: 'group', id: 'applier-1', name: 'Schonfeld', role: 'applier', start: 1, end: 3, children: [step] }] },
+  });
+  const flow = shape.shapeFlow({
+    id: 'job-applier:829', source: 'job-applier', title: 'Job #829', subtitle: 'Software Engineer at Schonfeld · Claude Applier', state: 'done', startedAt: '2026-10-02T09:00:00.000Z',
+    stages: [{ id: 'you', title: 'You', state: 'done', loops: 0, agents: [{ id: 'request-0', name: 'Schonfeld salary', role: 'you', state: 'done', traced: true }] }],
+  });
+  for (const answer of [trace, flow]) assert.equal(JSON.stringify(answer).includes('Schonfeld'), false);
+  assert.deepEqual([trace.title, trace.subtitle, trace.root.name, trace.root.children[0].name, trace.root.children[0].children[0].name], ['Job', 'Claude Applier', 'Job', 'Applier', 'Browser']);
+  assert.deepEqual([flow.title, flow.subtitle, flow.stages[0].agents[0].name], ['Job #829', 'Claude Applier', 'Ask Victor']);
+  assert.deepEqual(shape.shapeTrace(trace), trace, 'shaping a shaped trace gives the same bytes');
+  assert.deepEqual(shape.shapeFlow(flow), flow, 'shaping a shaped flow gives the same bytes');
+  assert.equal(shape.shapeFlow({ id: 'tools:a', source: 'tools', subtitle: 'kept' }).subtitle, 'kept', 'other sources keep their words');
+});
+
+test('job-applier is pushed through the status-only shape', async () => {
+  const runs = [{ job_id: 829, company: 'Schonfeld', title: 'Software Engineer', state: 'finished', started_at: '2026-10-02T09:00:00+00:00', is_live: false, session_count: 1 }];
+  const raw = {
+    job_id: 829, started_at: '2026-10-02T09:00:00+00:00', is_live: false, title: 'Job #829', subtitle: 'Software Engineer at Schonfeld · Claude Applier · finished',
+    root: { kind: 'group', id: 'worker', name: 'Worker', meta: 'Schonfeld', role: 'worker', start: 0, end: 10, children: [
+      { kind: 'step', id: 'launch', name: 'Launch Applier', category: 'shell', start: 0, end: 1, outcome: 'ok' },
+      { kind: 'group', id: 'applier-1', name: 'Applier', role: 'applier', start: 1, end: 9, children: [
+        { kind: 'step', id: 'f1', name: 'Open Schonfeld careers', category: 'browser', start: 2, end: 3, outcome: 'ok' },
+        { kind: 'step', id: 'request-0', name: 'Ask you', meta: 'missing_answer · Salary', note: SECRET, category: 'human', start: 4, end: 5, outcome: 'ok' },
+      ] },
+      { kind: 'step', id: 'submit', name: 'Submit', category: 'backend', start: 9, end: 10, outcome: 'ok' },
+    ] },
+  };
+  const jobfeed = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (req.url === '/api/applier-runs') return res.end(JSON.stringify({ runs }));
+    if (req.url.startsWith('/api/runs')) return res.end(JSON.stringify({ runs: [{ run_id: '320009a8-3f4e-4a1b-9c21-0d6e8f7a1b2c', source: 'evaluate', status: 'failed', started_at: '2026-10-02T08:00:00Z', finished_at: '2026-10-02T08:30:00Z', jobs_scored: 7, verdict_counts: { apply: 1 }, total_llm_cost_usd: 1.5, failure_message: 'Schonfeld timed out' }] }));
+    return res.end(JSON.stringify(raw));
+  });
+  await new Promise((resolve) => jobfeed.listen(0, '127.0.0.1', resolve));
+  const external = join(root, 'external.json');
+  const kept = readFileSync(external, 'utf8');
+  writeFileSync(external, JSON.stringify([{ name: 'job-applier', description: 'd', where: `http://127.0.0.1:${jobfeed.address().port}`, flows: 'job-applier' }]));
+  try {
+    const { url } = await hosted('job-status-home');
+    const pushed = await pushTo(url, pushHomeFrom('job-status-push'), 'job-applier', ['--flows-only']);
+    assert.equal(pushed.code, 0, pushed.stderr);
+    assert.equal(pushed.stdout.includes('status pages'), false, '--flows-only leaves the status pages alone');
+    const listed = await sourceOf(url, 'job-applier');
+    const inLoop = (id) => listed.loop.stages.find((s) => s.id === id);
+    assert.deepEqual([listed.loop.title, listed.loop.subtitle, inLoop('apply').agents[0].name], ['Applier loop', '1 jobs, 1 done', 'Job #829']);
+    assert.deepEqual(inLoop('evaluate').agents.map((a) => [a.name, a.role, a.state, a.traced]), [['Oct 2 · 7 scored', 'model', 'failed', false]]);
+    assert.match(inLoop('evaluate').agents[0].id, /^x[0-9a-f]{16}$/);
+    assert.equal(JSON.stringify(listed).includes('Schonfeld'), false);
+    assert.equal(JSON.stringify(listed).includes('consider'), false);
+    const loopTrace = await getJson(url, `/api/flows/job-applier:loop/agents/${inLoop('apply').agents[0].id}`);
+    assert.equal(loopTrace.title, 'Job #829');
+    assert.equal(JSON.stringify(loopTrace).includes('Schonfeld'), false);
+    const passChip = inLoop('evaluate').agents[0];
+    const passTrace = await getJson(url, `/api/flows/job-applier:loop/agents/${passChip.id}`);
+    assert.deepEqual([passTrace.title, passTrace.subtitle, passTrace.root.name, passTrace.root.children], ['Applier loop', 'Claude Applier', passChip.name, []]);
+    assert.equal(JSON.stringify(passTrace).includes('consider'), false);
+    assert.deepEqual(listed.flows.map((f) => [f.id, f.title, f.subtitle, f.state, f.startedAt]), [['job-applier:829', 'Job #829', 'Claude Applier', 'done', '2026-10-02T09:00:00.000Z']]);
+    const flow = await getJson(url, '/api/flows/job-applier:829');
+    assert.deepEqual(flow.stages.map((s) => s.title), ['Launch', 'Apply', 'You', 'Submit']);
+    assert.deepEqual(flow.stages.flatMap((s) => s.agents).map((a) => [a.name, a.role]), [['Launch', 'coordinator'], ['Applier', 'applier'], ['Ask Victor', 'you'], ['Submit', 'act']]);
+    const trace = await getJson(url, '/api/flows/job-applier:829/agents/applier-1');
+    const everything = JSON.stringify([listed, flow, trace]);
+    for (const banned of ['Schonfeld', 'Software Engineer', 'Salary', 'missing_answer', SECRET]) assert.equal(everything.includes(banned), false, banned);
+  } finally {
+    writeFileSync(external, kept);
+    jobfeed.close();
+  }
+});
+
+test('every unlisted source is refused at both ends', async () => {
   const { url, home } = await hosted('job-home');
   const pushHome = pushHomeFrom('job-push-home');
   const seen = [];
   const recorder = createServer((req, res) => { seen.push(req.url); res.writeHead(500); res.end(); });
   await new Promise((resolve) => recorder.listen(0, '127.0.0.1', resolve));
   try {
-    for (const sources of ['job-applier', 'tools,job-applier', 'ui-clone']) {
+    for (const sources of ['ui-clone', 'tools,ui-clone', 'site-clone']) {
       const pushed = await pushTo(`http://127.0.0.1:${recorder.address().port}`, pushHome, sources);
       assert.equal(pushed.code, 1, sources);
       assert.match(pushed.stderr, /not on the public allowlist/);
@@ -359,20 +432,20 @@ test('job-applier and every other unlisted source are refused at both ends', asy
   } finally {
     recorder.close();
   }
-  const scanned = await scanOf(pushHome, 'job-applier');
+  const scanned = await scanOf(pushHome, 'ui-clone');
   assert.equal(scanned.code, 1);
   assert.match(scanned.stderr, /not on the public allowlist/);
 
-  const list = JSON.stringify(listBlob('job-applier', 'Job Applier'));
+  const list = JSON.stringify(listBlob('ui-clone', 'UI Clone'));
   assert.equal((await putBlob(url, list)).status, 403);
-  assert.equal((await putBlob(url, JSON.stringify(flowBlob({ id: 'job-applier:829', source: 'job-applier' })))).status, 403);
+  assert.equal((await putBlob(url, JSON.stringify(flowBlob({ id: 'ui-clone:card', source: 'ui-clone' })))).status, 403);
   const tools = JSON.stringify(listBlob('tools', 'Factory tools'));
   await putBlob(url, tools);
-  assert.equal((await putManifest(url, 'job-applier', manifestFor('job-applier', 'Job Applier', sha(tools)))).status, 403);
-  assert.equal((await fetch(`${url}/ingest/heartbeat/job-applier`, { method: 'POST', headers: bearer() })).status, 403);
-  assert.equal((await get(url, '/api/flows/job-applier:829')).status, 404);
-  assert.equal(existsSync(hostedFile(home, 'sources', 'job-applier.json')), false);
-  assert.deepEqual((await getJson(url, '/api/flows')).sources.map((s) => s.source), ['game-studio', 'tools']);
+  assert.equal((await putManifest(url, 'ui-clone', manifestFor('ui-clone', 'UI Clone', sha(tools)))).status, 403);
+  assert.equal((await fetch(`${url}/ingest/heartbeat/ui-clone`, { method: 'POST', headers: bearer() })).status, 403);
+  assert.equal((await get(url, '/api/flows/ui-clone:card')).status, 404);
+  assert.equal(existsSync(hostedFile(home, 'sources', 'ui-clone.json')), false);
+  assert.deepEqual((await getJson(url, '/api/flows')).sources.map((s) => s.source), ['game-studio', 'job-applier', 'tools']);
 });
 
 test('an injected unknown field is refused at ingest and cannot reach /api/flows even from the store', async () => {
@@ -521,10 +594,12 @@ test('factory push leaves an origin answer shaped by the allowlist on the hosted
 
   const answer = await getJson(url, '/api/flows');
   const before = await getJson(origin.url, '/api/flows');
-  const originPublic = before.sources.filter((s) => ['game-studio', 'tools'].includes(s.source));
-  assert.equal(answer.sources.length, 2);
+  const pushedNames = SOURCES.split(',');
+  const originPublic = before.sources.filter((s) => pushedNames.includes(s.source));
+  const received = answer.sources.filter((s) => pushedNames.includes(s.source));
+  assert.equal(received.length, 2);
   assert.ok(originPublic.every((s) => s.error === null && s.flows.length), 'the fixture exercises both sources');
-  for (const [mine, theirs] of answer.sources.map((s) => [s, originPublic.find((o) => o.source === s.source)])) {
+  for (const [mine, theirs] of received.map((s) => [s, originPublic.find((o) => o.source === s.source)])) {
     const { lastPush, stale, ...listed } = mine;
     assert.deepEqual(listed, shape.shapeSourceList(theirs));
     assert.equal(stale, false);

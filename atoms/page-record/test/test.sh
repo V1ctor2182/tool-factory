@@ -59,8 +59,113 @@ if "$bin" capture "$out/missing.json" --url "$page" --json > "$out/missing-out.j
 [ "$(jq -r .error.code "$out/missing-out.json")" = invalid_source ] || fail "a missing selector did not report invalid_source"
 jq -r .error.message "$out/missing-out.json" | grep -q "state 'toggle dot' action 0" || fail "invalid_source does not name the state and action"
 
+jq -n --arg url "$page" '{url: $url, target: "body", states: [{name: "shortcut", actions: [{do: "press", key: "shift"}]}]}' > "$out/bad-key.json"
+if "$bin" capture "$out/bad-key.json" --json > "$out/bad-key-out.json"; then fail "an action Playwright refused exited 0"; fi
+[ "$(jq -r .error.code "$out/bad-key-out.json")" = invalid_source ] || fail "an action Playwright refused did not report invalid_source: $(cat "$out/bad-key-out.json")"
+jq -r .error.message "$out/bad-key-out.json" | grep -q "state 'shortcut' action 0 (press): .*Unknown key" || fail "a refused action does not name the state and Playwright's reason: $(cat "$out/bad-key-out.json")"
+
+hidden="file://$test_dir/fixtures/hidden-first.html"
+jq -n --arg url "$hidden" '{url: $url, target: "#stage > *", states: [{name: "idle", actions: []}, {name: "hover", actions: [{do: "hover", selector: "#stage button"}]}]}' > "$out/hidden.json"
+"$bin" capture "$out/hidden.json" --json > "$out/hidden-out.json" || fail "a page whose first match is hidden did not record: $(cat "$out/hidden-out.json")"
+dom=$(jq -r '.states[0].dom' "$out/hidden-out.json" | xargs cat)
+case "$dom" in *Shown*) ;; *) fail "the target is not the first visible match: $dom" ;; esac
+case "$dom" in *"src=\"file://$test_dir/fixtures/pixel.png\""*) ;; *) fail "an image's src was not made absolute: $dom" ;; esac
+case "$dom" in *srcset*) fail "a relative srcset stayed in the DOM: $dom" ;; esac
+jq -n --arg url "$hidden" '{url: $url, target: "#gone", states: [{name: "idle", actions: []}]}' > "$out/gone.json"
+if "$bin" capture "$out/gone.json" --json > "$out/gone-out.json"; then fail "a target with no visible match exited 0"; fi
+jq -r .error.message "$out/gone-out.json" | grep -q "no visible element matches" || fail "a hidden target did not say so: $(cat "$out/gone-out.json")"
+
+jq -n --arg url "$hidden" '{url: $url, target: "#stage > *", states: [{name: "hidden", actions: [{do: "click", selector: "#hide"}]}]}' > "$out/vanish.json"
+if "$bin" capture "$out/vanish.json" --json > "$out/vanish-out.json"; then fail "a target that vanished exited 0"; fi
+[ "$(jq -r .error.code "$out/vanish-out.json")" = invalid_source ] || fail "a target that vanished after an action did not report invalid_source: $(cat "$out/vanish-out.json")"
+
+jq -n --arg url "file://$test_dir/fixtures/scroll-driven.html" '{url: $url, target: "body", states: [{name: "idle", actions: []}]}' > "$out/scroll-driven.json"
+"$bin" capture "$out/scroll-driven.json" --json > "$out/scroll-driven-out.json" || fail "a page with a scroll-driven animation did not record: $(cat "$out/scroll-driven-out.json")"
+
+jq -n --arg url "file://$test_dir/fixtures/sweep.html" '{url: $url, target: "#stage", states: [
+	{name: "idle", actions: [], sweep: {cols: 2, rows: 1, dwellMs: 300}},
+	{name: "after", actions: []}]}' > "$out/sweep.json"
+"$bin" capture "$out/sweep.json" --json > "$out/sweep-out.json" || fail "a sweep did not record: $(cat "$out/sweep-out.json")"
+"$repo/contracts/check" page-recording "$out/sweep-out.json" || fail "a sweep's output does not match page-recording.schema.json"
+sweep=$(jq -r '.states[0].sweep' "$out/sweep-out.json")
+[ "$(jq -c '[.points[] | [.col, .row, (.x | floor), (.y | floor), .cursor, .changed]]' "$sweep")" = '[[0,0,50,50,"pointer",{":scope > :nth-child(1)":{"scale":"0.5"}}],[1,0,150,50,"pointer",{":scope > :nth-child(2)":{"scale":"0.5"}}]]' ] \
+	|| fail "the sweep does not show each box answering the pointer over it: $(jq -c .points "$sweep")"
+[ "$(file -b "$(dirname "$sweep")/$(jq -r .rest "$sweep")" | cut -d, -f2)" = " 216 x 116" ] || fail "a sweep image is not the target plus 8 px at device scale 1"
+[ "$(jq '.states[0].animations | length' "$out/sweep-out.json")" = 0 ] || fail "the sweep's transitions joined the state's animations"
+[ "$(jq '.states[1] | has("sweep")' "$out/sweep-out.json")" = false ] || fail "a state without a sweep has one"
+cmp -s "$(jq -r '.states[0].screenshot' "$out/sweep-out.json")" "$(jq -r '.states[1].screenshot' "$out/sweep-out.json")" \
+	|| fail "the page did not return to rest after the sweep"
+"$bin" capture "$out/sweep.json" --json > "$out/sweep-again.json"
+again=$(jq -r '.states[0].sweep' "$out/sweep-again.json")
+for image in rest.png 00-00.png 00-01.png; do
+	cmp -s "$(dirname "$sweep")/00-idle.sweep/$image" "$(dirname "$again")/00-idle.sweep/$image" || fail "the sweep's $image differs between two runs"
+done
+[ "$(jq '.drift | length' "$sweep")" = 8 ] || fail "the sweep does not keep eight later rest images"
+jq -n --arg url "file://$test_dir/fixtures/effects.html" '{url: $url, target: "#stage", states: [
+	{name: "idle", actions: [], sweep: {cols: 1, rows: 1, dwellMs: 200}},
+	{name: "sound", actions: [{do: "click", selector: "#tone"}]},
+	{name: "video", actions: [{do: "click", selector: "#media"}]},
+	{name: "selected", actions: [{do: "select", selector: "#words"}]}]}' > "$out/effects.json"
+"$bin" capture "$out/effects.json" --json > "$out/effects-out.json" || fail "a page with effects did not record: $(cat "$out/effects-out.json")"
+"$repo/contracts/check" page-recording "$out/effects-out.json" || fail "effects do not match page-recording.schema.json"
+[ "$(jq -c '[.states[].effects]' "$out/effects-out.json")" = '[{},{"playback":1},{"playback":1},{}]' ] \
+	|| fail "the recording does not count each state's calls: $(jq -c '[.states[].effects]' "$out/effects-out.json")"
+grep -q 'selected the words' "$(jq -r '.states[3].dom' "$out/effects-out.json")" || fail "select did not select the element's text"
+drifting=$(jq -r '.states[0].sweep' "$out/effects-out.json")
+if cmp -s "$(dirname "$drifting")/$(jq -r .rest "$drifting")" "$(dirname "$drifting")/$(jq -r '.drift[0]' "$drifting")"; then fail "a page animating on its own shows no drift"; fi
+
+jq -n --arg url "file://$test_dir/fixtures/drag.html" '{url: $url, states: [
+	{name: "held", actions: [{do: "drag", selector: "#thumb", by: {x: 10, y: 0}}], sweep: {cols: 1, rows: 1}},
+	{name: "dropped", actions: [{do: "drop"}]}]}' > "$out/held-sweep.json"
+if "$bin" capture "$out/held-sweep.json" --json > "$out/held-sweep-out.json"; then fail "a sweep while the pointer is held exited 0"; fi
+[ "$(jq -r .error.code "$out/held-sweep-out.json")" = invalid_args ] || fail "a sweep while the pointer is held did not report invalid_args: $(cat "$out/held-sweep-out.json")"
+
+jq -n --arg url "file://$test_dir/fixtures/drag.html" '{url: $url, target: "body", states: [
+	{name: "held", actions: [{do: "drag", selector: "#thumb", by: {x: 120, y: 0}}], frames: {everyMs: 50, forMs: 200}},
+	{name: "dropped", actions: [{do: "drop"}]}]}' > "$out/drag.json"
+"$bin" capture "$out/drag.json" --json > "$out/drag-out.json" || fail "a drag did not record: $(cat "$out/drag-out.json")"
+held=$(jq -r '.states[0].dom' "$out/drag-out.json" | xargs cat)
+case "$held" in *'data-held="true"'*) ;; *) fail "the pointer was not held through the state: $held" ;; esac
+case "$held" in *'>120</output>'*) ;; *) fail "the drag did not move the pointer 120 px: $held" ;; esac
+dropped=$(jq -r '.states[1].dom' "$out/drag-out.json" | xargs cat)
+case "$dropped" in *data-held*) fail "the drop did not release the pointer: $dropped" ;; esac
+trace() { jq -r '.tracks | to_entries[0].value.transform | map(split(", ")[4] | tonumber | . * 10 | round / 10) | join(" ")' "$(jq -r '.states[0].motion' "$1")"; }
+want="79.6 93.5 102.6 108.6"
+got=$(trace "$out/drag-out.json")
+[ "$got" = "$want" ] || fail "a thumb stepped once per animation frame did not follow the page clock during the drag: $got"
+"$bin" capture "$out/drag.json" --json > "$out/drag-again.json" || fail "a second drag did not record: $(cat "$out/drag-again.json")"
+got=$(trace "$out/drag-again.json")
+[ "$got" = "$want" ] || fail "a second run of the same drag recorded other frames: $got"
+
+jq 'del(.states[1])' "$out/drag.json" > "$out/undropped.json"
+if "$bin" capture "$out/undropped.json" --json > "$out/undropped-out.json"; then fail "a drag with no drop exited 0"; fi
+jq -r .error.message "$out/undropped-out.json" | grep -q "no drop" || fail "a drag with no drop did not say so: $(cat "$out/undropped-out.json")"
+jq 'del(.states[0])' "$out/drag.json" > "$out/lone-drop.json"
+if "$bin" capture "$out/lone-drop.json" --json > "$out/lone-drop-out.json"; then fail "a drop with no drag exited 0"; fi
+
 jq '.states[0].actions[0] = {"do": "hover"}' "$steps" > "$out/bad.json"
 if "$bin" capture "$out/bad.json" --json > "$out/bad-out.json"; then fail "a hover with no selector exited 0"; fi
 [ "$(jq -r .error.code "$out/bad-out.json")" = invalid_args ] || fail "a steps file that breaks the schema did not report invalid_args"
+jq '.states[1].name = .states[0].name' "$steps" > "$out/repeat.json"
+if "$bin" capture "$out/repeat.json" --json > "$out/repeat-out.json"; then fail "steps with a repeated state name exited 0"; fi
+[ "$(jq -r .error.code "$out/repeat-out.json")" = invalid_args ] || fail "a repeated state name did not report invalid_args: $(cat "$out/repeat-out.json")"
+
+jq -n --arg url "file://$test_dir/fixtures/overlay.html" '{url: $url, target: "#card", states: [
+	{name: "idle", actions: []},
+	{name: "hanging", actions: [{do: "click", selector: "#hang"}]},
+	{name: "open", actions: [{do: "click", selector: "#open"}]}]}' > "$out/overlay-steps.json"
+"$bin" capture "$out/overlay-steps.json" --json > "$out/overlay.json"
+"$repo/contracts/check" page-recording "$out/overlay.json" || fail "a recording with overlays does not match page-recording.schema.json"
+[ "$(jq -c '[.states[].overlays | length]' "$out/overlay.json")" = '[0,1,2]' ] || fail "idle should show no overlay, hanging the hint, and open the hint and the popup, not $(jq -c '[.states[].overlays | length]' "$out/overlay.json")"
+[ "$(jq -c '.states[2].overlays[0] | [.offset, .at]' "$out/overlay.json")" = '[{"x":300,"y":-20},{"x":400,"y":80}]' ] \
+	|| fail "the popup is not looked up through its full-viewport wrapper at 400,80: $(jq -c '.states[2].overlays[0] | [.offset, .at]' "$out/overlay.json")"
+popup=$(jq -r '.states[2].overlays[0].dom' "$out/overlay.json")
+grep -q 'Portal text' "$popup" || fail "the popup's DOM lacks its text"
+if grep -qi '<script' "$popup"; then fail "the popup's DOM keeps a script element"; fi
+[ "$(jq -r '.[":scope"].width' "$(jq -r '.states[2].overlays[0].styles' "$out/overlay.json")")" = 150px ] || fail "the popup's styles were not recorded"
+[ "$(file -b "$(jq -r '.states[2].overlays[0].screenshot' "$out/overlay.json")" | cut -d, -f2)" = " 332 x 152" ] \
+	|| fail "the popup's screenshot is not 150 x 60 plus the 8 px margin at scale 2: $(file -b "$(jq -r '.states[2].overlays[0].screenshot' "$out/overlay.json")")"
+[ "$(jq -c '.states[1].overlays[0].offset' "$out/overlay.json")" = '{"x":0,"y":110}' ] || fail "the hint hanging off the target is not an overlay: $(jq -c .states[1].overlays "$out/overlay.json")"
+[ "$(jq -c '[.states[2].animations[] | [.name, .target]]' "$out/overlay.json")" = '[["rise",":overlay(0)"]]' ] || fail "the popup's animation was not recorded: $(jq -c '[.states[2].animations[] | [.name, .target]]' "$out/overlay.json")"
 
 echo "PASS page-record"
