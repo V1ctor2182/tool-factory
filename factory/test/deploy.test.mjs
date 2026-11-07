@@ -95,3 +95,9 @@ test('a linked worktree at origin/main uploads through the primary checkout', ()
   git(work, 'worktree', 'remove', '--force', linked);
   assert.deepEqual(calls, [`${work} up`, `${work} deployment`]);
 });
+
+test('.dockerignore lets through every file the Dockerfile copies', () => {
+  const copied = readFileSync(join(REPO, 'Dockerfile'), 'utf8').split('\n').filter((line) => line.startsWith('COPY ')).flatMap((line) => line.split(/\s+/).slice(1, -1));
+  const allowed = readFileSync(join(REPO, '.dockerignore'), 'utf8').split('\n').filter((line) => line.startsWith('!')).map((line) => line.slice(1));
+  assert.deepEqual(copied.toSorted(), allowed.toSorted());
+});

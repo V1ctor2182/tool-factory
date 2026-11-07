@@ -5,4 +5,5 @@
 !factory/dashboard/index.html
 !factory/lib/hosted-store.mjs
 !factory/lib/public-flows.mjs
+!factory/lib/loops.json
 !factory/lib/home.mjs
