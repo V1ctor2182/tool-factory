@@ -1,0 +1,36 @@
+{
+  "source": "file:///fixtures/motion-fade.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/motion-fade",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [
+        "00-idle-f000.png",
+        "00-idle-f001.png"
+      ],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
+      "animations": [
+        {
+          "target": ":scope",
+          "pseudoElement": null,
+          "type": "CSSTransition",
+          "name": "opacity",
+          "keyframes": [],
+          "duration": 1000,
+          "delay": 0,
+          "endDelay": 0,
+          "easing": "linear",
+          "iterations": 1,
+          "direction": "normal",
+          "fill": "none"
+        }
+      ],
+      "overlays": []
+    }
+  ],
+  "cacheHit": false
+}

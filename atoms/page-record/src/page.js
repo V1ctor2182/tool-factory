@@ -91,6 +91,24 @@
   };
   setInterval(frame, FRAME_MS);
 
+  // A rebuild can look right and do nothing. These calls leave no pixel behind, so the recording counts them.
+  const EFFECTS = [
+    [window.AudioScheduledSourceNode?.prototype, 'start', 'playback'],
+    [window.AudioBufferSourceNode?.prototype, 'start', 'playback'],
+    [window.HTMLMediaElement?.prototype, 'play', 'playback'],
+    [window.Clipboard?.prototype, 'writeText', 'clipboard'],
+    [window.Clipboard?.prototype, 'write', 'clipboard'],
+  ];
+  let effects = {};
+  for (const [owner, method, kind] of EFFECTS) {
+    const call = owner?.[method];
+    if (!call) continue;
+    owner[method] = function (...args) {
+      effects[kind] = (effects[kind] ?? 0) + 1;
+      return call.apply(this, args);
+    };
+  }
+
   let moves = 0;
   addEventListener('pointermove', () => moves++, { capture: true });
 
@@ -194,6 +212,12 @@
     },
 
     moves: () => moves,
+
+    effects() {
+      const since = effects;
+      effects = {};
+      return since;
+    },
 
     baseline() {
       baseline = new WeakSet([...document.querySelectorAll('*')].filter(shown));

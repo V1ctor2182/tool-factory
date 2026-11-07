@@ -1,0 +1,26 @@
+<!doctype html>
+<style>
+  #stage { width: 240px; padding: 16px; }
+  #spin { width: 40px; height: 40px; background: #36c; animation: spin 2s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<div id="stage">
+  <div id="spin"></div>
+  <button id="tone">tone</button>
+  <button id="media">media</button>
+  <p id="words">some words</p>
+  <output id="said"></output>
+</div>
+<script>
+  document.querySelector('#tone').onclick = () => {
+    const context = new AudioContext();
+    const tone = context.createOscillator();
+    tone.connect(context.destination);
+    tone.start();
+    tone.stop();
+  };
+  document.querySelector('#media').onclick = () => new Audio().play().catch(() => {});
+  document.addEventListener('selectionchange', () => {
+    if (String(getSelection()).trim()) document.querySelector('#said').textContent = 'selected the words';
+  });
+</script>

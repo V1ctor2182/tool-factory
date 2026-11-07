@@ -34,7 +34,7 @@ bin/page-record capture steps.json --url http://localhost:3000/preview/input-otp
 
 `target` is the component root, and defaults to `body`. Screenshots, the DOM, and styles cover it. Pick a selector that names the component's own markup, not a wrapper the site adds.
 
-Actions are `hover`, `click`, `focus`, `scroll` (each needs `selector`), `type` and `paste` (need `text`), `press` (needs `key`, a Playwright key name such as `Backspace` or `ControlOrMeta+a`), and `wait` (needs `ms`). `type`, `press`, and `paste` act on the focused element when `selector` is absent. Each state's actions run after the previous state's, like one user session. `drag` needs `selector` and `by` (`{x, y}` in CSS pixels) and keeps the pointer down, so the state's frames show the held motion. A later `drop` releases it, and every `drag` needs one.
+Actions are `hover`, `click`, `focus`, `select` (triple-clicks to select text), `scroll` (each needs `selector`), `type` and `paste` (need `text`), `press` (needs `key`, a Playwright key name such as `Backspace` or `ControlOrMeta+a`), and `wait` (needs `ms`). `type`, `press`, and `paste` act on the focused element when `selector` is absent. Each state's actions run after the previous state's, like one user session. `drag` needs `selector` and `by` (`{x, y}` in CSS pixels) and keeps the pointer down, so the state's frames show the held motion. A later `drop` releases it, and every `drag` needs one.
 
 `paste` dispatches a paste event that carries `text`, and inserts the text when the page does not cancel the event. It never touches the system clipboard.
 
@@ -56,7 +56,7 @@ A state can ask for a pointer sweep, for a component that answers the pointer's 
 
 After the state is recorded, the pointer parks at the viewport's corner, then moves unpressed to the middle of each grid cell over the target. It waits `dwellMs` of page time at each point, plus whatever `settle` still needs. `dwellMs` defaults to 800 and must outlast the slowest transition. The state's own screenshot, styles, and animations are taken before the sweep, so the sweep changes none of them. The pointer ends parked, so a later state that needs a hover asks for it again. A sweep while a drag holds the pointer is refused.
 
-Each point keeps an image at device scale 1, the CSS cursor under the pointer, and `changed`, the elements whose computed `transform`, `opacity`, `scale`, or `translate` differ from rest. A 16 by 16 sweep took 15 s on a local page and 63 s on Kobra, whose pending timer makes every point settle for the full 5 s, and came to 10 MB.
+With the pointer still parked, it then takes eight later `drift` images, 1.5 s of page time apart beyond the dwell, which differ from `rest` only where the page moves on its own. Each point keeps an image at device scale 1, the CSS cursor under the pointer, and `changed`, the elements whose computed `transform`, `opacity`, `scale`, or `translate` differ from rest. A 16 by 16 sweep took 15 s on a local page and 63 s on Kobra, whose pending timer makes every point settle for the full 5 s, and came to 10 MB.
 
 A sweep sees the target plus 8 px, settled. It does not see how fast the page gets there, a press, a drag, or a tooltip outside the target. An element that keeps animating at rest makes every point read as an answer.
 

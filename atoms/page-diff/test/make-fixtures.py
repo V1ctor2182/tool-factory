@@ -26,11 +26,15 @@ def shifted(im: Image.Image, by: int) -> Image.Image:
 def write_sweep(root: Path, slug: str, sweep: dict) -> str:
     (root / f"{slug}.sweep").mkdir(exist_ok=True)
     sweep["rest"].save(root / f"{slug}.sweep/rest.png")
+    drift = []
+    for i, image in enumerate(sweep.get("drift", []), 1):
+        image.save(root / f"{slug}.sweep/rest-{i}.png")
+        drift.append(f"{slug}.sweep/rest-{i}.png")
     points = []
     for col, (image, cursor) in enumerate(sweep["points"]):
         image.save(root / f"{slug}.sweep/00-{col:02d}.png")
         points.append({"col": col, "row": 0, "x": 12 + col * 24, "y": 12, "image": f"{slug}.sweep/00-{col:02d}.png", "cursor": cursor, "changed": {f":scope > :nth-child({col + 1})": {"scale": "1.5"}}})
-    (root / f"{slug}.sweep.json").write_text(json.dumps({"cols": len(points), "rows": 1, "dwellMs": 800, "rest": f"{slug}.sweep/rest.png", "points": points}, indent=2) + "\n")
+    (root / f"{slug}.sweep.json").write_text(json.dumps({"cols": len(points), "rows": 1, "dwellMs": 800, "rest": f"{slug}.sweep/rest.png", **({"drift": drift} if drift else {}), "points": points}, indent=2) + "\n")
     return f"{slug}.sweep.json"
 
 
@@ -53,6 +57,8 @@ def write(side: str, states: list[dict]) -> None:
             "name": st["name"], "screenshot": f"{slug}.png", "frames": frames, "dom": f"{slug}.dom.html",
             "styles": f"{slug}.styles.json", "motion": f"{slug}.motion.json", "animations": st.get("animations", []), "overlays": [],
         }
+        if "effects" in st:
+            row["effects"] = st["effects"]
         if "sweep" in st:
             row["sweep"] = write_sweep(root, slug, st["sweep"])
         out.append(row)
@@ -157,3 +163,19 @@ write("sweep-a", [sweep_state(lit(), (lit(0), "pointer"), (lit(1), "pointer"), (
 write("sweep-alike", [sweep_state(lit(base=70), (lit(0, base=70), "pointer"), (lit(1, base=70), "pointer"), (lit(base=70), "auto"))])
 write("sweep-wrong", [sweep_state(lit(), (lit(0), "auto"), (lit(1, 2), "pointer"), (lit(), "auto"))])
 write("sweep-dead", [sweep_state(lit(), (lit(), "auto"), (lit(), "auto"), (lit(), "auto"))])
+
+moving = lambda *points: [{"name": "idle", "screenshot": lit(), "sweep": {"rest": lit(), "drift": [lit(2)], "points": points}}]
+write("sweep-moving-a", moving((lit(0), "pointer"), (lit(1), "pointer"), (lit(2), "auto")))
+write("sweep-moving-b", moving((lit(0, 2), "pointer"), (lit(1, 2), "pointer"), (lit(), "auto")))
+write("sweep-flowing-a", moving((lit(0, 1), "pointer"), (lit(1), "pointer"), (lit(2), "auto")))
+write("sweep-flowing-b", moving((lit(0), "pointer"), (lit(), "pointer"), (lit(), "auto")))
+write("effects-a", [{"name": "idle", "screenshot": lit(), "effects": {"playback": 1, "clipboard": 2}}])
+write("effects-half", [{"name": "idle", "screenshot": lit(), "effects": {"clipboard": 1}}])
+write("effects-none", [{"name": "idle", "screenshot": lit()}])
+
+LOOP = {"target": ":scope", "pseudoElement": None, "type": "CSSAnimation", "name": "fall", "keyframes": [], "duration": 1000, "delay": 0, "endDelay": 0, "easing": "linear", "iterations": "infinite", "direction": "normal", "fill": "none"}
+FADE = {**LOOP, "type": "CSSTransition", "name": "opacity", "iterations": 1}
+write("motion-frames", [{"name": "idle", "screenshot": lit(), "frames": [lit(), lit(1)]}])
+write("motion-loop", [{"name": "idle", "screenshot": lit(), "animations": [LOOP]}])
+write("motion-fade", [{"name": "idle", "screenshot": lit(), "animations": [FADE], "frames": [lit(), lit(1)]}])
+write("motion-none", [{"name": "idle", "screenshot": lit(), "frames": [lit(), lit()]}])

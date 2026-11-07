@@ -6,6 +6,7 @@
 # ///
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from factory_kit import cli, model
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC = model.load(ROOT)
 FRAMES_PER_STATE = 3
 LIMITS = {"dom": 12_000, "styles": 12_000, "motion": 6_000, "animations": 8_000, "steps": 6_000, "draft": 60_000, "diff": 4_000, "sweep": 24_000, "problem": 6_000}
-DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays"]
+DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "effects", "still"]
 
 
 def _schema(packages: list[str] | None) -> dict:
@@ -52,6 +53,11 @@ def _json(path: str, what: str) -> dict:
         return json.loads(_read(path, what))
     except ValueError as e:
         raise cli.AtomError("invalid_source", f"{what} is not JSON: {path} ({e})") from None
+
+
+def _dom(path: str, what: str) -> str:
+    # A class attribute is the original's own source text. Computed styles say how it looks without it.
+    return re.sub(r'\sclass="[^"]*"', "", _read(path, what))
 
 
 def _image(path: str | None) -> list[Path]:
@@ -103,18 +109,20 @@ def _recording(path: str) -> list[str | Path]:
                 index = state["frames"].index(frame)
                 parts += [f"Frame {index}, {index * every} ms after the actions:", Path(frame)]
         parts += [
-            "Rendered DOM, settled, scripts removed:\n" + _clip(_read(state["dom"], "dom"), LIMITS["dom"]),
+            "Rendered DOM, settled, scripts and class attributes removed:\n" + _clip(_dom(state["dom"], "dom"), LIMITS["dom"]),
             "Computed styles by element path, settled:\n" + _clip(_read(state["styles"], "styles"), LIMITS["styles"]),
             "Transform and opacity tracks that moved across the frames:\n" + _clip(_read(state["motion"], "motion"), LIMITS["motion"]),
             "Animations seen while the state ran:\n" + _clip(json.dumps(state["animations"]), LIMITS["animations"]),
         ]
+        if state.get("effects"):
+            parts.append("Calls the page made in this state, which no screenshot shows. playback starts sound or video, and clipboard writes to the clipboard. Your demo must make the same kinds in this state:\n" + json.dumps(state["effects"]))
         if "sweep" in state:
             parts += _sweep(state["sweep"])
         for i, overlay in enumerate(state["overlays"]):
             parts += [
                 f"Overlay {i}, outside the target, such as a popup in a portal. Its corner is at {overlay['offset']} from the target's corner and {overlay['at']} in the viewport:",
                 Path(overlay["screenshot"]),
-                "Its rendered DOM:\n" + _clip(_read(overlay["dom"], "overlay dom"), LIMITS["dom"]),
+                "Its rendered DOM:\n" + _clip(_dom(overlay["dom"], "overlay dom"), LIMITS["dom"]),
                 "Its computed styles by element path:\n" + _clip(_read(overlay["styles"], "overlay styles"), LIMITS["styles"]),
             ]
     return parts

@@ -107,10 +107,22 @@
           },
           "overlays": { "type": "array", "items": { "$ref": "#/$defs/overlay" }, "description": "The state's overlays, such as popups outside the target, paired by document order. When either recording has one, they weigh as much as the settled pixels in the state's score." },
           "sweep": { "$ref": "#/$defs/sweep" },
+          "effects": {
+            "type": ["object", "null"],
+            "description": "Calls no screenshot shows, by kind, when either page made one. Each kind in missing caps the overall score. Null otherwise.",
+            "properties": {
+              "a": { "type": "object", "additionalProperties": { "type": "integer" } },
+              "b": { "type": "object", "additionalProperties": { "type": "integer" } },
+              "missing": { "type": "array", "items": { "type": "string" }, "description": "Kinds a made and b did not." }
+            },
+            "required": ["a", "b", "missing"],
+            "additionalProperties": false
+          },
+          "still": { "type": "boolean", "description": "True when a moves on its own and b shows no motion in the state. Caps the overall score at 0." },
           "image": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A PNG of a, b, and a heatmap side by side. Null for a missing state." },
           "sheet": { "type": ["string", "null"], "pattern": "\\.png$", "description": "A contact sheet of the frames both recordings have, one column per frame index, with a, b, and the heatmap stacked top to bottom. Null when no frame index is shared." }
         },
-        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "sweep", "image", "sheet"],
+        "required": ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "sweep", "effects", "still", "image", "sheet"],
         "additionalProperties": false
       }
     },

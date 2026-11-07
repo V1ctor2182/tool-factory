@@ -1,0 +1,21 @@
+{
+  "source": "file:///fixtures/motion-frames.html",
+  "steps": "/fixtures/steps.json",
+  "dir": "/fixtures/motion-frames",
+  "states": [
+    {
+      "name": "idle",
+      "screenshot": "00-idle.png",
+      "frames": [
+        "00-idle-f000.png",
+        "00-idle-f001.png"
+      ],
+      "dom": "00-idle.dom.html",
+      "styles": "00-idle.styles.json",
+      "motion": "00-idle.motion.json",
+      "animations": [],
+      "overlays": []
+    }
+  ],
+  "cacheHit": false
+}

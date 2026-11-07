@@ -13,6 +13,10 @@ Return these fields.
 
 A state can have a pointer sweep. The judge moves the pointer over a grid on your target too, and compares what changes from rest at each point. Your overall score cannot pass the worst point, so one dead or wrong spot sinks a draft that looks right. Work out the rule from the values: what the pointer's position decides, which element answers, and how the others move. Handle the pointer on the element that receives it, and do not rely on hovering one child when the original answers across the surface.
 
+A state marked `still` means the original moves on its own and your demo does not move at all. Your overall score is 0 until it does, however right it looks. Define the animation inside the component.
+
+A state can list calls the page made, such as starting a sound or writing to the clipboard. Your overall score falls with each kind your demo does not make in that state, however right it looks. Make the real call, and write the behavior the demo's own text promises.
+
 When a previous draft and the judge's diff are given, revise that draft. Fix the largest differences first: missing states, then wrong answers to the pointer, then missing or misplaced overlays, then the settled pixels, then styles, then animations and motion. Keep what already matches. When a problem is given, such as a type error or an install error, fix it first, because a draft that fails to install scores nothing.
 
 Leave out what belongs to the site showing the component, such as a code viewer or an upgrade prompt.
