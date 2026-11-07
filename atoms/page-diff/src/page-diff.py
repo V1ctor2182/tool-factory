@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 RECORDING_SCHEMA = json.loads((HERE.parents[2] / "contracts" / "page-recording.schema.json").read_text(encoding="utf-8"))
 
 # Bump when the comparison or the score changes, so cached diffs from the old formula stop matching.
-VERSION = 4
+VERSION = 6
 SCALE = 2
 STYLE_CAP = 50
 PATH_CAP = 5
@@ -40,6 +40,7 @@ MOVE_PX, MATRIX_EPS, OPACITY_EPS = 0.5, 0.01, 0.01
 TRANSLATE = {12, 13, 14}
 # A sweep compares averages over cells this many CSS pixels wide. A component on a half CSS pixel rasterizes differently from itself on a whole one, and at 12 px that noise is gone while a swatch scaled to 1.25 instead of 1.38 still shows.
 CELL_PX = 12
+MOSTLY = 0.5
 GAP = 4
 BACKGROUND = (40, 40, 40, 255)
 OUTSIDE = (255, 0, 255, 255)
@@ -59,7 +60,7 @@ def _load_sweep(file: Path, path: str) -> dict:
         sweep = json.loads(file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise cli.AtomError("invalid_source", f"{path}: cannot read the sweep {file}: {e}") from None
-    return {**sweep, "rest": file.parent / sweep["rest"], "points": [{**p, "image": file.parent / p["image"]} for p in sweep["points"]]}
+    return {**sweep, "rest": file.parent / sweep["rest"], "drift": [file.parent / f for f in sweep.get("drift", [])], "points": [{**p, "image": file.parent / p["image"]} for p in sweep["points"]]}
 
 
 def _load(path: str) -> dict:
@@ -78,7 +79,7 @@ def _load(path: str) -> dict:
         overlays = [{**o, "screenshot": file.parent / o["screenshot"], "styles": file.parent / o["styles"]} for o in st["overlays"]]
         state = {**st, **{k: file.parent / st[k] for k in ("screenshot", "styles", "motion")}, "frames": [file.parent / f for f in st["frames"]], "overlays": overlays}
         state["sweep"] = _load_sweep(file.parent / st["sweep"], path) if "sweep" in st else None
-        sweep_files = [state["sweep"]["rest"], *(p["image"] for p in state["sweep"]["points"])] if state["sweep"] else []
+        sweep_files = [state["sweep"]["rest"], *state["sweep"]["drift"], *(p["image"] for p in state["sweep"]["points"])] if state["sweep"] else []
         for f in [state["screenshot"], *state["frames"], state["styles"], state["motion"], *(o[k] for o in overlays for k in ("screenshot", "styles")), *sweep_files]:
             if not f.is_file():
                 raise cli.AtomError("invalid_source", f"{path}: state {st['name']!r} points at {f}, which is not a file")
@@ -88,14 +89,14 @@ def _load(path: str) -> dict:
 
 def _sweep_fingerprint(sweep: dict | None) -> dict | None:
     return sweep and {
-        "cols": sweep["cols"], "rows": sweep["rows"], "rest": file_sha256(sweep["rest"]),
+        "cols": sweep["cols"], "rows": sweep["rows"], "rest": file_sha256(sweep["rest"]), "drift": [file_sha256(f) for f in sweep["drift"]],
         "points": [{"image": file_sha256(p["image"]), "cursor": p["cursor"], "changed": p["changed"]} for p in sweep["points"]],
     }
 
 
 def _fingerprint(recording: dict) -> list:
     return [
-        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"], "overlays": [{"screenshot": file_sha256(o["screenshot"]), "styles": file_sha256(o["styles"]), "offset": o["offset"], "at": o["at"]} for o in s["overlays"]], "sweep": _sweep_fingerprint(s["sweep"])}
+        {"name": name, "screenshot": file_sha256(s["screenshot"]), "frames": [file_sha256(f) for f in s["frames"]], "styles": file_sha256(s["styles"]), "motion": file_sha256(s["motion"]), "animations": s["animations"], "overlays": [{"screenshot": file_sha256(o["screenshot"]), "styles": file_sha256(o["styles"]), "offset": o["offset"], "at": o["at"]} for o in s["overlays"]], "sweep": _sweep_fingerprint(s["sweep"]), "effects": s.get("effects")}
         for name, s in recording["states"].items()
     ]
 
@@ -315,10 +316,20 @@ def _sweep(slug: str, name: str, sa: dict | None, sb: dict | None, tolerance: in
     grid: list[list] = [[None] * sa["cols"] for _ in range(sa["rows"])]
     scores, worst = [], None
     differs = lambda d: np.abs(d).max(axis=2) > tolerance
+    # A cell that changes with the pointer parked would read as an answer at every point, so it is left out on both pages.
+    # On a page that animates, so is a cell that changes at most points, since it says nothing about where the pointer is.
+    def moving(s: dict, rest: np.ndarray) -> np.ndarray:
+        since = lambda file: differs((_rgba(file, CELL_PX) - rest)[:h, :w])
+        moved = np.any([since(f) for f in s["drift"]], axis=0) if s["drift"] else np.zeros((h, w), dtype=bool)
+        if not moved.any():
+            return moved
+        return moved | (np.mean([since(p["image"]) for p in s["points"]], axis=0) >= MOSTLY)
+
+    still = ~(moving(sa, rest_a) | moving(sb, rest_b))
     for pa, pb in zip(sa["points"], sb["points"], strict=True):
         answer_a = (_rgba(pa["image"], CELL_PX) - rest_a)[:h, :w]
         answer_b = (_rgba(pb["image"], CELL_PX) - rest_b)[:h, :w]
-        answered = differs(answer_a) | differs(answer_b)
+        answered = (differs(answer_a) | differs(answer_b)) & still
         if not answered.any():
             continue
         wrong = differs(answer_a - answer_b) & answered
@@ -341,12 +352,28 @@ def _sweep(slug: str, name: str, sa: dict | None, sb: dict | None, tolerance: in
     return row
 
 
+def _effects(sa: dict, sb: dict) -> dict | None:
+    a, b = sa.get("effects") or {}, sb.get("effects") or {}
+    return {"a": a, "b": b, "missing": sorted(set(a) - set(b))} if a or b else None
+
+
+def _frames_move(s: dict, tolerance: int) -> bool:
+    frames = [_rgba(f) for f in s["frames"]]
+    return any(f.shape != frames[0].shape or np.abs(f - frames[0]).max() > tolerance for f in frames[1:])
+
+
+def _still(sa: dict, sb: dict, tolerance: int) -> bool:
+    """True when a moves on its own and b does not move at all. A dropped hover fade costs in the terms, since a transition is an answer rather than the effect itself."""
+    ambient = any(a["type"] != "CSSTransition" for a in sa["animations"]) or (not sa["animations"] and _frames_move(sa, tolerance))
+    return ambient and not sb["animations"] and not _frames_move(sb, tolerance)
+
+
 def _missing(name: str, sa: dict | None, sb: dict | None) -> dict:
     size = lambda s: _size(_rgba(s["screenshot"])) if s else None
     return {
         "name": name, "score": 0.0, "missing": "a" if sa is None else "b",
         "size": {"a": size(sa), "b": size(sb)}, "pixels": None, "frames": [], "styles": [],
-        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "overlays": [], "sweep": None, "image": None, "sheet": None,
+        "animations": {"onlyA": [], "onlyB": [], "changed": []}, "motion": [], "overlays": [], "sweep": None, "effects": None, "still": False, "image": None, "sheet": None,
     }
 
 
@@ -399,6 +426,8 @@ def _state(index: int, name: str, sa: dict, sb: dict, tolerance: int, out: Path)
         "pixels": {"mismatch": _r(settled["mismatch"]), "meanDelta": _r(settled["meanDelta"])},
         "frames": frames, "styles": styles, "animations": animations, "motion": _motion(sa["motion"], sb["motion"]), "overlays": overlays,
         "sweep": _sweep(slug, name, sa["sweep"], sb["sweep"], tolerance, out),
+        "effects": _effects(sa, sb),
+        "still": _still(sa, sb, tolerance),
         "image": image, "sheet": sheet,
     }
 
@@ -429,8 +458,11 @@ def compare(a: str, b: str, tolerance: int) -> dict:
         for row, k in _images(s):
             if row[k]:
                 row[k] = str(final / Path(row[k]).name)
-    # A mean would let a wrong answer to the pointer pass among many states that look right, so the worst sweep caps the score.
+    # A mean would let a wrong answer to the pointer pass among many states that look right, so the worst sweep caps the score. A call the rebuild never makes caps it the same way.
     agreements = [s["sweep"]["agreement"] for s in states if s["sweep"] and s["sweep"]["agreement"] is not None]
+    agreements += [1 - len(s["effects"]["missing"]) / len(s["effects"]["a"]) for s in states if s["effects"] and s["effects"]["a"]]
+    # A still copy of a moving page differs by few pixels, so it scores near 0.9 on likeness alone.
+    agreements += [0.0 for s in states if s["still"]]
     result = {"a": ra["path"], "b": rb["path"], "tolerance": tolerance, "score": _r(min([sum(s["score"] for s in states) / len(states), *agreements])), "states": states}
     cache.put(key, result)
     return result

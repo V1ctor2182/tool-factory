@@ -100,6 +100,20 @@ again=$(jq -r '.states[0].sweep' "$out/sweep-again.json")
 for image in rest.png 00-00.png 00-01.png; do
 	cmp -s "$(dirname "$sweep")/00-idle.sweep/$image" "$(dirname "$again")/00-idle.sweep/$image" || fail "the sweep's $image differs between two runs"
 done
+[ "$(jq '.drift | length' "$sweep")" = 8 ] || fail "the sweep does not keep eight later rest images"
+jq -n --arg url "file://$test_dir/fixtures/effects.html" '{url: $url, target: "#stage", states: [
+	{name: "idle", actions: [], sweep: {cols: 1, rows: 1, dwellMs: 200}},
+	{name: "sound", actions: [{do: "click", selector: "#tone"}]},
+	{name: "video", actions: [{do: "click", selector: "#media"}]},
+	{name: "selected", actions: [{do: "select", selector: "#words"}]}]}' > "$out/effects.json"
+"$bin" capture "$out/effects.json" --json > "$out/effects-out.json" || fail "a page with effects did not record: $(cat "$out/effects-out.json")"
+"$repo/contracts/check" page-recording "$out/effects-out.json" || fail "effects do not match page-recording.schema.json"
+[ "$(jq -c '[.states[].effects]' "$out/effects-out.json")" = '[{},{"playback":1},{"playback":1},{}]' ] \
+	|| fail "the recording does not count each state's calls: $(jq -c '[.states[].effects]' "$out/effects-out.json")"
+grep -q 'selected the words' "$(jq -r '.states[3].dom' "$out/effects-out.json")" || fail "select did not select the element's text"
+drifting=$(jq -r '.states[0].sweep' "$out/effects-out.json")
+if cmp -s "$(dirname "$drifting")/$(jq -r .rest "$drifting")" "$(dirname "$drifting")/$(jq -r '.drift[0]' "$drifting")"; then fail "a page animating on its own shows no drift"; fi
+
 jq -n --arg url "file://$test_dir/fixtures/drag.html" '{url: $url, states: [
 	{name: "held", actions: [{do: "drag", selector: "#thumb", by: {x: 10, y: 0}}], sweep: {cols: 1, rows: 1}},
 	{name: "dropped", actions: [{do: "drop"}]}]}' > "$out/held-sweep.json"
@@ -132,6 +146,9 @@ if "$bin" capture "$out/lone-drop.json" --json > "$out/lone-drop-out.json"; then
 jq '.states[0].actions[0] = {"do": "hover"}' "$steps" > "$out/bad.json"
 if "$bin" capture "$out/bad.json" --json > "$out/bad-out.json"; then fail "a hover with no selector exited 0"; fi
 [ "$(jq -r .error.code "$out/bad-out.json")" = invalid_args ] || fail "a steps file that breaks the schema did not report invalid_args"
+jq '.states[1].name = .states[0].name' "$steps" > "$out/repeat.json"
+if "$bin" capture "$out/repeat.json" --json > "$out/repeat-out.json"; then fail "steps with a repeated state name exited 0"; fi
+[ "$(jq -r .error.code "$out/repeat-out.json")" = invalid_args ] || fail "a repeated state name did not report invalid_args: $(cat "$out/repeat-out.json")"
 
 jq -n --arg url "file://$test_dir/fixtures/overlay.html" '{url: $url, target: "#card", states: [
 	{name: "idle", actions: []},

@@ -32,6 +32,8 @@ MARGIN_PX = 8
 DRAG_MOVES = 10
 DRAG_MOVE_MS = 16
 SWEEP_DWELL_MS = 800
+DRIFT_SAMPLES = 8
+DRIFT_GAP_MS = 1500
 PARKED = (0, 0)
 # Without these, transform and opacity animations run on the compositor thread on real time, outside the virtual clock.
 CHROMIUM_ARGS = ["--disable-threaded-animation", "--disable-threaded-scrolling", "--run-all-compositor-stages-before-draw", "--disable-checker-imaging"]
@@ -49,6 +51,9 @@ def _steps(path: str) -> dict:
     errors = sorted(Draft202012Validator(STEPS_SCHEMA).iter_errors(steps), key=str)
     if errors:
         raise cli.AtomError("invalid_args", f"{path} is not a page-steps file: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors))
+    names = [state["name"] for state in steps["states"]]
+    if len(set(names)) < len(names):
+        raise cli.AtomError("invalid_args", f"{path}: state names repeat, and page-diff matches states by name: {names}")
     held = False
     for state in steps["states"]:
         for action in state["actions"]:
@@ -159,6 +164,7 @@ ACTIONS = {
     "hover": lambda s, a, w: _on(s, a, w).hover(),
     "click": lambda s, a, w: _on(s, a, w).click(),
     "focus": lambda s, a, w: _on(s, a, w).focus(),
+    "select": lambda s, a, w: _on(s, a, w).click(click_count=3),
     "scroll": lambda s, a, w: _on(s, a, w).scroll_into_view_if_needed(),
     "type": lambda s, a, w: _on(s, a, w).press_sequentially(a["text"]) if "selector" in a else s.page.keyboard.type(a["text"]),
     "press": lambda s, a, w: _on(s, a, w).press(a["key"]) if "selector" in a else s.page.keyboard.press(a["key"]),
@@ -235,7 +241,12 @@ def _sweep(s: Session, grid: dict, slug: str, out: Path) -> str:
     box = s.js("rect", s.target)
     clip = s.js("box", s.target, MARGIN_PX)
     rest = s.js("motion", s.target)
-    sweep = {"cols": grid["cols"], "rows": grid["rows"], "dwellMs": dwell, "rest": shot("rest.png"), "points": []}
+    sweep = {"cols": grid["cols"], "rows": grid["rows"], "dwellMs": dwell, "rest": shot("rest.png"), "drift": [], "points": []}
+    # An animation moves with the pointer parked too, so these show which parts of the page no pointer answer can be read from.
+    for i in range(1, DRIFT_SAMPLES + 1):
+        s.step(DRIFT_GAP_MS)
+        settled()
+        sweep["drift"].append(shot(f"rest-{i}.png"))
     for row in range(grid["rows"]):
         for col in range(grid["cols"]):
             x, y = box["width"] * (col + 0.5) / grid["cols"], box["height"] * (row + 0.5) / grid["rows"]
@@ -286,6 +297,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
                 samples.append(s.js("motion", s.target))
         (out / f"{slug}.motion.json").write_text(json.dumps({"everyMs": every, "tracks": _tracks(samples)}, indent=2), encoding="utf-8")
         s.settle()
+        effects = s.js("effects")
         s.locate(s.target, f"state {state['name']!r}, after its actions settled, the target")
         (out / f"{slug}.dom.html").write_text(s.js("dom", s.target), encoding="utf-8")
         (out / f"{slug}.styles.json").write_text(json.dumps(s.js("styles", s.target), indent=2), encoding="utf-8")
@@ -310,6 +322,7 @@ def _record(page, steps: dict, url: str, out: Path) -> list[dict]:
             "motion": str(out / f"{slug}.motion.json"),
             "animations": list(s.seen.values()),
             "overlays": overlays,
+            "effects": effects,
         })
         if "sweep" in state:
             states[-1]["sweep"] = _sweep(s, state["sweep"], slug, out)

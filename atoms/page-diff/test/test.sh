@@ -119,4 +119,38 @@ score 0.5000' ] || fail "the text output does not show the sweep"
 if "$bin" compare "$test_dir/fixtures/sweep-a/recording.json" "$a" --json > "$out/sweep-one-side.json"; then fail "a sweep on one side exited 0"; fi
 [ "$(jq -r .error.code "$out/sweep-one-side.json")" = invalid_source ] || fail "a sweep on one side did not report invalid_source: $(cat "$out/sweep-one-side.json")"
 
+sweep moving-a moving-b > "$out/sweep-moving.json"
+holds '[.score, .states[0].sweep.agreement, .states[0].sweep.grid]' '[1,1,[[1,1,null]]]' "$out/sweep-moving.json" \
+	|| fail "a cell that moves with the pointer parked counts as an answer: $(jq -c '[.score, .states[0].sweep]' "$out/sweep-moving.json")"
+
+sweep flowing-a flowing-b > "$out/sweep-flowing.json"
+holds '.states[0].sweep.grid' '[[1,null,null]]' "$out/sweep-flowing.json" \
+	|| fail "on an animated page, a cell that changes at most points still counts: $(jq -c .states[0].sweep "$out/sweep-flowing.json")"
+
+effects() { "$bin" compare "$test_dir/fixtures/effects-$1/recording.json" "$test_dir/fixtures/effects-$2/recording.json" --json; }
+effects a a > "$out/effects-same.json"
+"$repo/contracts/check" page-diff "$out/effects-same.json" || fail "a diff with effects does not match page-diff.schema.json"
+holds '.score' 1 "$out/effects-same.json" || fail "the same calls lost score"
+effects a half > "$out/effects-half.json"
+holds '[.score, .states[0].score, .states[0].effects.missing]' '[0.5,1,["playback"]]' "$out/effects-half.json" \
+	|| fail "one missing kind of two does not cap the score at 0.5: $(jq -c '[.score, .states[0].effects]' "$out/effects-half.json")"
+effects a none > "$out/effects-none.json"
+holds '[.score, .states[0].effects.missing]' '[0,["clipboard","playback"]]' "$out/effects-none.json" \
+	|| fail "a page that makes none of the calls does not score 0: $(jq -c '[.score, .states[0].effects]' "$out/effects-none.json")"
+effects none a > "$out/effects-extra.json"
+holds '.score' 1 "$out/effects-extra.json" || fail "a call only the rebuild makes lost score"
+
+motion() { "$bin" compare "$test_dir/fixtures/motion-$1/recording.json" "$test_dir/fixtures/motion-$2/recording.json" --json; }
+motion loop none > "$out/still.json"
+"$repo/contracts/check" page-diff "$out/still.json" || fail "a diff with a still rebuild does not match page-diff.schema.json"
+holds '[.score, .states[0].still]' '[0,true]' "$out/still.json" || fail "a still copy of a looping page does not score 0: $(jq -c '[.score, .states[0].still]' "$out/still.json")"
+motion frames none > "$out/still-frames.json"
+holds '[.score, .states[0].still]' '[0,true]' "$out/still-frames.json" || fail "a still copy of a page driven by script does not score 0"
+motion loop frames > "$out/script.json"
+holds '.states[0].still' false "$out/script.json" || fail "a rebuild that moves by script counts as still"
+motion fade none > "$out/fade.json"
+holds '.states[0].still' false "$out/fade.json" || fail "a dropped transition counts as a still rebuild"
+motion none loop > "$out/extra.json"
+holds '.states[0].still' false "$out/extra.json" || fail "motion only the rebuild has counts as still"
+
 echo "PASS page-diff"

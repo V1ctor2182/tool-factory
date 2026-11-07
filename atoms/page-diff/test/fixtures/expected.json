@@ -29,7 +29,9 @@
       },
       "motion": [],
       "overlays": [],
-      "sweep": null
+      "sweep": null,
+      "effects": null,
+      "still": false
     },
     {
       "name": "hover",
@@ -246,7 +248,9 @@
         }
       ],
       "overlays": [],
-      "sweep": null
+      "sweep": null,
+      "effects": null,
+      "still": false
     },
     {
       "name": "open",
@@ -275,7 +279,9 @@
       },
       "motion": [],
       "overlays": [],
-      "sweep": null
+      "sweep": null,
+      "effects": null,
+      "still": false
     },
     {
       "name": "closed",
@@ -298,7 +304,9 @@
       },
       "motion": [],
       "overlays": [],
-      "sweep": null
+      "sweep": null,
+      "effects": null,
+      "still": false
     }
   ]
 }

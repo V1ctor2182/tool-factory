@@ -39,7 +39,7 @@ SCHEMA = {
         "states": {
             "type": "array",
             "minItems": 2,
-            "maxItems": 4,
+            "maxItems": 10,
             "description": "The states after idle, in the order a user reaches them. Each state's actions run after the previous state's.",
             "items": {
                 "type": "object",
@@ -49,7 +49,7 @@ SCHEMA = {
                         "type": "array",
                         "minItems": 1,
                         "items": {"anyOf": [
-                            _action(["hover", "click", "focus", "scroll"], "selector"),
+                            _action(["hover", "click", "focus", "select", "scroll"], "selector"),
                             _action(["type", "paste"], "text", "selector"),
                             _action(["press"], "key", "selector"),
                             _action(["wait"], "ms"),
@@ -119,6 +119,14 @@ def _survey(path: str) -> tuple[dict, dict, list[str | Path]]:
         "Computed styles by element path:\n" + _clip(_text(idle["styles"], "styles"), LIMITS["styles"]),
         "Animations running while idle:\n" + _clip(json.dumps(idle["animations"]), LIMITS["animations"]),
     ]
+    for state in recording["states"][1:]:
+        parts += [
+            f"## Your earlier state {state['name']}\n\nScreenshot of the target, settled:",
+            Path(state["screenshot"]),
+            "Rendered DOM of the target:\n" + _clip(_text(state["dom"], "dom"), LIMITS["dom"]),
+        ]
+        for overlay in state["overlays"]:
+            parts += ["A popup outside the target:", Path(overlay["screenshot"]), "Its rendered DOM:\n" + _clip(_text(overlay["dom"], "overlay dom"), LIMITS["dom"])]
     return fixed, {"name": "idle", "actions": [], "sweep": _sweep(idle["screenshot"])}, parts
 
 

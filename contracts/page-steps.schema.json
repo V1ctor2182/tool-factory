@@ -59,7 +59,7 @@
     "action": {
       "type": "object",
       "properties": {
-        "do": { "enum": ["hover", "click", "focus", "type", "press", "paste", "wait", "scroll", "drag", "drop"] },
+        "do": { "enum": ["hover", "click", "focus", "select", "type", "press", "paste", "wait", "scroll", "drag", "drop"] },
         "selector": { "type": "string", "minLength": 1, "description": "CSS selector. type, press, and paste act on the focused element when it is absent." },
         "text": { "type": "string" },
         "key": { "type": "string", "minLength": 1, "description": "A Playwright key name, such as Enter or Backspace." },
@@ -75,7 +75,7 @@
       "required": ["do"],
       "additionalProperties": false,
       "allOf": [
-        { "if": { "properties": { "do": { "enum": ["hover", "click", "focus", "scroll", "drag"] } } }, "then": { "required": ["selector"] } },
+        { "if": { "properties": { "do": { "enum": ["hover", "click", "focus", "select", "scroll", "drag"] } } }, "then": { "required": ["selector"] } },
         { "if": { "properties": { "do": { "enum": ["type", "paste"] } } }, "then": { "required": ["text"] } },
         { "if": { "properties": { "do": { "const": "press" } } }, "then": { "required": ["key"] } },
         { "if": { "properties": { "do": { "const": "wait" } } }, "then": { "required": ["ms"] } },

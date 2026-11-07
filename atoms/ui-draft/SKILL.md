@@ -20,7 +20,7 @@ The result is a draft, as `contracts/ui-draft.schema.json` defines it. `item` is
 The rebuild stays blind to the original's code. The model sees only:
 
 - the recording's steps file, so the demo answers the same target and actions,
-- for each state, the settled screenshot, up to 3 evenly spaced frames, the rendered DOM without scripts, the computed styles, the motion tracks, and the animations, each cut to a fixed size,
+- for each state, the settled screenshot, up to 3 evenly spaced frames, the rendered DOM without scripts or class attributes, the computed styles, the motion tracks, and the animations, each cut to a fixed size,
 - with `--previous`, its own earlier draft,
 - with `--diff`, page-diff's per-state scores, pixel, style, animation, and motion differences, and its `image` and `sheet` PNGs,
 - a state's pointer sweep, as each distinct answer with its points and what changed, and up to 3 of their images. With `--diff`, the sweep's grid, its worst point, and that point's PNG,

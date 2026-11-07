@@ -20,6 +20,8 @@ The recording's steps file holds the page and the element to watch, with one idl
 
 The result is a steps file and notes, as `contracts/ui-steps.schema.json` defines it. `steps` is a page-steps file. Its `url`, `target`, `viewport`, and `colorScheme` are the recording's, its first state is `idle` with no actions and a pointer sweep, and the model writes the 2 to 4 states after it. Each state that moves has `frames`. The atom checks `steps` against `contracts/page-steps.schema.json` before it returns or caches them. Without `--json` it prints one line per state and the notes.
 
+Pass a recording of steps you already have to go deeper. The model sees every state in it, returns those states first unchanged, and adds states up to 10 for the controls that appear only in them.
+
 The steps are a guess until page-record runs them. Record the original with them, and when page-record fails, pass its message as `--problem`. `ui-clone site` does this at most twice per component.
 
 ## The sweep
