@@ -111,12 +111,13 @@ function stagesOf(trace) {
     stage('launch', 'Launch', pick('launch', 'coordinator')),
     stage('apply', 'Apply', sessions.map(session), Math.max(0, sessions.length - 1)),
     stage('you', 'You', asked.map((node) => agentOf(node, 'you', startedAt))),
-    stage('submit', 'Submit', pick('submit', 'act')),
+    // Nothing acts on a submit while its job waits for an answer, so an open one waits with the job.
+    stage('submit', 'Submit', all.filter((node) => node.id === 'submit').map((node) => agentOf(node, 'act', startedAt, node.end === null && trace.state === 'blocked' ? 'blocked' : undefined))),
   ].filter((s) => s.agents.length);
 }
 
 const lastEnd = (trace) => iso(parseTime(trace.startedAt) + trace.root.end * 1000);
-let runsMemo = null;
+let listingMemo = null;
 let passesMemo = null;
 const traceMemo = new Map();
 
@@ -140,13 +141,15 @@ async function inBatches(items, read) {
   return done;
 }
 
-async function runsOf(api, now = Date.now()) {
-  if (runsMemo?.api === api && now - runsMemo.at < LIST_TTL_MS) return runsMemo.runs;
+async function listingOf(api, now = Date.now()) {
+  if (listingMemo?.api === api && now - listingMemo.at < LIST_TTL_MS) return listingMemo;
   const answer = await get(api, '/api/applier-runs', RUNS_TIMEOUT_MS);
   const runs = [...(answer?.runs ?? [])].sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, FLOW_LIMIT);
-  runsMemo = { api, at: now, runs };
-  return runs;
+  listingMemo = { api, at: now, runs, paused: answer?.autopilot_enabled === false };
+  return listingMemo;
 }
+
+const runsOf = async (api, now) => (await listingOf(api, now)).runs;
 
 async function passesOf(api, now = Date.now()) {
   if (passesMemo?.api === api && now - passesMemo.at < LIST_TTL_MS) return passesMemo.passes;
@@ -215,7 +218,7 @@ async function passTrace(api, agentId) {
 
 // One loop across every job, so a chip is one job's part in a stage and opens that job's trace.
 export async function loop(api, now = Date.now()) {
-  const [runs, passes] = await Promise.all([runsOf(api, now), passesOf(api, now)]);
+  const [{ runs, paused }, passes] = await Promise.all([listingOf(api, now), passesOf(api, now)]);
   if (!runs.length && !passes.length) return null;
   const jobs = await inBatches(runs, async (run) => ({ run, trace: await traceOf(api, run, now) }));
   const staged = jobs.filter(({ trace: found }) => found).map(({ run, trace: found }) => ({ jobId: run.job_id, stages: stagesOf(found) }));
@@ -224,7 +227,7 @@ export async function loop(api, now = Date.now()) {
   const restarts = staged.reduce((sum, { stages }) => sum + (stages.find((s) => s.id === 'apply')?.loops ?? 0), 0);
   const jobStage = (agents, loops = 0) => ({ agents, loops, state: agents.length ? stageState(agents) : 'pending' });
   return declaredLoop('job-applier', {
-    subtitle: `${runs.length} jobs, ${runs.filter((run) => LAUNCH_STATE[run.state] === 'done').length} done`,
+    subtitle: `${runs.length} jobs, ${runs.filter((run) => LAUNCH_STATE[run.state] === 'done').length} done${paused ? ', autopilot paused' : ''}`,
     startedAt: iso(Math.min(...[...runs, ...passes].map((run) => parseTime(run.started_at)))),
     stages: {
       ...passStages(passes),
