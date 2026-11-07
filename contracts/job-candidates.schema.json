@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/job-candidates.schema.json",
+  "title": "Job candidates",
+  "description": "Jobs a person repeats across sessions, proposed as microservices, most repeated first.",
+  "type": "object",
+  "properties": {
+    "sessionCount": { "type": "integer", "minimum": 0, "description": "Sessions the model read." },
+    "minSessions": { "type": "integer", "minimum": 1, "description": "Fewest known sessions a candidate must cite." },
+    "minObjects": { "type": "integer", "minimum": 1, "description": "Fewest different objects a candidate's citations must name." },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Short name for the job, usable as a microservice name." },
+          "job": { "type": "string", "minLength": 1, "description": "The task, in the words the person would ask for it." },
+          "why": { "type": "string", "minLength": 1, "description": "What in the sessions shows the repetition." },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Sessions that show the job, one entry per session.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sessionId": { "type": "string", "minLength": 1 },
+                "object": { "type": "string", "minLength": 1, "description": "What the job acted on, as a word found in that session's prompts or project." }
+              },
+              "required": ["sessionId", "object"],
+              "additionalProperties": false
+            }
+          },
+          "coveredBy": { "type": ["string", "null"], "description": "The catalog microservice, skill, or external service that already does the job, or null." },
+          "reuses": {
+            "type": "array",
+            "description": "Catalog atoms the job would be built from.",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "missing": {
+            "type": "array",
+            "description": "Atoms the job needs that the catalog does not have.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                "kind": { "enum": ["transform", "model", "observe", "act"] },
+                "noun": { "type": "string", "minLength": 1, "description": "The one noun the atom owns." }
+              },
+              "required": ["name", "kind", "noun"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["slug", "job", "why", "citations", "coveredBy", "reuses", "missing"],
+        "additionalProperties": false
+      }
+    },
+    "dropped": {
+      "type": "array",
+      "description": "Candidates the model proposed that failed a check.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string", "minLength": 1 },
+          "reason": { "enum": ["too_few_sessions", "too_few_objects"] }
+        },
+        "required": ["slug", "reason"],
+        "additionalProperties": false
+      }
+    },
+    "model": { "type": "string", "description": "The model that proposed the candidates." },
+    "costUsd": { "type": "number", "minimum": 0, "description": "Model spend of this call. Zero on a cache hit." },
+    "cacheHit": { "type": "boolean" }
+  },
+  "required": ["sessionCount", "minSessions", "minObjects", "candidates", "dropped", "model", "costUsd", "cacheHit"],
+  "additionalProperties": false
+}

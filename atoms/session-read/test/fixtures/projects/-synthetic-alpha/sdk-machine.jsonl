@@ -1,0 +1,2 @@
+{"type":"user","entrypoint":"sdk-cli","promptSource":"human","timestamp":"2026-10-12T09:00:00.000Z","message":{"role":"user","content":"Summarize this file for the pipeline."}}
+{"type":"user","entrypoint":"sdk-cli","origin":{"kind":"task-notification"},"timestamp":"2026-10-12T09:00:01.000Z","message":{"role":"user","content":"A task finished."}}

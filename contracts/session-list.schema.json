@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/session-list.schema.json",
+  "title": "Session list",
+  "description": "Claude Code sessions a person started in a time window, each with its first human prompts, oldest first.",
+  "type": "object",
+  "properties": {
+    "root": { "type": "string", "description": "Absolute path of the folder holding one folder of transcripts per project." },
+    "since": { "type": "string", "description": "Start of the window, as an ISO datetime in UTC." },
+    "until": { "type": ["string", "null"], "description": "End of the window, as an ISO datetime in UTC. Null when the window ends now." },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "The transcript's file stem." },
+          "project": { "type": "string", "minLength": 1, "description": "The transcript's folder name." },
+          "startedAt": { "type": "string", "description": "Timestamp of the first prompt, as the transcript records it." },
+          "prompts": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The first human prompts in transcript order, without tag blocks, with whitespace collapsed, truncated.",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "required": ["id", "project", "startedAt", "prompts"],
+        "additionalProperties": false
+      }
+    },
+    "skipped": {
+      "type": "object",
+      "properties": {
+        "machine": { "type": "integer", "minimum": 0, "description": "Transcripts with no human prompt. They hold no date to window by, so this counts them in every window." },
+        "duplicate": { "type": "integer", "minimum": 0, "description": "Sessions in the window whose first prompt repeats an earlier one in the same project." }
+      },
+      "required": ["machine", "duplicate"],
+      "additionalProperties": false
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false. Transcripts are read fresh on every call." }
+  },
+  "required": ["root", "since", "until", "sessions", "skipped", "cacheHit"],
+  "additionalProperties": false
+}
