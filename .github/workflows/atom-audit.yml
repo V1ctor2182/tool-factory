@@ -1,0 +1,50 @@
+name: atom-audit
+
+on:
+  pull_request:
+    paths:
+      - "atoms/**"
+      - "microservices/atom-audit/**"
+      - "contracts/code-clones.schema.json"
+      - "contracts/atom-audit.schema.json"
+      - ".github/workflows/atom-audit.yml"
+
+concurrency:
+  group: atom-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: false
+      - name: Comment the repeated code this pull request adds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # The checkout is the merge commit, so its first parent is the base it merges into.
+          git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
+          microservices/atom-audit/run scan --base "$RUNNER_TEMP/base/atoms" > "$RUNNER_TEMP/audit.txt"
+          {
+            echo "**atom-audit.** Repeated atom code that this pull request adds. It only reports. Read the code before you move it to the kit."
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/audit.txt"
+            echo '```'
+          } > "$RUNNER_TEMP/comment.md"
+          if grep -qx 'None.' "$RUNNER_TEMP/audit.txt"; then
+            # Nothing added. Update an earlier comment if there is one, and post nothing new.
+            gh pr comment "$PR" --body-file "$RUNNER_TEMP/comment.md" --edit-last || true
+          else
+            gh pr comment "$PR" --body-file "$RUNNER_TEMP/comment.md" --edit-last --create-if-none
+          fi

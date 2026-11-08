@@ -11,12 +11,13 @@
   "verbs": [
     {
       "name": "scan",
-      "description": "Repeated code, the atom pairs that share the most of it, and the atoms over 300 source lines. Free.",
+      "description": "Repeated code, the atom pairs that share the most of it, and the atoms over 300 source lines. With --base, the result also holds the repeated code that the base folder lacks, and the text shows only that. Free.",
       "input": {
         "type": "object",
         "properties": {
           "minSize": { "type": "integer", "description": "Fewest syntax nodes a clone must hold." },
-          "atoms": { "type": "string", "description": "Folder holding one folder per atom. This repo's atoms folder by default." }
+          "atoms": { "type": "string", "description": "Folder holding one folder per atom. This repo's atoms folder by default." },
+          "base": { "type": "string", "description": "Another atoms folder, such as main's. The result then lists the repeated code that this folder has and the base does not." }
         }
       },
       "output": "atom-audit"

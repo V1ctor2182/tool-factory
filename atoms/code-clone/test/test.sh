@@ -14,7 +14,7 @@ fail() { echo "FAIL code-clone: $1" >&2; exit 1; }
 
 "$bin" find --root "$root" --json > "$out/find.json"
 "$repo/contracts/check" code-clones "$out/find.json" || fail "find output does not match code-clones.schema.json"
-[ "$(jq -c .clones "$out/find.json")" = '[{"size":35,"locations":[{"part":"alpha","file":"alpha/src/alpha.py","startLine":6,"endLine":10},{"part":"beta","file":"beta/src/beta.py","startLine":6,"endLine":10}]}]' ] \
+[ "$(jq -c .clones "$out/find.json")" = '[{"size":35,"shape":"3db2187102661a15","locations":[{"part":"alpha","file":"alpha/src/alpha.py","startLine":6,"endLine":10},{"part":"beta","file":"beta/src/beta.py","startLine":6,"endLine":10}]}]' ] \
 	|| fail "clones are $(jq -c .clones "$out/find.json")"
 [ "$(jq -c .parts "$out/find.json")" = '[{"part":"alpha","lines":14},{"part":"beta","lines":14},{"part":"gamma","lines":10}]' ] \
 	|| fail "parts are $(jq -c .parts "$out/find.json")"

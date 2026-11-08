@@ -37,6 +37,29 @@ Large atoms to check for a second noun
 TEXT
 cmp "$out/scan.txt" "$out/expected.txt" || fail "text output is $(cat "$out/scan.txt")"
 
+base="$TOOL_FACTORY_HOME/base"
+mkdir "$base"
+cp -R "$atoms/alpha" "$base/alpha"
+"$run" scan --atoms "$atoms" --base "$base" --json > "$out/added.json" 2> /dev/null || fail "scan --base failed: $(cat "$out/added.json")"
+"$repo/contracts/check" atom-audit "$out/added.json" || fail "scan --base output does not match atom-audit.schema.json"
+[ "$(jq 'has("added")' "$out/scan.json")" = false ] || fail "a scan without --base reports added"
+
+moved="$TOOL_FACTORY_HOME/moved"
+cp -R "$atoms" "$moved"
+{ printf 'import os\n\n'; cat "$atoms/beta/src/beta.py"; } > "$moved/beta/src/beta.py"
+"$run" scan --atoms "$moved" --base "$atoms" --json > "$out/moved.json" 2> /dev/null
+[ "$(jq -c '[.clones[0].locations[1].startLine, .added]' "$out/moved.json")" = '[6,[]]' ] || fail "a clone that only moved lines is added: $(cat "$out/moved.json")"
+
+"$run" scan --atoms "$atoms" --base "$base" > "$out/added.txt" 2> /dev/null
+cat > "$out/expected-added.txt" <<'TEXT'
+Repeated code the base does not have
+38  alpha/src/alpha.py:4-9  beta/src/beta.py:4-9
+TEXT
+cmp "$out/added.txt" "$out/expected-added.txt" || fail "text output with --base is $(cat "$out/added.txt")"
+
+if "$run" scan --atoms "$atoms" --base "$test_dir/no-such-folder" --json > "$out/bad.json" 2> /dev/null; then fail "a missing base exited 0"; fi
+[ "$(jq -r .error.code "$out/bad.json")" = invalid_source ] || fail "a missing base reported $(cat "$out/bad.json")"
+
 if "$run" scan --atoms "$test_dir/no-such-folder" --json > "$out/bad.json" 2> /dev/null; then fail "a missing folder exited 0"; fi
 [ "$(jq -r .error.code "$out/bad.json")" = invalid_source ] || fail "a missing folder reported $(cat "$out/bad.json")"
 if "$run" scan --bogus --json > "$out/bad.json" 2> /dev/null; then fail "an unknown flag exited 0"; fi
