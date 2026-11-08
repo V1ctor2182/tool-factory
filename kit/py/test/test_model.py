@@ -157,3 +157,25 @@ def test_fingerprint_changes_with_the_schema(atom):
     spec = atom[0]
     assert model.fingerprint(spec, SCHEMA) != model.fingerprint(spec, {**SCHEMA, "required": []})
     assert model.fingerprint(spec, SCHEMA).startswith("haiku-")
+
+
+def test_cache_key_keeps_the_formula_model_atoms_cached_under(atom, tmp_path):
+    spec = atom[0]
+    shot = tmp_path / "shot.png"
+    shot.write_bytes(b"png")
+    key = model.cache_key(spec, SCHEMA, ["prompt text", shot])
+    assert key == f"8c0ff337d51606c2409a0fb382e283d7ed4c03ea0325f957b2d9a161d76a6e01-{model.fingerprint(spec, SCHEMA)}"
+
+
+def test_cache_key_changes_with_a_file_the_content_names(atom, tmp_path):
+    spec = atom[0]
+    shot = tmp_path / "shot.png"
+    shot.write_bytes(b"a")
+    before = model.cache_key(spec, SCHEMA, [shot])
+    shot.write_bytes(b"b")
+    assert model.cache_key(spec, SCHEMA, [shot]) != before
+
+
+def test_clip_keeps_short_text_and_says_how_much_it_cut():
+    assert model.clip("abc", 3) == "abc"
+    assert model.clip("abcdef", 2) == "ab\n[cut: 4 more characters]"

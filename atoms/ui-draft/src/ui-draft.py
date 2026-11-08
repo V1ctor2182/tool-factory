@@ -4,7 +4,6 @@
 # [tool.uv.sources]
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
-import hashlib
 import html
 import json
 import re
@@ -37,10 +36,6 @@ def _schema(packages: list[str] | None) -> dict:
         "notes": {"type": "string", "description": "What this draft changed and why."},
     }
     return {"type": "object", "properties": fields, "required": list(fields), "additionalProperties": False}
-
-
-def _clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else f"{text[:limit]}\n[cut: {len(text) - limit} more characters]"
 
 
 def _read(path: str | Path, what: str) -> str:
@@ -86,7 +81,7 @@ def _sweep(path: str) -> list[str | Path]:
     shown = [{k: a[k] for k in ("at", "cursor", "changed")} for a in answers.values()]
     parts: list[str | Path] = [
         f"Pointer sweep. The pointer moved unpressed over a {sweep['cols']} by {sweep['rows']} grid on the target. Each entry is one distinct answer. at lists its [x, y] points in CSS pixels from the target's corner, and changed is what differs from the pointer being away. Any point not listed shows no answer:\n"
-        + _clip(json.dumps(shown), LIMITS["sweep"])
+        + model.clip(json.dumps(shown), LIMITS["sweep"])
     ]
     for answer in _spaced(list(answers.values())):
         x, y = answer["at"][0]
@@ -99,7 +94,7 @@ def _recording(recording: dict, path: str) -> list[str | Path]:
         raise cli.AtomError("invalid_source", f"Not a page-record recording.json: {path}")
     parts: list[str | Path] = [
         "# The original\n\nThe steps file the judge drives both pages with. The demo must answer its target and every action's selector the way the original does:\n"
-        + _clip(_read(recording["steps"], "the recording's steps file"), LIMITS["steps"])
+        + model.clip(_read(recording["steps"], "the recording's steps file"), LIMITS["steps"])
     ]
     for state in recording["states"]:
         frames = _spaced(state["frames"])
@@ -110,10 +105,10 @@ def _recording(recording: dict, path: str) -> list[str | Path]:
                 index = state["frames"].index(frame)
                 parts += [f"Frame {index}, {index * every} ms after the actions:", Path(frame)]
         parts += [
-            "Rendered DOM, settled, scripts and class attributes removed:\n" + _clip(_dom(state["dom"], "dom"), LIMITS["dom"]),
-            "Computed styles by element path, settled:\n" + _clip(_read(state["styles"], "styles"), LIMITS["styles"]),
-            "Transform and opacity tracks that moved across the frames:\n" + _clip(_read(state["motion"], "motion"), LIMITS["motion"]),
-            "Animations seen while the state ran:\n" + _clip(json.dumps(state["animations"]), LIMITS["animations"]),
+            "Rendered DOM, settled, scripts and class attributes removed:\n" + model.clip(_dom(state["dom"], "dom"), LIMITS["dom"]),
+            "Computed styles by element path, settled:\n" + model.clip(_read(state["styles"], "styles"), LIMITS["styles"]),
+            "Transform and opacity tracks that moved across the frames:\n" + model.clip(_read(state["motion"], "motion"), LIMITS["motion"]),
+            "Animations seen while the state ran:\n" + model.clip(json.dumps(state["animations"]), LIMITS["animations"]),
         ]
         if state.get("effects"):
             parts.append("Calls the page made in this state, which no screenshot shows. playback starts sound or video, and clipboard writes to the clipboard. Your demo must make the same kinds in this state:\n" + json.dumps(state["effects"]))
@@ -123,8 +118,8 @@ def _recording(recording: dict, path: str) -> list[str | Path]:
             parts += [
                 f"Overlay {i}, outside the target, such as a popup in a portal. Its corner is at {overlay['offset']} from the target's corner and {overlay['at']} in the viewport:",
                 Path(overlay["screenshot"]),
-                "Its rendered DOM:\n" + _clip(_dom(overlay["dom"], "overlay dom"), LIMITS["dom"]),
-                "Its computed styles by element path:\n" + _clip(_read(overlay["styles"], "overlay styles"), LIMITS["styles"]),
+                "Its rendered DOM:\n" + model.clip(_dom(overlay["dom"], "overlay dom"), LIMITS["dom"]),
+                "Its computed styles by element path:\n" + model.clip(_read(overlay["styles"], "overlay styles"), LIMITS["styles"]),
             ]
     return parts
 
@@ -132,7 +127,7 @@ def _recording(recording: dict, path: str) -> list[str | Path]:
 def _previous(path: str) -> list[str | Path]:
     draft = _json(path, "previous draft")
     shown = {"item": draft.get("item"), "demo": draft.get("demo"), "notes": draft.get("notes")}
-    return ["# Your previous draft\n\n" + _clip(json.dumps(shown, indent=1), LIMITS["draft"])]
+    return ["# Your previous draft\n\n" + model.clip(json.dumps(shown, indent=1), LIMITS["draft"])]
 
 
 def _diff(path: str) -> list[str | Path]:
@@ -140,7 +135,7 @@ def _diff(path: str) -> list[str | Path]:
     parts: list[str | Path] = [f"# How the judge scored your previous draft\n\nOverall score {diff.get('score')}. 1 means identical to the original. a is the original, b is your draft."]
     for state in diff.get("states", []):
         shown = {field: state.get(field) for field in DIFF_FIELDS}
-        parts.append(f"## State {state.get('name')}\n" + _clip(json.dumps(shown), LIMITS["diff"]))
+        parts.append(f"## State {state.get('name')}\n" + model.clip(json.dumps(shown), LIMITS["diff"]))
         if image := _image(state.get("image")):
             parts += ["Settled screenshots, original then draft then heatmap:", *image]
         if sheet := _image(state.get("sheet")):
@@ -149,7 +144,7 @@ def _diff(path: str) -> list[str | Path]:
             if image := _image(overlay.get("image")):
                 parts += [f"Overlay {overlay['index']}, original then draft then heatmap:", *image]
         if sweep := state.get("sweep"):
-            parts.append("How the two answer the pointer. grid holds the agreement at each point, and worst is the lowest point, with what moved in each page:\n" + _clip(json.dumps(sweep), LIMITS["sweep"]))
+            parts.append("How the two answer the pointer. grid holds the agreement at each point, and worst is the lowest point, with what moved in each page:\n" + model.clip(json.dumps(sweep), LIMITS["sweep"]))
             if image := _image(sweep["worst"] and sweep["worst"]["image"]):
                 parts += ["At the worst point, original then draft then heatmap:", *image]
     return parts
@@ -173,13 +168,6 @@ def _copied(recording: dict, sources: list[str]) -> list[str]:
     return [node for node in nodes if _runs(words := _words(node)) & draft and " ".join(words) not in steps]
 
 
-def _key(parts: list[str | Path], schema: dict) -> str:
-    digest = hashlib.sha256()
-    for part in parts:
-        digest.update((file_sha256(part) if isinstance(part, Path) else hashlib.sha256(part.encode()).hexdigest()).encode())
-    return f"{digest.hexdigest()}-{model.fingerprint(SPEC, schema)}"
-
-
 def write(recording: str, name: str, previous: str | None = None, diff: str | None = None, problem: str | None = None, packages: str | None = None) -> dict:
     record = _json(recording, "recording")
     listed = None if packages is None else sorted({p.strip() for p in packages.split(",") if p.strip()})
@@ -189,10 +177,10 @@ def write(recording: str, name: str, previous: str | None = None, diff: str | No
         *_recording(record, recording),
         *(_previous(previous) if previous else []),
         *(_diff(diff) if diff else []),
-        *([f"# The problem the previous draft hit\n\n{_clip(problem, LIMITS['problem'])}"] if problem else []),
+        *([f"# The problem the previous draft hit\n\n{model.clip(problem, LIMITS['problem'])}"] if problem else []),
     ]
     schema = _schema(listed)
-    key = _key(parts, schema)
+    key = model.cache_key(SPEC, schema, parts)
     cache = Cache("ui-draft")
     output = cache.get(key)
     hit = output is not None

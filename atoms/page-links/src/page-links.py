@@ -8,27 +8,14 @@ import re
 from pathlib import Path
 from urllib.parse import urldefrag, urlparse
 
-from factory_kit import cli
+from factory_kit import chrome, cli
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
 LOAD_MS = 45_000
 CONTEXT = {"viewport": {"width": 1280, "height": 800}, "locale": "en-US", "timezone_id": "UTC", "service_workers": "block"}
-CHALLENGE_TITLE = re.compile(r"security checkpoint|just a moment|attention required|verify you are human|access denied", re.I)
-CHALLENGE_SELECTORS = "#challenge-form, #cf-challenge-running, iframe[src*='challenges.cloudflare.com'], iframe[src*='hcaptcha.com'], iframe[src*='recaptcha']"
 LINKS_JS = "els => els.map(a => [a.href, (a.innerText || a.textContent || '').replace(/\\s+/g, ' ').trim()])"
-
-
-def _blocked(page, response) -> str | None:
-    title = page.title()
-    if CHALLENGE_TITLE.search(title):
-        return f"the page title is {title!r}"
-    if response and response.headers.get("cf-mitigated") == "challenge":
-        return "Cloudflare answered with a challenge"
-    if page.locator(CHALLENGE_SELECTORS).count():
-        return "the page shows a challenge form"
-    return None
 
 
 def _origin(url: str) -> tuple[str, str]:
@@ -50,8 +37,7 @@ def _read(url: str) -> tuple[str, list[list[str]]]:
                 raise cli.AtomError("network_error", f"{url} did not go network idle within {LOAD_MS // 1000}s") from None
             except PlaywrightError as e:
                 raise cli.AtomError("network_error", f"{url}: {e.message.splitlines()[0]}") from None
-            if reason := _blocked(page, response):
-                raise cli.AtomError("blocked", f"{url} shows a bot check ({reason}). page-links never tries to get past one.")
+            chrome.refuse_bot_check(page, response, url, "page-links")
             if response and response.status == 429:
                 raise cli.AtomError("rate_limited", f"{url} answered HTTP 429")
             if response and response.status >= 400:
