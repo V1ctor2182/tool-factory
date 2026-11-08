@@ -5,13 +5,12 @@
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
 from pathlib import Path
-from urllib.parse import urlparse
 
 import yt_dlp
 
-from factory_kit import cli, paths
+from factory_kit import cli, paths, web
 from factory_kit.cache import Cache
-from factory_kit.ytdlp import atom_error, offline_key
+from factory_kit.ytdlp import atom_error, offline_key, video_key
 
 # Single-file formats only, so no download needs ffmpeg to merge streams.
 FORMATS = {"audio": "bestaudio[ext=m4a]/bestaudio/best", "video": "best[ext=mp4]/best"}
@@ -26,9 +25,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
     if audio and video:
         raise cli.AtomError("invalid_args", "Pass --audio or --video, not both.")
     kind = "video" if video else "audio"
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise cli.AtomError("invalid_source", f"Not an http or https URL: {url}")
+    web.check_url(url)
     cache = Cache("download")
 
     def hit(key: str) -> dict | None:
@@ -53,9 +50,7 @@ def get(url: str, audio: bool, video: bool) -> dict:
     try:
         with yt_dlp.YoutubeDL(settings) as ydl:
             info = ydl.extract_info(url, download=False)
-            if info.get("_type") == "playlist":
-                raise cli.AtomError("invalid_source", f"A playlist, not one video: {url}")
-            key = f"{info['extractor_key']}-{info['id']}"
+            key = video_key(info, url)
             if media := hit(key):
                 return media
             info = ydl.process_ie_result(info, download=True)

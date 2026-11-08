@@ -1,0 +1,30 @@
+{
+  "name": "job-spot",
+  "type": "atom",
+  "kind": "model",
+  "description": "Jobs a person repeats across sessions, proposed as microservices, with the parts each would reuse and the atoms it lacks.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/job-spot",
+  "contract": "job-candidates",
+  "model": { "backend": "claude-cli", "default": "sonnet", "prompt": "prompts/job-spot.md" },
+  "verbs": [
+    {
+      "name": "find",
+      "description": "Candidates from a session list and a catalog of parts. Prints one line per candidate, or the candidates with --json. Cached by sessions and catalog, model, and prompt hash, so a new --min-sessions or --min-objects costs nothing. Refuses with budget_exceeded once today's model spend reaches the daily budget.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "sessions": { "type": "string", "description": "Path of a session-list JSON file, as session-read prints it with --json.", "x-flag": true },
+          "catalog": { "type": "string", "description": "Path of a JSON file holding { parts: [{ name, type, description }] }.", "x-flag": true },
+          "minSessions": { "type": "integer", "default": 3, "description": "Fewest known sessions a candidate must cite. 1 or more." },
+          "minObjects": { "type": "integer", "default": 2, "description": "Fewest different objects a candidate's citations must name. 1 or more." }
+        },
+        "required": ["sessions", "catalog"]
+      },
+      "output": "job-candidates"
+    }
+  ],
+  "needs": { "bin": ["claude"], "secrets": [], "paid": ["claude"] },
+  "adapters": ["cli", "skill", "mcp"]
+}

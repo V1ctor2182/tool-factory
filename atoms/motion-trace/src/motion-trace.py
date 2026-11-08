@@ -182,10 +182,7 @@ def _eases(bundle: str | None) -> dict:
     eases = {LINEAR: lambda u: np.clip(u, 0, 1)}
     if not bundle:
         return eases
-    try:
-        listed = json.loads(Path(bundle).expanduser().read_text(encoding="utf-8")).get("easings", [])
-    except (OSError, json.JSONDecodeError) as e:
-        raise _bad(f"{bundle} is not a bundle: {e}") from None
+    listed = cli.read_json(bundle, "invalid_source", f"{bundle} is not a bundle").get("easings", [])
     for entry in listed:
         if m := BEZIER.fullmatch(entry["value"].strip()):
             eases[entry["value"]] = _bezier(*(float(g) for g in m.groups()))
@@ -194,10 +191,7 @@ def _eases(bundle: str | None) -> dict:
 
 def trace(sweep: str, run: str, box: str, bundle: str | None = None) -> dict:
     file = Path(sweep).expanduser()
-    try:
-        spec = json.loads(file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
-        raise _bad(f"{sweep} is not a sweep: {e}") from None
+    spec = cli.read_json(sweep, "invalid_source", f"{sweep} is not a sweep")
     entry = next((r for r in spec["runs"] if r["id"] == run), None)
     if entry is None or "frames" not in entry:
         raise cli.AtomError("invalid_args", f"{sweep} has no run {run} with frames")

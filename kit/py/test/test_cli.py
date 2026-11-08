@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from factory_kit import cli
+
 SRC = Path(__file__).resolve().parent.parent / "src"
 
 MANIFEST = {
@@ -68,3 +70,31 @@ def test_a_missing_required_positional_is_invalid_args(atom):
     code, out = atom("say", "--path", "a.json")
     assert code == 1
     assert out["error"]["code"] == "invalid_args"
+
+
+def test_existing_file_returns_the_resolved_path(tmp_path):
+    good = tmp_path / "good.json"
+    good.write_text("{}", encoding="utf-8")
+    assert cli.existing_file(str(good)) == good.resolve()
+
+
+def test_existing_file_rejects_a_missing_file(tmp_path):
+    missing = tmp_path / "none"
+    with pytest.raises(cli.AtomError) as e:
+        cli.existing_file(str(missing))
+    assert (e.value.code, str(e.value)) == ("invalid_source", f"No such file: {missing}")
+
+
+def test_read_json_returns_the_parsed_file(tmp_path):
+    good = tmp_path / "good.json"
+    good.write_text('{"a": 1}', encoding="utf-8")
+    assert cli.read_json(str(good), "invalid_args", "label") == {"a": 1}
+
+
+@pytest.mark.parametrize("content", [b"{", b"\xff"])
+def test_read_json_reports_a_bad_file_with_the_callers_code_and_label(tmp_path, content):
+    bad = tmp_path / "bad.json"
+    bad.write_bytes(content)
+    with pytest.raises(cli.AtomError) as e:
+        cli.read_json(str(bad), "invalid_args", "label")
+    assert e.value.code == "invalid_args" and str(e.value).startswith("label: ")

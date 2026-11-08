@@ -1,0 +1,1 @@
+{"type":"user","entrypoint":"claude-desktop","promptSource":"sdk","turnOrigin":"human","timestamp":"2026-10-14T09:00:00.000Z","cwd":"/synthetic/alpha","message":{"role":"user","content":"Typed in the desktop app."}}

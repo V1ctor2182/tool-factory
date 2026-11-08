@@ -80,9 +80,7 @@ def _whisper(file: Path, model: str, language: str | None) -> dict:
 
 
 def transcribe(path: str, model: str, language: str | None) -> dict:
-    file = Path(path).expanduser().resolve()
-    if not file.is_file():
-        raise cli.AtomError("invalid_source", f"No such file: {path}")
+    file = cli.existing_file(path)
     if language == "auto":
         language = None
     cache = Cache("transcribe")

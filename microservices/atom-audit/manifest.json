@@ -1,0 +1,27 @@
+{
+  "name": "atom-audit",
+  "type": "microservice",
+  "kind": "pipeline",
+  "description": "Shows which atoms repeat each other's code and which are large enough to check for a second noun, so Victor can decide what to move to the kit, merge, or split. Changes nothing.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "run",
+  "contract": "atom-audit",
+  "uses": ["code-clone"],
+  "verbs": [
+    {
+      "name": "scan",
+      "description": "Repeated code, the atom pairs that share the most of it, and the atoms over 300 source lines. Free.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "minSize": { "type": "integer", "description": "Fewest syntax nodes a clone must hold." },
+          "atoms": { "type": "string", "description": "Folder holding one folder per atom. This repo's atoms folder by default." }
+        }
+      },
+      "output": "atom-audit"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

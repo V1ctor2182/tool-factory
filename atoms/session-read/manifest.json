@@ -1,0 +1,29 @@
+{
+  "name": "session-read",
+  "type": "atom",
+  "kind": "observe",
+  "description": "Claude Code sessions in a time window, each with its first human prompts, read from local transcripts. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/session-read",
+  "contract": "session-list",
+  "verbs": [
+    {
+      "name": "list",
+      "description": "Sessions a person started in the window, oldest first, without machine sessions and forks. Prints one line per session, or the session list with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "days": { "type": "integer", "default": 30, "description": "Length of the window in days, counted back from --until or from now. 1 or more." },
+          "until": { "type": "string", "description": "ISO date or datetime. Sessions starting after it are excluded. A date means the end of that day, and a time without an offset means UTC." },
+          "root": { "type": "string", "default": "~/.claude/projects", "description": "Folder holding one folder of transcripts per project." },
+          "maxPrompts": { "type": "integer", "default": 3, "description": "Most prompts kept per session. 1 or more." },
+          "maxChars": { "type": "integer", "default": 240, "description": "Most characters kept per prompt. 1 or more." }
+        }
+      },
+      "output": "session-list"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

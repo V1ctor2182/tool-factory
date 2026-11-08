@@ -13,11 +13,10 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from factory_kit import cli, paths
+from factory_kit import cli, paths, schema
 from factory_kit.cache import Cache
 from factory_kit.hash import file_sha256
 from factory_kit.image import load_image
-from jsonschema import Draft202012Validator
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
@@ -66,13 +65,8 @@ def _load_sweep(file: Path, path: str) -> dict:
 
 def _load(path: str) -> dict:
     file = Path(path).expanduser().resolve()
-    try:
-        recording = json.loads(file.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise cli.AtomError("invalid_source", f"Cannot read {path} as JSON: {e}") from None
-    errors = sorted(Draft202012Validator(RECORDING_SCHEMA).iter_errors(recording), key=str)
-    if errors:
-        raise cli.AtomError("invalid_source", f"{path} is not a page-recording: " + "; ".join(f"{e.json_path}: {e.message}" for e in errors))
+    recording = cli.read_json(path, "invalid_source", f"Cannot read {path} as JSON")
+    schema.check(recording, RECORDING_SCHEMA, "invalid_source", f"{path} is not a page-recording")
     states = {}
     for st in recording["states"]:
         if st["name"] in states:

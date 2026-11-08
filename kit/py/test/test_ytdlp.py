@@ -28,3 +28,10 @@ def test_reports_an_unreachable_host():
 
 def test_finds_a_cache_key_without_the_network():
     assert ytdlp.offline_key("https://www.youtube.com/watch?v=jNQXAC9IVRw") == "Youtube-jNQXAC9IVRw"
+
+
+def test_video_key_names_the_extractor_and_refuses_a_playlist():
+    assert ytdlp.video_key({"extractor_key": "Youtube", "id": "abc"}, "u") == "Youtube-abc"
+    with pytest.raises(ytdlp.AtomError) as e:
+        ytdlp.video_key({"_type": "playlist"}, "https://example.test/p")
+    assert (e.value.code, str(e.value)) == ("invalid_source", "A playlist, not one video: https://example.test/p")

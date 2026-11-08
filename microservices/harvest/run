@@ -1,0 +1,161 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml"]
+# ///
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent
+REPO = ROOT.parent.parent
+MANIFEST = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+NAME = MANIFEST["name"]
+HOME = Path(os.environ.get("TOOL_FACTORY_HOME") or "~/.local/share/tool-factory").expanduser().absolute()
+ENV = {**os.environ, "TOOL_FACTORY_CALLER": NAME}
+
+
+class AtomFailed(Exception):
+    def __init__(self, error: dict):
+        super().__init__(error["message"])
+        self.error = error
+
+
+def log(message: str) -> None:
+    print(f"{NAME}: {message}", file=sys.stderr, flush=True)
+
+
+def atom(name: str, *args: str) -> dict:
+    done = subprocess.run([str(REPO / "atoms" / name / "bin" / name), *args, "--json"], stdout=subprocess.PIPE, text=True, env=ENV)
+    try:
+        result = json.loads(done.stdout)
+    except ValueError:
+        result = None
+    if isinstance(result, dict) and isinstance(result.get("error"), dict):
+        raise AtomFailed(result["error"])
+    if done.returncode or not isinstance(result, dict):
+        wanted = "an error" if done.returncode else "a result"
+        raise AtomFailed({"code": "internal", "message": f"{name} exited {done.returncode} without {wanted} object on stdout"})
+    return result
+
+
+def skill_rows(folder: Path) -> list[dict]:
+    rows = []
+    for path in sorted(folder.glob("*/SKILL.md")):
+        try:
+            description = yaml.safe_load(path.read_text(encoding="utf-8").split("---")[1])["description"]
+        except (IndexError, KeyError, TypeError, yaml.YAMLError) as e:
+            log(f"skipping skill {path.parent.name}: {type(e).__name__}")
+            continue
+        rows.append({"name": path.parent.name, "type": "skill", "description": description})
+    return rows
+
+
+def catalog(skills: Path) -> dict:
+    if not skills.is_dir():
+        raise AtomFailed({"code": "invalid_source", "message": f"The skills folder {skills} does not exist."})
+    parts = [json.loads(path.read_text(encoding="utf-8")) for folder in ("atoms", "microservices") for path in sorted((REPO / folder).glob("*/manifest.json"))]
+    external = json.loads((REPO / "external.json").read_text(encoding="utf-8"))
+    rows = [
+        *skill_rows(skills),
+        *({"name": service["name"], "type": "external", "description": service["description"]} for service in external),
+        *({key: part[key] for key in ("name", "type", "description")} for part in parts),
+    ]
+    # `factory link` also installs repo parts as skills, and the repo part's real type must win.
+    return {"parts": list({row["name"]: row for row in rows}.values())}
+
+
+def save(name: str, record: dict) -> Path:
+    folder = HOME / NAME
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / name
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def flag(name: str, value) -> list[str]:
+    return [] if value is None else [name, str(value)]
+
+
+def block(candidate: dict) -> str:
+    citations = candidate["citations"]
+    objects = {citation["object"].casefold() for citation in citations}
+    lines = [f"{candidate['slug']} ({len(citations)} sessions, {len(objects)} objects)", f"  {candidate['job']}"]
+    if candidate["coveredBy"]:
+        lines.append(f"  Covered by {candidate['coveredBy']}")
+    else:
+        lines.append(f"  Reuses: {', '.join(candidate['reuses']) or 'nothing'}")
+        missing = [f"{m['name']} ({m['kind']}, {m['noun']})" for m in candidate["missing"]]
+        lines.append(f"  Missing: {', '.join(missing) or 'nothing'}")
+    return "\n".join(lines)
+
+
+def text_of(result: dict) -> str:
+    totals = f"{len(result['candidates'])} candidates, {len(result['dropped'])} dropped, from {result['sessionCount']} sessions. Cost ${result['costUsd']:.4f}."
+    return "\n\n".join([*map(block, result["candidates"]), totals])
+
+
+def scan(args, as_json: bool) -> int:
+    window = [*flag("--days", args.days), *flag("--until", args.until), *flag("--root", args.root)]
+    log(f"session-read list {' '.join(window)}")
+    sessions = atom("session-read", "list", *window)
+    sessions_path = save("sessions.json", sessions)
+    skills = Path(args.skills).expanduser() if args.skills else Path.home() / ".claude" / "skills"
+    catalog_path = save("catalog.json", catalog(skills))
+    log(f"job-spot find over {len(sessions['sessions'])} sessions")
+    gates = [*flag("--min-sessions", args.minSessions), *flag("--min-objects", args.minObjects)]
+    result = atom("job-spot", "find", "--sessions", str(sessions_path), "--catalog", str(catalog_path), *gates)
+    save("latest.json", result)
+    print(json.dumps(result, ensure_ascii=False) if as_json else text_of(result))
+    return 0
+
+
+RUN = {"scan": scan}
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise AtomFailed({"code": "invalid_args", "message": message})
+
+
+def flag_of(name: str) -> str:
+    return "--" + re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
+
+
+def parser() -> Parser:
+    p = Parser(prog=NAME, description=MANIFEST["description"])
+    verbs = p.add_subparsers(dest="verb", required=True, parser_class=Parser)
+    for verb in MANIFEST["verbs"]:
+        v = verbs.add_parser(verb["name"], help=verb["description"], description=verb["description"])
+        for name, prop in verb["input"]["properties"].items():
+            v.add_argument(flag_of(name), dest=name, type=int if prop["type"] == "integer" else str, help=prop["description"])
+        v.add_argument("--json", action="store_true", help="Print one JSON object.")
+    return p
+
+
+def main() -> int:
+    as_json = "--json" in sys.argv[1:]
+    try:
+        args = parser().parse_args()
+        return RUN[args.verb](args, as_json)
+    except AtomFailed as e:
+        error = e.error
+    except Exception as e:
+        traceback.print_exc()
+        error = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+    if as_json:
+        print(json.dumps({"error": error}, ensure_ascii=False))
+    else:
+        print(f"{NAME}: {error['code']}: {error['message']}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

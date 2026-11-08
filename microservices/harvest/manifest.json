@@ -1,0 +1,31 @@
+{
+  "name": "harvest",
+  "type": "microservice",
+  "kind": "pipeline",
+  "description": "Proposes microservices from the jobs Victor repeats across Claude Code sessions. Builds and schedules nothing.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "run",
+  "contract": "job-candidates",
+  "uses": ["session-read", "job-spot"],
+  "verbs": [
+    {
+      "name": "scan",
+      "description": "Candidates from the sessions in a window, against this repo's parts, its external services, and Claude Code's skills. Saves them as harvest/latest.json in the data home. Makes one paid model call unless the reply is cached.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "days": { "type": "integer", "description": "Length of the window in days, counted back from --until or from now." },
+          "until": { "type": "string", "description": "ISO date or datetime. Sessions starting after it are excluded." },
+          "minSessions": { "type": "integer", "description": "Fewest known sessions a candidate must cite." },
+          "minObjects": { "type": "integer", "description": "Fewest different objects a candidate's citations must name." },
+          "root": { "type": "string", "description": "Folder holding one folder of transcripts per project. Claude Code's projects folder by default." },
+          "skills": { "type": "string", "description": "Folder holding one folder per skill. Claude Code's skills folder by default." }
+        }
+      },
+      "output": "job-candidates"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}

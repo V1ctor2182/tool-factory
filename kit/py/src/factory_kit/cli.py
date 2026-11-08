@@ -18,6 +18,20 @@ class AtomError(Exception):
         self.cost_usd = cost_usd
 
 
+def existing_file(path: str) -> Path:
+    file = Path(path).expanduser().resolve()
+    if not file.is_file():
+        raise AtomError("invalid_source", f"No such file: {path}")
+    return file
+
+
+def read_json(path: str, code: str, label: str):
+    try:
+        return json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise AtomError(code, f"{label}: {e}") from None
+
+
 class Verb(NamedTuple):
     run: Callable[..., dict]
     text: Callable[[dict], str] = lambda result: result["text"]

@@ -1,0 +1,13 @@
+{"type":"summary","summary":"An opening record with no prompt."}
+{"type":"user","isMeta":true,"turnOrigin":"human","timestamp":"2026-10-10T08:59:00.000Z","cwd":"/synthetic/meta","message":{"role":"user","content":"Caveat from the harness."}}
+this line is not json
+[1, 2, 3]
+{"type":"user","turnOrigin":"human","timestamp":"2026-10-10T09:00:00.000Z","cwd":"/synthetic/alpha","entrypoint":"cli","message":{"role":"user","content":"<system-reminder>\nToday is a day.\n</system-reminder>\nExplain   how the\nexample.test   site works"}}
+{"type":"assistant","timestamp":"2026-10-10T09:00:05.000Z","message":{"role":"assistant","content":[{"type":"text","text":"An answer."}]}}
+{"type":"user","timestamp":"2026-10-10T09:00:06.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"A tool result."}]}}
+{"type":"user","origin":{"kind":"human"},"timestamp":"2026-10-10T09:01:00.000Z","message":{"role":"user","content":[{"type":"text","text":"Now the pricing page."},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AA=="}},{"type":"text","text":"<pasted_content id=\"1\">a long paste</pasted_content> Keep it short."}]}}
+{"type":"user","turnOrigin":"human","isCompactSummary":true,"timestamp":"2026-10-10T09:02:00.000Z","message":{"role":"user","content":"This session continues from an earlier one."}}
+{"type":"user","turnOrigin":"human","isSidechain":true,"timestamp":"2026-10-10T09:03:00.000Z","message":{"role":"user","content":"A prompt to a subagent."}}
+{"type":"user","turnOrigin":"human","timestamp":"2026-10-10T09:04:00.000Z","message":{"role":"user","content":"<command-name>/clear</command-name>"}}
+{"type":"user","turnOrigin":"human","timestamp":"2026-10-10T09:05:00.000Z","message":{"role":"user","content":"Third prompt."}}
+{"type":"user","turnOrigin":"human","timestamp":"2026-10-10T09:06:00.000Z","message":{"role":"user","content":"Fourth prompt, past the default limit."}}

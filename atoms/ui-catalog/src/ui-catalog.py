@@ -4,7 +4,6 @@
 # [tool.uv.sources]
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
-import json
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -46,10 +45,7 @@ def registry(url: str, base: str | None) -> dict:
 
 
 def parse(path: str, base: str | None) -> dict:
-    try:
-        data = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise cli.AtomError("invalid_source", f"Not a registry index file: {path}: {e}") from None
+    data = cli.read_json(path, "invalid_source", f"Not a registry index file: {path}")
     return _catalog(path, path, data, base)
 
 
