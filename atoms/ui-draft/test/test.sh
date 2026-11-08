@@ -42,7 +42,7 @@ for name, frames, bg in (("idle", [], "rgb(250, 250, 250)"), ("hover", ["hover-f
     animations = [] if not frames else [{"target": ":scope > button", "pseudoElement": None, "type": "CSSTransition", "name": "background-color", "keyframes": [{"offset": 0, "backgroundColor": "rgb(250, 250, 250)"}, {"offset": 1, "backgroundColor": "rgb(212, 212, 212)"}], "duration": 200, "delay": 0, "endDelay": 0, "easing": "ease-out", "iterations": 1, "direction": "normal", "fill": "backwards"}]
     overlays = []
     if frames:
-        (rec / "hint.dom.html").write_text('<div role="tooltip" data-slot="tooltip-content">Saves your draft</div>')
+        (rec / "hint.dom.html").write_text('<div role="tooltip" data-slot="tooltip-content">Saves your draft to the shared team folder</div>')
         (rec / "hint.styles.json").write_text(json.dumps({":scope": {"background-color": "rgb(28, 28, 28)", "color": "rgb(250, 250, 250)", "font-size": "12px"}}))
         overlays = [{"screenshot": str(rec / "hover.png"), "dom": str(rec / "hint.dom.html"), "styles": str(rec / "hint.styles.json"), "offset": {"x": 0, "y": -40}, "at": {"x": 100, "y": 60}}]
     states.append({"name": name, "screenshot": str(rec / f"{name}.png"), "frames": [str(rec / f) for f in frames], "dom": str(rec / f"{name}.dom.html"), "styles": str(rec / f"{name}.styles.json"), "motion": str(rec / f"{name}.motion.json"), "animations": animations, "overlays": overlays})
@@ -59,7 +59,9 @@ TOOL_FACTORY_CALLER=ui-draft-test "$bin" write "$rec/recording.json" --name save
 	|| fail "no file targets components/ui/save-button-rebuild.tsx: $(jq -c '[.item.files[].target]' "$out/draft.json")"
 jq -r .demo "$out/draft.json" | grep -q "from ['\"]@/components/ui/save-button-rebuild['\"]" || fail "the demo does not import the component: $(jq -r .demo "$out/draft.json")"
 jq -r .demo "$out/draft.json" | grep -q 'data-preview-root' || fail "the demo root has no data-preview-root"
-jq -r '.demo, .item.files[0].content' "$out/draft.json" | grep -q 'Saves your draft' || fail "the draft did not copy the overlay's text"
+jq -r '.demo, .item.files[0].content' "$out/draft.json" | grep -q 'tooltip' || fail "the draft left out the overlay"
+if jq -r '.demo, .item.files[0].content' "$out/draft.json" | grep -q 'shared team folder'; then fail "the draft kept the original's sentence"; fi
+[ "$(jq .copied "$out/draft.json")" = '[]' ] || fail "the draft reports copied text: $(jq -c .copied "$out/draft.json")"
 [ "$(jq '.item.dependencies - ["clsx", "tailwind-merge", "motion"] | length' "$out/draft.json")" = 0 ] \
 	|| fail "the draft depends on a package --packages does not list: $(jq -c .item.dependencies "$out/draft.json")"
 [ "$(jq .cacheHit "$out/draft.json")" = false ] || fail "the first write reported a cache hit"
@@ -119,5 +121,32 @@ PY
 jq -r '.item.files[0].content, .demo, (.item.css | tostring)' "$out/sweep.json" | grep -q '1\.38' || fail "the draft did not take the scale that only the sweep shows: $(jq -r '.item.files[0].content' "$out/sweep.json")"
 "$bin" write "$rec/dots/plain.json" --name dots-rebuild --packages clsx,tailwind-merge --previous "$rec/dots/previous.json" --diff "$rec/dots/diff.json" --json > "$out/sweep-diff.json" || fail "a diff with a sweep exited nonzero: $(cat "$out/sweep-diff.json")"
 jq -r '.item.files[0].content, .demo, (.item.css | tostring)' "$out/sweep-diff.json" | grep -q '1\.27' || fail "the draft did not take the scale that only the diff's sweep shows: $(jq -r '.item.files[0].content' "$out/sweep-diff.json")"
+
+uv run -q python - "$rec" <<'PY'
+import json, sys
+from pathlib import Path
+rec = Path(sys.argv[1])
+words = rec / "words"
+words.mkdir()
+(words / "steps.json").write_text(json.dumps({"url": "https://fixture.test/words", "target": "main", "states": [{"name": "idle", "actions": [{"do": "click", "selector": "button:has-text('Send the weekly report now')"}]}]}))
+(words / "idle.dom.html").write_text("<main><style>.x { content: 'a style rule is not text on the page' }</style><p>The moon isn&#x27;t made of green cheese today</p><p>Three short words</p><button>Send the weekly report now</button><p>Nothing else repeats this sentence anywhere</p></main>")
+(words / "tip.dom.html").write_text("<div role='tooltip'>Tea is best with a little milk</div>")
+recording = json.loads((rec / "recording.json").read_text())
+state = {**recording["states"][0], "dom": str(words / "idle.dom.html"), "overlays": [{"screenshot": str(rec / "hover.png"), "dom": str(words / "tip.dom.html"), "styles": str(rec / "hint.styles.json"), "offset": {"x": 0, "y": 0}, "at": {"x": 0, "y": 0}}]}
+(words / "recording.json").write_text(json.dumps({**recording, "steps": str(words / "steps.json"), "states": [state]}))
+PY
+mkdir "$rec/bin"
+cat > "$rec/bin/claude" <<'FAKE'
+#!/bin/sh
+cat > /dev/null
+jq -cn '{type: "result", total_cost_usd: 0, structured_output: {title: "T", description: "D", dependencies: [], css: {}, notes: "n",
+	component: "export const a = \"The moon isn&apos;t made of green cheese today\"; export const b = \"a style rule is not text on the page\"; export const c = \"Three short words\"",
+	demo: "<button>Send the weekly report now</button><i>tea is best with a little milk and sugar</i><p>Something entirely new</p>"}}'
+FAKE
+chmod +x "$rec/bin/claude"
+PATH="$rec/bin:$PATH" "$bin" write "$rec/words/recording.json" --name words-rebuild --json > "$out/words.json" || fail "the copied-text draft exited nonzero: $(cat "$out/words.json")"
+"$repo/contracts/check" ui-draft "$out/words.json" || fail "the copied-text draft does not match ui-draft.schema.json"
+[ "$(jq -c .copied "$out/words.json")" = '["The moon isn'"'"'t made of green cheese today","Tea is best with a little milk"]' ] \
+	|| fail "copied listed the wrong sentences: $(jq -c .copied "$out/words.json")"
 
 echo "PASS ui-draft"

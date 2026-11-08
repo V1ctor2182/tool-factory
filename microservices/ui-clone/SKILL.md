@@ -108,7 +108,7 @@ A `locked` component is rebuilt from how it looks and behaves, never from its co
 
 Each round's `draft.json` and `diff.json` stay in the data home under `microservices/ui-clone/rebuild/<name>/round-<n>/`. At the end the best round is installed again, and its item's `meta.rebuild` holds the best round, its score, the total cost, and each round's score and cost. A ui-draft failure, such as `budget_exceeded`, or an install or recording failure that no draft can fix, ends the loop early as that round's error, and the best round so far stays installed. When no round was judged, the last draft stays installed and `best` is null.
 
-The rebuild stays blind. ui-draft sees only page-record's output, the steps file, its own earlier draft, page-diff's output, and the error text. `rebuild` never calls ui-source.
+The rebuild stays blind. ui-draft sees only page-record's output, the steps file, its own earlier draft, page-diff's output, and the error text. A draft that repeats the original's sentences is not judged, and the next round gets them as its problem. `rebuild` never calls ui-source.
 
 With `--json` it prints the report, as `contracts/ui-rebuild.schema.json` defines it. Without it, it prints one line per round, its score or `error`, and its model cost, then the total. The first two rounds of Kobra's input-otp on 2026-11-02, where the 0.9 bar stops:
 
