@@ -36,9 +36,10 @@
     },
     "demo": { "type": "string", "description": "TSX source of a default-exported demo page that imports the component from @/components/ui/<name> and carries data-preview-root on its root." },
     "notes": { "type": "string", "description": "What this draft changed from the previous one and why." },
+    "copied": { "type": "array", "items": { "type": "string" }, "description": "Text nodes of the recording that share five words in a row with the component or demo, leaving out text the steps file selects." },
     "costUsd": { "type": "number", "minimum": 0 },
     "cacheHit": { "type": "boolean" }
   },
-  "required": ["model", "item", "demo", "notes", "costUsd", "cacheHit"],
+  "required": ["model", "item", "demo", "notes", "copied", "costUsd", "cacheHit"],
   "additionalProperties": false
 }

@@ -31,10 +31,11 @@
           "draft": { "type": ["string", "null"], "description": "The ui-draft JSON file of this round. Null when ui-draft failed." },
           "diff": { "type": ["string", "null"], "description": "The page-diff JSON file of this round. Null when the round was not judged." },
           "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "page-diff's score. Null when the round was not judged." },
-          "error": { "type": ["string", "null"], "description": "Why the round was not judged: an install, typecheck, or recording error that the next round gets as its problem, or a failure that ended the loop." },
+          "error": { "type": ["string", "null"], "description": "Why the round was not judged: copied text, or an install, typecheck, or recording error that the next round gets as its problem, or a failure that ended the loop." },
+          "copied": { "type": "array", "items": { "type": "string" }, "description": "ui-draft's copied text. A round with any is not judged, and the next round gets it as its problem. Empty when ui-draft failed." },
           "costUsd": { "type": "number", "minimum": 0, "description": "ui-draft's model cost for this round. 0 on a cache hit or when ui-draft failed." }
         },
-        "required": ["round", "draft", "diff", "score", "error", "costUsd"],
+        "required": ["round", "draft", "diff", "score", "error", "copied", "costUsd"],
         "additionalProperties": false
       }
     }

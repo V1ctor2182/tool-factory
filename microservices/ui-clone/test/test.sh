@@ -87,9 +87,9 @@ case "$name $1" in
 	n=$(grep -c '^ui-draft' "$STUB_LOG")
 	while [ $# -gt 0 ]; do [ "$1" = --name ] && draft_name=$2; shift; done
 	if [ "$n" = "${STUB_DRAFT_FAIL:-0}" ]; then echo '{"error":{"code":"budget_exceeded","message":"stub budget"}}'; exit 1; fi
-	jq -cn --arg name "$draft_name" --argjson n "$n" '{model: "stub", item: {name: $name, type: "registry:ui", title: "T", description: "D", dependencies: [],
+	jq -cn --arg name "$draft_name" --argjson n "$n" --arg copied "${STUB_COPIED:-}" '{model: "stub", item: {name: $name, type: "registry:ui", title: "T", description: "D", dependencies: [],
 		files: [{path: "registry/\($name)/\($name).tsx", type: "registry:ui", target: "components/ui/\($name).tsx", content: "round \($n)"}]},
-		demo: "demo \($n)", notes: "n", costUsd: ($n * 0.25), cacheHit: false}' ;;
+		demo: "demo \($n)", notes: "n", copied: (if ($copied | split(" ") | index("\($n)")) then ["A sentence of the original"] else [] end), costUsd: ($n * 0.25), cacheHit: false}' ;;
 *) echo '{"error":{"code":"internal","message":"stub refused"}}'; exit 1 ;;
 esac
 STUB
@@ -265,6 +265,17 @@ rebuild "0.9 0.93" "round 2" 0 --name otp --target 0.97 --rounds 3
 [ "$(ran 'page-record capture')" = 3 ] || fail "a round that failed its typecheck was judged: $(cat "$STUB_LOG")"
 case "$(drafted 3)" in *"--previous $rounds_dir/round-2/draft.json --problem installed into preview/generated") ;; *) fail "round 3 did not get round 2's typecheck output as its problem: $(drafted 3)" ;; esac
 grep -qx 'components/ui/otp.tsx(1,1): error TS2322: stub type error in round 2 --json' "$STUB_LOG" || fail "round 3's problem lost the type error: $(cat "$STUB_LOG")"
+
+export STUB_COPIED=1
+rebuild "0.92" "" 0 --name otp --rounds 2 --json
+"$repo/contracts/check" ui-rebuild "$out/stdout" || fail "a rebuild with copied text does not match the ui-rebuild contract"
+[ "$(rounds)" = '[[1,null,0.25,true],[2,0.92,0.5,false]]' ] || fail "a round with copied text was judged: $(rounds)"
+[ "$(ran 'page-diff compare')" = 1 ] || fail "the copied round reached the judge: $(cat "$STUB_LOG")"
+grep -qx 'A sentence of the original --json' "$STUB_LOG" || fail "round 2 did not get the copied sentence as its problem: $(cat "$STUB_LOG")"
+[ "$(jq -c '[.passed, .best]' "$out/stdout")" = '[true,{"round":2,"score":0.92}]' ] || fail "the clean round did not pass: $(jq -c '[.passed, .best]' "$out/stdout")"
+rebuild "0.95" "" 0 --name otp --rounds 1 --json
+[ "$(jq -c '[.passed, .best]' "$out/stdout")" = '[false,null]' ] || fail "a rebuild left with copied text passed: $(jq -c '[.passed, .best]' "$out/stdout")"
+unset STUB_COPIED
 
 rebuild "0.95 0.9" "" 0 --name otp --target 0.97 --rounds 2 --json
 [ "$(jq -c '[.passed, .best, .costUsd]' "$out/stdout")" = '[false,{"round":1,"score":0.95},0.75]' ] || fail "a rebuild whose best round is 1 reported $(jq -c '[.passed, .best, .costUsd]' "$out/stdout")"

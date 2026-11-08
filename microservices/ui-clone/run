@@ -320,20 +320,21 @@ def rebuilt(into: Path, steps: str, name: str, args, original: str | None = None
     rounds: list[dict] = []
     previous = diff = problem = None
     for n in range(1, args.rounds + 1):
-        row = {"round": n, "draft": None, "diff": None, "score": None, "error": None, "costUsd": 0.0}
+        row = {"round": n, "draft": None, "diff": None, "score": None, "error": None, "copied": [], "costUsd": 0.0}
         rounds.append(row)
         revise = [*(["--previous", previous] if previous else []), *(["--diff", diff] if diff else []), *(["--problem", problem] if problem else [])]
         log(f"round {n}: ui-draft write {name}{' revising' if previous else ''}")
         try:
             draft = atom("ui-draft", "write", original, "--name", name, "--packages", packages, *revise)
             row["costUsd"] = draft["costUsd"]
+            row["copied"] = draft["copied"]
             previous = row["draft"] = saved(folder / f"round-{n}" / "draft.json", draft)
             diff = problem = None
             install(into, source, draft, {"rebuild": {"round": n, "score": None, "costUsd": draft["costUsd"]}})
         except AtomFailed as e:
             row["error"] = f"{e.error['code']}: {e.error['message']}"
             break
-        problem = typecheck(into)
+        problem = "These sentences are the original's words. Write your own in their place:\n" + "\n".join(row["copied"]) if row["copied"] else typecheck(into)
         if problem is None:
             try:
                 result = diff_of(judged or steps, original, page)

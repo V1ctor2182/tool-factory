@@ -28,6 +28,10 @@ The rebuild stays blind to the original's code. The model sees only:
 
 Never pass it anything from `ui-source`, a site's registry, a code viewer, or a JS bundle. `--packages` lists the npm packages the target project has. The model's schema then allows only those as `dependencies`.
 
+## Copied text
+
+A draft writes its own sentences, because the recording's text belongs to the original. `copied` lists each text node of the recording's DOM that shares five words in a row with the component or demo, leaving out text the steps file selects. A draft scores lower on pixels where its words differ. Rescoring 11 published rewrites after their text was replaced on 2026-11-07 moved each state's score by 0.05 at most.
+
 ## Cost and cache
 
 It sends everything in one call to headless Claude Code on `sonnet` through the kit's model adapter, with `prompts/write.md` as the system prompt. The test's call, two small states with five images, cost $0.021 on 2026-11-02. A real component with four states, frames, and a diff sends about 25 images and writes a longer file, so expect more. `costUsd` holds the spend, and the run log records it.

@@ -5,6 +5,7 @@
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
 import hashlib
+import html
 import json
 import re
 from pathlib import Path
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC = model.load(ROOT)
 FRAMES_PER_STATE = 3
 LIMITS = {"dom": 12_000, "styles": 12_000, "motion": 6_000, "animations": 8_000, "steps": 6_000, "draft": 60_000, "diff": 4_000, "sweep": 24_000, "problem": 6_000}
+COPIED_WORDS = 5
 DIFF_FIELDS = ["name", "score", "missing", "size", "pixels", "frames", "styles", "animations", "motion", "overlays", "effects", "still"]
 
 
@@ -92,8 +94,7 @@ def _sweep(path: str) -> list[str | Path]:
     return parts
 
 
-def _recording(path: str) -> list[str | Path]:
-    recording = _json(path, "recording")
+def _recording(recording: dict, path: str) -> list[str | Path]:
     if not isinstance(recording.get("states"), list) or "steps" not in recording:
         raise cli.AtomError("invalid_source", f"Not a page-record recording.json: {path}")
     parts: list[str | Path] = [
@@ -154,6 +155,24 @@ def _diff(path: str) -> list[str | Path]:
     return parts
 
 
+def _words(text: str) -> list[str]:
+    return re.sub(r"[^a-z0-9]+", " ", html.unescape(text).lower()).split()
+
+
+def _runs(words: list[str]) -> set[str]:
+    return {" ".join(words[i : i + COPIED_WORDS]) for i in range(len(words) - COPIED_WORDS + 1)}
+
+
+def _copied(recording: dict, sources: list[str]) -> list[str]:
+    """The recording's text nodes that share a run of words with the draft. Text the steps file selects has to stay, or the judge cannot drive the demo."""
+    steps = " ".join(_words(_read(recording["steps"], "the recording's steps file")))
+    draft = _runs(_words("\n".join(sources)))
+    doms = [dom for state in recording["states"] for dom in (state["dom"], *(overlay["dom"] for overlay in state["overlays"]))]
+    texts = re.sub(r"<style\b.*?</style>", "", "".join(_read(dom, "dom") for dom in doms), flags=re.S | re.I)
+    nodes = dict.fromkeys(" ".join(html.unescape(node).split()) for node in re.findall(r">([^<]+)<", texts))
+    return [node for node in nodes if _runs(words := _words(node)) & draft and " ".join(words) not in steps]
+
+
 def _key(parts: list[str | Path], schema: dict) -> str:
     digest = hashlib.sha256()
     for part in parts:
@@ -162,11 +181,12 @@ def _key(parts: list[str | Path], schema: dict) -> str:
 
 
 def write(recording: str, name: str, previous: str | None = None, diff: str | None = None, problem: str | None = None, packages: str | None = None) -> dict:
+    record = _json(recording, "recording")
     listed = None if packages is None else sorted({p.strip() for p in packages.split(",") if p.strip()})
     parts: list[str | Path] = [
         f"Item name: {name}. The component file installs at components/ui/{name}.tsx and the demo imports it from @/components/ui/{name}.",
         f"Packages the project has, the only ones you may import or list: {', '.join(listed) or 'none'}." if listed is not None else "Any npm package may be listed.",
-        *_recording(recording),
+        *_recording(record, recording),
         *(_previous(previous) if previous else []),
         *(_diff(diff) if diff else []),
         *([f"# The problem the previous draft hit\n\n{_clip(problem, LIMITS['problem'])}"] if problem else []),
@@ -189,12 +209,13 @@ def write(recording: str, name: str, previous: str | None = None, diff: str | No
         **({"css": output["css"]} if output["css"] else {}),
         "files": [{"path": f"registry/{name}/{name}.tsx", "type": "registry:ui", "target": f"components/ui/{name}.tsx", "content": output["component"]}],
     }
-    return {"model": SPEC.model, "item": item, "demo": output["demo"], "notes": output["notes"], "costUsd": cost, "cacheHit": hit}
+    return {"model": SPEC.model, "item": item, "demo": output["demo"], "notes": output["notes"], "copied": _copied(record, [output["component"], output["demo"]]), "costUsd": cost, "cacheHit": hit}
 
 
 def _text(result: dict) -> str:
     files = [f"{file['target']}  {len(file['content'])} characters" for file in result["item"]["files"]]
-    return "\n".join([*files, f"demo  {len(result['demo'])} characters", result["notes"]])
+    copied = [f"copied  {sentence}" for sentence in result["copied"]]
+    return "\n".join([*files, f"demo  {len(result['demo'])} characters", *copied, result["notes"]])
 
 
 if __name__ == "__main__":
