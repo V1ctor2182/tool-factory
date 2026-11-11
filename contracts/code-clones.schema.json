@@ -32,6 +32,7 @@
         "type": "object",
         "properties": {
           "size": { "type": "integer", "minimum": 1, "description": "Syntax nodes in one copy." },
+          "shape": { "type": "string", "minLength": 1, "description": "Hash of the syntax shape. The same repeated code has the same shape in another scan, wherever its lines move." },
           "locations": {
             "type": "array",
             "minItems": 2,
@@ -49,7 +50,7 @@
             }
           }
         },
-        "required": ["size", "locations"],
+        "required": ["size", "shape", "locations"],
         "additionalProperties": false
       }
     },

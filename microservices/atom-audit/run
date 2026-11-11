@@ -67,6 +67,17 @@ def verbs_of(folder: Path) -> int:
     return len(json.loads((folder / "manifest.json").read_text(encoding="utf-8"))["verbs"])
 
 
+def parts_of(clone: dict) -> set[str]:
+    return {location["part"] for location in clone["locations"]}
+
+
+def added_since(clones: list[dict], base: list[dict]) -> list[dict]:
+    known = defaultdict(set)
+    for clone in base:
+        known[clone["shape"]] |= parts_of(clone)
+    return [clone for clone in clones if not parts_of(clone) <= known[clone["shape"]]]
+
+
 def audit(clones: dict) -> dict:
     root = Path(clones["root"])
     lines = {row["part"]: row["lines"] for row in clones["parts"]}
@@ -79,8 +90,14 @@ def audit(clones: dict) -> dict:
     }
 
 
+def rows_of(clones: list[dict]) -> list[str]:
+    return [f"{c['size']}  " + "  ".join(f"{l['file']}:{l['startLine']}-{l['endLine']}" for l in c["locations"]) for c in clones]
+
+
 def text_of(result: dict) -> str:
-    clones = [f"{c['size']}  " + "  ".join(f"{l['file']}:{l['startLine']}-{l['endLine']}" for l in c["locations"]) for c in result["clones"]]
+    if "added" in result:
+        return "\n".join(["Repeated code the base does not have", *(rows_of(result["added"]) or ["None."])])
+    clones = rows_of(result["clones"])
     pairs = [f"{p['shareOfSmaller']:.0%}  {p['sharedLines']} lines  {p['atoms'][0]} and {p['atoms'][1]}" for p in result["pairs"][:TEXT_PAIRS]]
     large = [f"{row['lines']} lines  {row['verbs']} verbs  {row['atom']}" for row in result["large"]]
     sections = [("Repeated code", clones), ("Atoms that share the most code", pairs), ("Large atoms to check for a second noun", large)]
@@ -89,8 +106,16 @@ def text_of(result: dict) -> str:
 
 def scan(args, as_json: bool) -> int:
     root = args.atoms or REPO / "atoms"
-    log(f"code-clone find --root {root}")
-    result = audit(atom("code-clone", "find", "--root", str(root), *([] if args.minSize is None else ["--min-size", str(args.minSize)])))
+    size = [] if args.minSize is None else ["--min-size", str(args.minSize)]
+
+    def find(folder) -> dict:
+        log(f"code-clone find --root {folder}")
+        return atom("code-clone", "find", "--root", str(folder), *size)
+
+    clones = find(root)
+    result = audit(clones)
+    if args.base:
+        result["added"] = added_since(clones["clones"], find(args.base)["clones"])
     print(json.dumps(result, ensure_ascii=False) if as_json else text_of(result))
     return 0
 

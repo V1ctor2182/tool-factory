@@ -5,6 +5,7 @@
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
 import ast
+import hashlib
 from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
@@ -104,11 +105,12 @@ def _inside(location: Location, other: Location) -> bool:
 
 
 def _clones(runs: dict) -> list[dict]:
-    ranked = sorted(((size, _apart(locations)) for size, locations in runs.values()), key=lambda run: (-run[0], run[1]))
+    ranked = sorted(((size, _apart(locations), shapes) for shapes, (size, locations) in runs.items()), key=lambda run: (-run[0], run[1]))
     kept, covered = [], []
-    for size, locations in ranked:
+    for size, locations, shapes in ranked:
         if not all(any(_inside(location, other) for other in covered) for location in locations):
-            kept.append({"size": size, "locations": [location._asdict() for location in locations]})
+            shape = hashlib.sha256("\n".join(shapes).encode()).hexdigest()[:16]
+            kept.append({"size": size, "shape": shape, "locations": [location._asdict() for location in locations]})
             covered += locations
     return kept
 

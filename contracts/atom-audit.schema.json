@@ -11,6 +11,11 @@
       "description": "Repeated code, largest first.",
       "items": { "$ref": "code-clones.schema.json#/properties/clones/items" }
     },
+    "added": {
+      "type": "array",
+      "description": "With a base folder, the repeated code that the base does not have, largest first.",
+      "items": { "$ref": "code-clones.schema.json#/properties/clones/items" }
+    },
     "pairs": {
       "type": "array",
       "description": "Atom pairs with repeated code, the highest share first.",
