@@ -137,11 +137,11 @@ The kit is plumbing every atom would otherwise copy.
 | `secrets` | Read a secret from the environment, else the keychain |
 | `web` | Check a URL, fetch bytes or JSON over HTTP with a User-Agent that names the atom, and map failures to error codes |
 | `ytdlp` | Map yt-dlp failures to error codes, find a URL's cache key without a network call, and find a fetched video's cache key, refusing a playlist |
-| `chrome` | Start headless Google Chrome, load a page, and map failures to error codes |
+| `chrome` | Start headless Google Chrome, load a page, refuse any Playwright page that shows a bot check, and map failures to error codes |
 | `image` | Load an image as an array, and line up two brightness profiles |
 | `color` | Convert RGB to Lab |
 | `schema` | Check a value against a JSON Schema, and map failures to an error code |
-| `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget when one is set, and logs spend. |
+| `model` | The one model adapter every `model` atom uses. Sends a prompt, inputs, and a JSON Schema. Returns validated JSON and the cost. Enforces the daily budget when one is set, and logs spend. Builds a cache key from the inputs and clips long text inputs. |
 
 The default `model` backend is headless Claude Code, `claude -p --output-format json --json-schema`. It runs on Victor's Claude Code login, so there is no API key. Checked 2026-10-25. A small call returned schema-valid JSON in `structured_output` with `total_cost_usd` set, in about seven seconds. The Anthropic API is the second backend when a key in the keychain is preferred.
 

@@ -11,6 +11,7 @@ from typing import NamedTuple
 
 from . import paths
 from .cli import AtomError
+from .hash import file_sha256
 
 TIMEOUT_SEC = 600
 
@@ -30,6 +31,17 @@ def load(atom_root: Path) -> Spec:
 def fingerprint(spec: Spec, schema: dict) -> str:
     prompt_hash = hashlib.sha256((spec.prompt + json.dumps(schema, sort_keys=True)).encode()).hexdigest()[:16]
     return f"{spec.model}-{prompt_hash}"
+
+
+def cache_key(spec: Spec, schema: dict, content: list[str | Path]) -> str:
+    digest = hashlib.sha256()
+    for part in content:
+        digest.update((file_sha256(part) if isinstance(part, Path) else hashlib.sha256(part.encode()).hexdigest()).encode())
+    return f"{digest.hexdigest()}-{fingerprint(spec, schema)}"
+
+
+def clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else f"{text[:limit]}\n[cut: {len(text) - limit} more characters]"
 
 
 def spent_today() -> float:

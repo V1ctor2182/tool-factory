@@ -4,14 +4,12 @@
 # [tool.uv.sources]
 # factory-kit = { path = "../../../kit/py", editable = true }
 # ///
-import hashlib
 import json
 import math
 from pathlib import Path
 
 from factory_kit import cli, model
 from factory_kit.cache import Cache
-from factory_kit.hash import file_sha256
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -73,10 +71,6 @@ SCHEMA = {
 }
 
 
-def _clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else f"{text[:limit]}\n[cut: {len(text) - limit} more characters]"
-
-
 def _json(path: str | Path, what: str) -> dict:
     try:
         return json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
@@ -115,33 +109,26 @@ def _survey(path: str) -> tuple[dict, dict, list[str | Path]]:
         f"# The page\n\nURL {fixed['url']}. Target selector {fixed['target']}. Viewport {fixed['viewport']['width']}x{fixed['viewport']['height']}, {fixed['colorScheme']} color scheme.",
         "## Idle\n\nScreenshot of the target, settled:",
         Path(idle["screenshot"]),
-        "Rendered DOM of the target, scripts removed:\n" + _clip(_text(idle["dom"], "dom"), LIMITS["dom"]),
-        "Computed styles by element path:\n" + _clip(_text(idle["styles"], "styles"), LIMITS["styles"]),
-        "Animations running while idle:\n" + _clip(json.dumps(idle["animations"]), LIMITS["animations"]),
+        "Rendered DOM of the target, scripts removed:\n" + model.clip(_text(idle["dom"], "dom"), LIMITS["dom"]),
+        "Computed styles by element path:\n" + model.clip(_text(idle["styles"], "styles"), LIMITS["styles"]),
+        "Animations running while idle:\n" + model.clip(json.dumps(idle["animations"]), LIMITS["animations"]),
     ]
     for state in recording["states"][1:]:
         parts += [
             f"## Your earlier state {state['name']}\n\nScreenshot of the target, settled:",
             Path(state["screenshot"]),
-            "Rendered DOM of the target:\n" + _clip(_text(state["dom"], "dom"), LIMITS["dom"]),
+            "Rendered DOM of the target:\n" + model.clip(_text(state["dom"], "dom"), LIMITS["dom"]),
         ]
         for overlay in state["overlays"]:
-            parts += ["A popup outside the target:", Path(overlay["screenshot"]), "Its rendered DOM:\n" + _clip(_text(overlay["dom"], "overlay dom"), LIMITS["dom"])]
+            parts += ["A popup outside the target:", Path(overlay["screenshot"]), "Its rendered DOM:\n" + model.clip(_text(overlay["dom"], "overlay dom"), LIMITS["dom"])]
     return fixed, {"name": "idle", "actions": [], "sweep": _sweep(idle["screenshot"])}, parts
-
-
-def _key(parts: list[str | Path]) -> str:
-    digest = hashlib.sha256()
-    for part in parts:
-        digest.update((file_sha256(part) if isinstance(part, Path) else hashlib.sha256(part.encode()).hexdigest()).encode())
-    return f"{digest.hexdigest()}-{model.fingerprint(SPEC, SCHEMA)}"
 
 
 def write(recording: str, problem: str | None = None) -> dict:
     fixed, idle, parts = _survey(recording)
     if problem:
-        parts.append(f"# The problem the last steps hit\n\n{_clip(problem, LIMITS['problem'])}")
-    key = _key(parts)
+        parts.append(f"# The problem the last steps hit\n\n{model.clip(problem, LIMITS['problem'])}")
+    key = model.cache_key(SPEC, SCHEMA, parts)
     cache = Cache("ui-steps")
     output = cache.get(key)
     hit = output is not None

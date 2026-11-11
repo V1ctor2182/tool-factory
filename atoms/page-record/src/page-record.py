@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_kit import cli, paths, schema
+from factory_kit import chrome, cli, paths, schema
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
@@ -37,9 +37,6 @@ PARKED = (0, 0)
 # Without these, transform and opacity animations run on the compositor thread on real time, outside the virtual clock.
 CHROMIUM_ARGS = ["--disable-threaded-animation", "--disable-threaded-scrolling", "--run-all-compositor-stages-before-draw", "--disable-checker-imaging"]
 CONTEXT = {"device_scale_factor": 2, "locale": "en-US", "timezone_id": "UTC", "reduced_motion": "no-preference", "service_workers": "block"}
-
-CHALLENGE_TITLE = re.compile(r"security checkpoint|just a moment|attention required|verify you are human|access denied", re.I)
-CHALLENGE_SELECTORS = "#challenge-form, #cf-challenge-running, iframe[src*='challenges.cloudflare.com'], iframe[src*='hcaptcha.com'], iframe[src*='recaptcha']"
 
 
 def _steps(path: str) -> dict:
@@ -169,17 +166,6 @@ ACTIONS = {
 }
 
 
-def _blocked(page, response) -> str | None:
-    title = page.title()
-    if CHALLENGE_TITLE.search(title):
-        return f"the page title is {title!r}"
-    if response and response.headers.get("cf-mitigated") == "challenge":
-        return "Cloudflare answered with a challenge"
-    if page.locator(CHALLENGE_SELECTORS).count():
-        return "the page shows a challenge form"
-    return None
-
-
 def _load(s: Session, url: str):
     s.cdp.send("Emulation.setVirtualTimePolicy", {"policy": "pause", "initialVirtualTime": EPOCH.timestamp()})
     try:
@@ -189,9 +175,7 @@ def _load(s: Session, url: str):
     except PlaywrightError as e:
         raise cli.AtomError("network_error", f"{url}: {e.message.splitlines()[0]}") from None
     s.run(LOAD_VIRTUAL_MS)
-    reason = _blocked(s.page, response)
-    if reason:
-        raise cli.AtomError("blocked", f"{url} shows a bot check ({reason}). page-record never tries to get past one.")
+    chrome.refuse_bot_check(s.page, response, url, "page-record")
     if response and response.status >= 400:
         raise cli.AtomError("unavailable", f"{url} answered HTTP {response.status}")
     if s.page.evaluate("document.readyState") != "complete":

@@ -29,3 +29,31 @@ def test_a_failed_load_reports_a_network_error():
 def test_a_load_returns_the_response():
     page = SimpleNamespace(goto=lambda url, wait_until, timeout: (url, wait_until, timeout))
     assert chrome.goto(page, "https://example.test") == ("https://example.test", "domcontentloaded", 60_000)
+
+
+def _page(title="Shop", forms=0):
+    return SimpleNamespace(title=lambda: title, locator=lambda selector: SimpleNamespace(count=lambda: forms))
+
+
+def _response(headers):
+    return SimpleNamespace(headers=headers)
+
+
+@pytest.mark.parametrize(
+    ("page", "response", "reason"),
+    [
+        (_page(title="Just a moment..."), None, "the page title is 'Just a moment...'"),
+        (_page(), _response({"cf-mitigated": "challenge"}), "Cloudflare answered with a challenge"),
+        (_page(forms=1), _response({}), "the page shows a challenge form"),
+    ],
+)
+def test_a_bot_check_is_refused_with_its_reason(page, response, reason):
+    with pytest.raises(AtomError) as raised:
+        chrome.refuse_bot_check(page, response, "https://example.test", "page-links")
+    assert raised.value.code == "blocked"
+    assert str(raised.value) == f"https://example.test shows a bot check ({reason}). page-links never tries to get past one."
+
+
+@pytest.mark.parametrize("response", [_response({}), None])
+def test_a_plain_page_passes(response):
+    chrome.refuse_bot_check(_page(), response, "https://example.test", "page-links")
