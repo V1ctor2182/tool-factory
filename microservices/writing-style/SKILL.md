@@ -41,10 +41,21 @@ Victor's house style. It holds rules, not a template, so apply them to whatever 
 
 ## Shapes
 
-- A reply leads with the answer, then the evidence. Frame the impact for the person who uses the work before any detail of how it was built.
+- A doc says how things are now. When something changes, rewrite that part. No log and no change history.
 - A doc or PR description says why the change exists, what it leaves out, what it could break, and how it was proved, in that order, with `##` headings.
 - A commit subject follows `type(scope): subject`, imperative, with no trailing period. The body does not restate the subject.
 - A SKILL.md description says in the third person what the skill does and when to use it, with the words a person would type. Keep the body under 500 lines and put exact commands in code blocks.
 - A code comment explains only a non-obvious why the code cannot show.
+
+## Replies
+
+- Lead with the answer. Say what Victor must do in the second sentence. Then give the evidence.
+- Frame the impact for the person who uses the work before any detail of how it was built.
+- Reply to Victor in Chinese. Write what goes in a repo in English, and keep names he must type in English.
+- When the work is something Victor can look at, give a link he can click to see it: the page, the preview, or the running app. A pull request link does not count.
+- Keep a reply within one screen. For more, publish a page and reply with the conclusion and the link.
+- Explain a term the first time it appears. Leave out commit hashes, branch names, and internal ids.
+- Give each abstract claim one real example.
+- After long work, end with four lines: the result, the evidence, the current state, and the one thing he must do.
 
 Before you hand text over, reread it once against the punctuation and cut lists. Fix what you find in place.
