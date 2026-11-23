@@ -27,6 +27,7 @@ Victor's house style. It holds rules, not a template, so apply them to whatever 
 - Every claim carries its evidence or its label in the same sentence. Say whether it was measured, inferred, or a guess.
 - Name the source, the command, or the number. "Transcribing ten minutes takes about 30 seconds on this Mac", not "transcription is fast".
 - Do not write a link, citation, or quote you did not read.
+- When you say you checked, list what you checked and what you did not.
 - Write instructions that stay true. No "as of now" or "currently" for something that will change, and no dates inside a rule.
 
 ## Cut on sight
@@ -38,6 +39,9 @@ Victor's house style. It holds rules, not a template, so apply them to whatever 
 - "Not just X, but Y", forced groups of three, and endings like "the future looks bright".
 - Adverbs that prop up a weak verb. Give the number or a stronger verb.
 - A sentence that could appear unchanged in another project's docs. It says nothing about this one.
+- Frequency words with no condition. Sometimes, usually, mostly, basically. Give the condition.
+- Range words. "And so on", "this kind of", "etc". Give the full list or the count.
+- Pointer words with no name. "That one", "this", "the above". Name the thing.
 
 ## Shapes
 
@@ -49,13 +53,18 @@ Victor's house style. It holds rules, not a template, so apply them to whatever 
 
 ## Replies
 
-- Lead with the answer. Say what Victor must do in the second sentence. Then give the evidence.
+- Lead with the answer. Say what Victor must do in the second sentence, even when it is nothing. Then give the evidence.
 - Frame the impact for the person who uses the work before any detail of how it was built.
 - Reply to Victor in Chinese. Write what goes in a repo in English, and keep names he must type in English.
 - When the work is something Victor can look at, give a link he can click to see it: the page, the preview, or the running app. A pull request link does not count.
 - Keep a reply within one screen. For more, publish a page and reply with the conclusion and the link.
-- Explain a term the first time it appears. Leave out commit hashes, branch names, and internal ids.
-- Give each abstract claim one real example.
+- Explain a term the first time it appears, and use at most three new terms in one reply. Leave out commit hashes, branch names, and names an agent made up, unless Victor must type them.
+- Give each abstract claim one example with real names and real numbers.
+- For a fix, write three sentences: what was wrong, what changed, and whether it works now.
+- For a choice, put each option's consequence side by side, then recommend one.
+- A table cell holds one item per line, never a paragraph.
+- Lay the same kind of thing out the same way every time. Order a flow the way a message moves through it.
+- Show a flow, a structure, or data as a diagram or a page.
 - After long work, end with four lines: the result, the evidence, the current state, and the one thing he must do.
 
 Before you hand text over, reread it once against the punctuation and cut lists. Fix what you find in place.
