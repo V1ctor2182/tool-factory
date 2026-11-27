@@ -233,6 +233,8 @@ Harvest only proposes. It builds nothing and schedules nothing, it adds no dashb
 
 `atom-audit` shows the evidence for changing how atoms are cut. `atom-audit scan` calls `code-clone`, an `observe` atom that parses Python and finds runs of statements with the same syntax across atoms. Names, attributes, and literal values are ignored, because most real copies in this repo differ in those, such as one image loader repeated with three color modes. From the clones, the audit reports the atom pairs that share the most code and the atoms over 300 source lines. A pull request that changes `atoms/` runs `atom-audit scan --base` against its base branch. When it adds repeated code, a comment lists it. The comment only reports and never blocks a merge.
 
+Every pull request and every push to `main` also runs `.github/workflows/ci.yml`: `factory test --rules`, the `factory/test` suite, and the kit's Python tests. The atom test scripts stay local, because they need binaries and model keys that CI does not have.
+
 The audit holds no verdict. A clone can be coincidence, and whether an atom owns one noun needs judgment, so Victor decides. It makes no model call and covers Python only.
 
 ## Design alternatives considered
