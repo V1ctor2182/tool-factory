@@ -48,6 +48,8 @@ The kind decides how the factory caches, tests, and guards an atom. It is one fi
 
 `ui-draft` writes a component from a page recording, and `ui-clone rebuild` loops it with `page-record` and `page-diff`. Its cost stays per call in the run log, and the loop also sums it per round into the rebuilt item's `meta`. The kit's budget caps each call as for any `model` atom.
 
+`ui-floor` checks a rendered page against the four lines of vstack's design floor that a script can see: clipping, dead black, contrast, and emoji as icons. The rest of the floor needs judgment and stays a check by eye.
+
 `ui-clone site` goes through every component of one site. `page-links` finds the component pages on the site's catalog. `ui-steps` writes the page-record steps for each one it rebuilds, from a recording of the page's idle state. The report holds each component's `ui-steps` and `ui-draft` spend and their total.
 
 `transcribe` runs a local model but counts as `transform`. It is free, and with temperature zero its output is stable enough to assert after normalizing case and punctuation.
@@ -232,6 +234,8 @@ Harvest only proposes. It builds nothing and schedules nothing, it adds no dashb
 ## Atom audit
 
 `atom-audit` shows the evidence for changing how atoms are cut. `atom-audit scan` calls `code-clone`, an `observe` atom that parses Python and finds runs of statements with the same syntax across atoms. Names, attributes, and literal values are ignored, because most real copies in this repo differ in those, such as one image loader repeated with three color modes. From the clones, the audit reports the atom pairs that share the most code and the atoms over 300 source lines. A pull request that changes `atoms/` runs `atom-audit scan --base` against its base branch. When it adds repeated code, a comment lists it. The comment only reports and never blocks a merge.
+
+Every pull request and every push to `main` also runs `.github/workflows/ci.yml`: `factory test --rules`, the `factory/test` suite, and the kit's Python tests. The atom test scripts stay local, because they need binaries and model keys that CI does not have.
 
 The audit holds no verdict. A clone can be coincidence, and whether an atom owns one noun needs judgment, so Victor decides. It makes no model call and covers Python only.
 

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victor-tool-factory.local/contracts/ui-floor.schema.json",
+  "title": "UI floor findings",
+  "description": "The elements of one rendered page that break a line of vstack's design floor a script can see.",
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "description": "The URL the caller passed." },
+    "widths": { "type": "array", "items": { "type": "integer" }, "description": "The viewport widths the page was loaded at, in pixels." },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "line": { "type": "integer", "description": "The floor line's number in vstack's principle-design-floor table: 4 overlap or clipping, 6 colors, 7 hard to read, 8 emoji as icons." },
+          "rule": { "enum": ["clipped", "off-screen", "page-scrolls-sideways", "pure-black", "low-contrast", "emoji-icon"], "description": "Which check failed." },
+          "selector": { "type": "string", "description": "A short CSS path to the element, up to four levels or the nearest id." },
+          "detail": { "type": "string", "description": "The evidence: the text, the contrast ratio, the property, or the overflow." },
+          "widths": { "type": "array", "items": { "type": "integer" }, "description": "The widths at which the element broke the line." }
+        },
+        "required": ["line", "rule", "selector", "detail", "widths"],
+        "additionalProperties": false
+      }
+    },
+    "cacheHit": { "type": "boolean", "description": "Always false. The page is loaded fresh on every call." }
+  },
+  "required": ["source", "widths", "findings", "cacheHit"],
+  "additionalProperties": false
+}
