@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<style>
+  body { margin: 0; font: 16px/1.5 sans-serif; color: #1d1d1f; background: #fafafa; }
+  .ok { padding: 16px; }
+  .faint { color: #bbbbbb; }
+  .black { color: #000; }
+  .cut { width: 60px; height: 20px; overflow: hidden; white-space: nowrap; }
+  .dots { width: 60px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .wide { width: 900px; }
+</style></head>
+<body>
+  <p class="ok">Readable body text that breaks no floor line.</p>
+  <button id="save">💾</button>
+  <p class="faint" id="faint">Light grey on near white.</p>
+  <p class="black" id="ink">Dead black text.</p>
+  <div class="cut" id="cut">A label that does not fit its box</div>
+  <div class="dots" id="dots">A label that ends in an ellipsis</div>
+  <div class="wide"><a href="#" id="far" style="margin-left: 700px">Far link</a></div>
+</body></html>

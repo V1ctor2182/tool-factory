@@ -1,0 +1,26 @@
+{
+  "name": "ui-floor",
+  "type": "atom",
+  "kind": "observe",
+  "description": "The lines of vstack's design floor that a script can see broken on a rendered page, at desktop and phone width: emoji as icons, dead black, low contrast, and clipped or off-screen elements. Never cached.",
+  "status": "alpha",
+  "runtime": "uv",
+  "entry": "bin/ui-floor",
+  "contract": "ui-floor",
+  "verbs": [
+    {
+      "name": "check",
+      "description": "Load a page at 1280 and 390 pixels wide in headless Chromium, wait for its network to go idle, and list each element that breaks a floor line. Prints a summary per line, or every finding with --json.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "The page to check, such as a local dev server route or a file URL." }
+        },
+        "required": ["url"]
+      },
+      "output": "ui-floor"
+    }
+  ],
+  "needs": { "bin": [], "secrets": [], "paid": [] },
+  "adapters": ["cli", "skill", "mcp"]
+}
